@@ -3,7 +3,7 @@
   --accent: #7cf8c8; --accent2:#8aa4ff; --danger:#ff6b6b; --ok:#5be37d;
   --shadow: 0 10px 30px rgba(0,0,0,.35);
 }
-html,body{margin:0;height:100%;background:linear-gradient(140deg,#090e1a,#0f1630 60%,#101a3f);} 
+html,body{margin:0;height:100%;background:linear-gradient(140deg,#090e1a,#0f1630 60%,#101a3f);overflow:hidden;} 
 body{font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial; color:var(--fg);} 
 header{
   position:fixed; inset:0 auto auto 0; right:0; height:64px; display:flex; align-items:center; justify-content:space-between;
@@ -21,8 +21,8 @@ header h1{font-size:16px; letter-spacing:.6px; margin:0; font-weight:600; opacit
 .xpbar{height:8px; width:180px; background:rgba(255,255,255,.08); border-radius:999px; overflow:hidden; border:1px solid rgba(255,255,255,.1)}
 .xpbar>i{display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--accent2),var(--accent));}
 .phase-lock{opacity:.7}
-#game-wrap{position:relative; height:100dvh; display:grid; place-items:center;}
-canvas{width:100%; height:100%; display:block}
+#game-wrap{position:fixed; inset:0; height:100dvh; display:grid; place-items:center;}
+canvas{width:100%; height:100%; display:block; touch-action:none}
 
 /* Overlay panels */
 .overlay{
@@ -78,9 +78,7 @@ input, textarea{
 @media (min-width:900px){ #touch{display:none} }
 
 /* Fallback content for accessibility */
-noscript, #fallback {
+noscript {
   position: fixed; inset: auto 12px 12px 12px; z-index: 1;
   background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:12px;
 }
-/* Keep fallback helper from blocking gameplay unless explicitly shown */
-#fallback[aria-hidden="true"]{ display:none }

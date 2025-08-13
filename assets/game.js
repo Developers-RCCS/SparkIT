@@ -260,20 +260,7 @@ function openBranch(branch){
   addXP(20);
 }
 
-/* ======= Fallback non-canvas view ======= */
-function buildFallback(){
-  const fb = document.getElementById('fallbackContent');
-  const phases = GAME_DATA.phases.map(p=>`<li><b>${p.title}</b> — ${p.summary} ${p.open?'(Open)':'(Locked)'}</li>`).join('');
-  fb.innerHTML = `
-    <p><b>${GAME_DATA.project.name}</b> — ${GAME_DATA.project.tagline}</p>
-    <p>${GAME_DATA.project.about}</p>
-    <ul>${phases}</ul>
-    <hr>
-    <p><b>Phase 1 Registration (fallback)</b></p>
-    <p>If the overlay doesn’t open, press the “Phase 1 — Register” branch in-game or use this fallback form.</p>
-  `;
-}
-buildFallback();
+/* ======= Fallback removed ======= */
 
 /* ======= Game world drawing ======= */
 function drawRoad(){
@@ -385,25 +372,38 @@ requestAnimationFrame(step);
 
 /* ======= Resize handling ======= */
 function positionPlayerOnRoad(){
-  // Place the car so wheels sit nicely on the road across screen sizes
+  // Keep the car vertically locked relative to the road regardless of canvas CSS size.
   const roadY = H - 120; // must match drawRoad()
   const p = state.player;
   p.y = roadY - p.h/2 - 4; // small ground clearance
 }
 function resize(){
-  const rect = canvas.getBoundingClientRect();
-  canvas.width = Math.round(rect.width * devicePixelRatio);
-  canvas.height = Math.round(rect.height * devicePixelRatio);
-  W = canvas.width; H = canvas.height;
+  // Use visualViewport when available to avoid mobile browser UI affecting layout and causing scroll.
+  const vw = window.visualViewport?.width || window.innerWidth;
+  const vh = window.visualViewport?.height || window.innerHeight;
+  // Set canvas CSS size to viewport and internal buffer to DPR-scaled size.
+  canvas.style.width = vw + 'px';
+  canvas.style.height = vh + 'px';
+  const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+  canvas.width = Math.round(vw * dpr);
+  canvas.height = Math.round(vh * dpr);
+  ctx.setTransform(1,0,0,1,0,0); // reset any transforms
+  ctx.scale(dpr, dpr);
+  W = vw; H = vh;
   positionPlayerOnRoad();
 }
-addEventListener('resize', resize); resize();
+addEventListener('resize', resize);
+if('visualViewport' in window){
+  // Handle mobile address bar show/hide
+  window.visualViewport.addEventListener('resize', resize);
+}
+resize();
 
 /* ======= Click interaction on signs ======= */
 canvas.addEventListener('pointerdown', (e)=>{
-  // detect if clicked near a sign; translate to world x
+  // detect if clicked near a sign; translate to world x (CSS pixels)
   const rect = canvas.getBoundingClientRect();
-  const cx = (e.clientX - rect.left) * (canvas.width/rect.width);
+  const cx = (e.clientX - rect.left); // CSS px since we scale the context by DPR
   const wx = cx + state.camera.x;
   let found = null;
   for(const b of GAME_DATA.branches){
