@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Axis 25 — Project Journey Game</title>
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<header aria-live="polite">
+  <h1>Axis 25 — Project Journey (Playable)</h1>
+  <div class="row" role="group" aria-label="Quick actions">
+    <button class="btn small secondary" id="btnHelp" aria-label="Show controls (H)">Help (H)</button>
+    <button class="btn small secondary" id="btnPause" aria-label="Pause (P)">Pause (P)</button>
+    <button class="btn small" id="btnExport" aria-label="Export demo data">Export Demo Data</button>
+  </div>
+</header>
+
+<div id="hud" aria-hidden="false">
+  <span class="badge">XP: <b id="xp">0</b></span>
+  <div class="xpbar" aria-label="XP progress"><i id="xpbar" style="width:0%"></i></div>
+  <span class="badge">Level: <b id="level">1</b></span>
+  <span class="badge">Phase 1: <b id="phase1-status">Open</b></span>
+  <span class="badge phase-lock">Phase 2: Locked</span>
+  <span class="badge phase-lock">Phase 3: Locked</span>
+</div>
+
+<div id="game-wrap" role="application" aria-label="Side-scrolling project game">
+  <canvas id="game" width="1280" height="720" aria-label="Game canvas"></canvas>
+</div>
+
+<!-- Overlay for interactive panels -->
+<div class="overlay" id="overlay" aria-modal="true" role="dialog" aria-labelledby="panel-title">
+  <div class="panel" tabindex="-1">
+    <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:6px">
+      <h2 id="panel-title">Panel</h2>
+      <button class="btn small secondary" id="closePanel" aria-label="Close (Esc)">Close</button>
+    </div>
+    <div id="panel-content"></div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div id="toasts" aria-live="polite"></div>
+
+<!-- Touch controls -->
+<div id="touch">
+  <button class="padbtn" id="leftBtn" aria-label="Move left">◀</button>
+  <button class="padbtn" id="interactBtn" aria-label="Interact">⩔</button>
+  <button class="padbtn" id="rightBtn" aria-label="Move right">▶</button>
+</div>
+
+<div id="fallback" aria-hidden="true">
+  <strong>Having trouble with the game?</strong>
+  <div class="help">Here’s a non-interactive view of the project and registration.</div>
+  <div id="fallbackContent"></div>
+</div>
+
+<noscript>
+  <strong>JavaScript is disabled.</strong> You can still read about the project and use the Phase 1 registration form.
+</noscript>
+
+<script defer src="assets/game.js"></script>
+</body>
+</html>
