@@ -7,23 +7,7 @@
 <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
-<header aria-live="polite">
-  <h1>Axis 25 — Project Journey (Playable)</h1>
-  <div class="row" role="group" aria-label="Quick actions">
-    <button class="btn small secondary" id="btnHelp" aria-label="Show controls (H)">Help (H)</button>
-    <button class="btn small secondary" id="btnPause" aria-label="Pause (P)">Pause (P)</button>
-    <button class="btn small" id="btnExport" aria-label="Export demo data">Export Demo Data</button>
-  </div>
-</header>
-
-<div id="hud" aria-hidden="false">
-  <span class="badge">XP: <b id="xp">0</b></span>
-  <div class="xpbar" aria-label="XP progress"><i id="xpbar" style="width:0%"></i></div>
-  <span class="badge">Level: <b id="level">1</b></span>
-  <span class="badge">Phase 1: <b id="phase1-status">Open</b></span>
-  <span class="badge phase-lock">Phase 2: Locked</span>
-  <span class="badge phase-lock">Phase 3: Locked</span>
-</div>
+<!-- Header/HUD removed for cleaner in-world UI -->
 
 <div id="game-wrap" role="application" aria-label="Side-scrolling project game">
   <canvas id="game" width="1280" height="720" aria-label="Game canvas"></canvas>
@@ -34,7 +18,13 @@
   <div class="panel" tabindex="-1">
     <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:6px">
       <h2 id="panel-title">Panel</h2>
-      <button class="btn small secondary" id="closePanel" aria-label="Close (Esc)">Close</button>
+      <div class="row">
+        <button class="btn small secondary" id="btnPrivacy" aria-label="Privacy">Privacy</button>
+        <button class="btn small secondary" id="btnImport" aria-label="Import JSON">Import</button>
+        <button class="btn small secondary" id="btnExport" aria-label="Export JSON">Export</button>
+        <button class="btn small" id="btnStamp" aria-label="Share stamp" style="display:none">Share Stamp</button>
+        <button class="btn small secondary" id="closePanel" aria-label="Close (Esc)">Close</button>
+      </div>
     </div>
     <div id="panel-content"></div>
   </div>
@@ -49,6 +39,15 @@
   <button class="padbtn" id="interactBtn" aria-label="Interact">⩔</button>
   <button class="padbtn" id="rightBtn" aria-label="Move right">▶</button>
 </div>
+
+<!-- Screen-reader route: populated by JS to mirror the journey in text -->
+<nav id="textRoute" aria-label="Text-only journey" style="position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden">
+  <!-- populated dynamically -->
+  Text-only journey navigation
+  <div></div>
+  <!-- end dynamic -->
+  
+</nav>
 
 <noscript>
   <strong>JavaScript is disabled.</strong> You can still read about the project and use the Phase 1 registration form.

@@ -1,5 +1,5 @@
-/* ======= CONFIG: customize your project here ======= */
-const GAME_DATA = {
+/* ======= CONTENT: may be overridden by assets/content.json ======= */
+let GAME_DATA = {
   project: {
     name: "Axis 25 — Digital Economy Summit",
     tagline: "A 3-phase journey: learn, build, and launch.",
@@ -39,7 +39,7 @@ const GAME_DATA = {
     { x: 2400, label:"Contact", type:"contact" }
   ]
 };
-/* ======= end config ======= */
+/* ======= end content ======= */
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -68,26 +68,10 @@ const state = {
   lastT: performance.now(), dt: 0,
   // environment
   dayNight: { isNight:false, hour:12 },
+  theme: 'neon', // 'neon' | 'sunset'
+  settings: { forceDark: true },
   // obstacles and interactions
-  obstacles: {
-    potholes: [
-      {x: 520, hit:false, tip:"Scope creep: define a clear MVP."},
-      {x: 980, hit:false, tip:"Overengineering: ship simple first."},
-      {x: 1520, hit:false, tip:"No user feedback: talk to users early."}
-    ],
-    speedBumps: [
-      {x: 740, cleared:false, q:{
-        prompt:"What’s the best next step after ideation?",
-        btn:"Validate with 5 users",
-        xp:60
-      }},
-      {x: 1350, cleared:false, q:{
-        prompt:"Pick one for momentum:",
-        btn:"Define a tiny, testable scope",
-        xp:60
-      }}
-    ]
-  },
+  obstacles: { potholes: [], speedBumps: [] },
   // phase gate
   gate: { x: 1800, triggered:false },
   // fireworks particles
@@ -102,9 +86,17 @@ const state = {
   },
   // boost energy (0..1)
   boost: { energy: 1, drain: 0.55, regen: 0.25 },
+  // fuel (0..1)
+  fuel: { level: Number(localStorage.getItem('fuel')||'1'), drain: 0.06, regen: 0.35, empty:false, reading:false, lastReadT:0 },
   // photo mode
-  photo: { pending:false }
+  photo: { pending:false },
+  // tokens & minigames
+  tokens: JSON.parse(localStorage.getItem('tokens')||'{}'),
+  minigame: { running:false, stop:null }
 };
+
+// throttle state for analog touch input
+state.throttle = { left:0, right:0 };
 
 // initialize derived flags from existing data
 if(state.submissions.length && !state.phase1Complete){
@@ -120,12 +112,12 @@ function addXP(amount=50){
   updateHUD();
 }
 function updateHUD(){
-  document.getElementById('xp').textContent = state.xp;
-  document.getElementById('level').textContent = state.level;
-  const pct = Math.min(99, (state.xp % (state.level*200)) / (state.level*200) * 100);
-  document.getElementById('xpbar').style.width = pct + '%';
-  const s = state.phase1Complete ? 'Completed' : (GAME_DATA.phases[0].open ? 'Open' : 'Closed');
-  document.getElementById('phase1-status').textContent = s;
+  // Header/HUD removed; keep no-op for compatibility. If elements exist, update them.
+  const xpEl = document.getElementById('xp'); if(xpEl) xpEl.textContent = state.xp;
+  const lvlEl = document.getElementById('level'); if(lvlEl) lvlEl.textContent = state.level;
+  const bar = document.getElementById('xpbar');
+  if(bar){ const pct = Math.min(99, (state.xp % (state.level*200)) / (state.level*200) * 100); bar.style.width = pct + '%'; }
+  const sEl = document.getElementById('phase1-status'); if(sEl){ const s = state.phase1Complete ? 'Completed' : (GAME_DATA.phases[0].open ? 'Open' : 'Closed'); sEl.textContent = s; }
 }
 updateHUD();
 
@@ -134,11 +126,13 @@ addEventListener('keydown', e=>{
   if(['ArrowLeft','ArrowRight','KeyA','KeyD','KeyE','Escape','KeyP','KeyH','KeyF','KeyX'].includes(e.code)) e.preventDefault();
   state.keys[e.code]=true;
   if(e.code==='KeyE' && state.near){ openBranch(state.near) }
+  if(e.code==='Enter' && state.near){ openBranch(state.near) }
   if(e.code==='Escape'){ closePanel() }
   if(e.code==='KeyP'){ togglePause() }
   if(e.code==='KeyH'){ showHelp() }
   if(e.code==='KeyF'){ triggerPhoto() }
   if(e.code==='ShiftLeft' || e.code==='ShiftRight' || e.code==='KeyX'){ state.player.boosting = true }
+  if(e.code==='KeyT'){ toggleTheme() }
 });
 addEventListener('keyup', e=>state.keys[e.code]=false);
 addEventListener('keyup', e=>{
@@ -151,19 +145,34 @@ const rightBtn = document.getElementById('rightBtn');
 const interactBtn = document.getElementById('interactBtn');
 let leftHeld=false, rightHeld=false;
 ['pointerdown','pointerup','pointerleave','pointercancel'].forEach(ev=>{
-  leftBtn.addEventListener(ev, e=>{ leftHeld = ev==='pointerdown' });
-  rightBtn.addEventListener(ev, e=>{ rightHeld = ev==='pointerdown' });
+  leftBtn.addEventListener(ev, e=>{ leftHeld = ev==='pointerdown'; });
+  rightBtn.addEventListener(ev, e=>{ rightHeld = ev==='pointerdown'; });
   interactBtn.addEventListener(ev, e=>{ if(ev==='pointerdown' && state.near) openBranch(state.near) });
 });
+// analog throttle ramp for touch
+let lastAnalogT = performance.now();
+function updateAnalogThrottle(){
+  const now = performance.now(); const dt = Math.min(0.05, (now - lastAnalogT)/1000); lastAnalogT = now;
+  const rateUp = 2.5, rateDown = 4.0; // per second
+  // ramp towards target
+  const targetR = rightHeld?1:0, targetL = leftHeld?1:0;
+  state.throttle.right += Math.sign(targetR - state.throttle.right) * (targetR>state.throttle.right?rateUp:rateDown) * dt;
+  state.throttle.left  += Math.sign(targetL - state.throttle.left) * (targetL>state.throttle.left?rateUp:rateDown) * dt;
+  state.throttle.right = clamp(state.throttle.right,0,1);
+  state.throttle.left  = clamp(state.throttle.left,0,1);
+  requestAnimationFrame(updateAnalogThrottle);
+}
+updateAnalogThrottle();
 
 /* ======= Panels ======= */
 const overlay = document.getElementById('overlay');
 const panelContent = document.getElementById('panel-content');
 const panelTitle = document.getElementById('panel-title');
 document.getElementById('closePanel').onclick = closePanel;
-document.getElementById('btnPause').onclick = togglePause;
-document.getElementById('btnHelp').onclick = showHelp;
-document.getElementById('btnExport').onclick = exportDemo;
+const btnExport = document.getElementById('btnExport'); if(btnExport) btnExport.onclick = exportDemo;
+const btnImport = document.getElementById('btnImport'); if(btnImport) btnImport.onclick = importDemo;
+const btnPrivacy = document.getElementById('btnPrivacy'); if(btnPrivacy) btnPrivacy.onclick = showPrivacy;
+const btnStamp = document.getElementById('btnStamp'); if(btnStamp) btnStamp.onclick = shareStamp;
 
 function showOverlay(title, html){
   panelTitle.textContent = title;
@@ -171,8 +180,10 @@ function showOverlay(title, html){
   overlay.style.display='grid';
   overlay.querySelector('.panel').focus();
   state.paused = true;
+  // reading mode fuels up
+  state.fuel.reading = true; state.fuel.lastReadT = performance.now();
 }
-function closePanel(){ overlay.style.display='none'; state.paused=false }
+function closePanel(){ overlay.style.display='none'; state.paused=false; state.fuel.reading = false }
 function togglePause(){ state.paused=!state.paused; toast(state.paused?'Paused ⏸':'Resumed ▶') }
 function showHelp(){
   showOverlay('Controls',
@@ -224,7 +235,7 @@ function branchHTML(type){
       <div class="card">
         <h3>${p.title}</h3>
         <p>${p.summary}</p>
-        <form id="phase1-form">
+  <form id="phase1-form">
           ${form}
           <button class="btn" type="submit">Register for Phase 1</button>
           <div class="help">Demo only – your submission is stored locally in this browser. Use “Export Demo Data” to download a JSON file.</div>
@@ -280,6 +291,18 @@ function renderSubmissions(){
 function bindForm(){
   const f = document.getElementById('phase1-form');
   if(!f) return;
+  // restore partial data
+  try{
+    const saved = JSON.parse(localStorage.getItem('phase1Draft')||'{}');
+    Object.entries(saved).forEach(([k,v])=>{ const el=f.querySelector(`[name="${k}"]`); if(el) el.value=v; });
+  }catch{}
+  // auto-save while typing
+  f.querySelectorAll('input,textarea').forEach(el=>{
+    el.addEventListener('input', ()=>{
+      const draft = Object.fromEntries(new FormData(f).entries());
+      localStorage.setItem('phase1Draft', JSON.stringify(draft));
+    });
+  });
   f.addEventListener('submit', e=>{
     e.preventDefault();
     const data = Object.fromEntries(new FormData(f).entries());
@@ -290,6 +313,8 @@ function bindForm(){
     msg('✅ Registered! +100 XP awarded.', false);
     addXP(100);
   state.phase1Complete = true; localStorage.setItem('phase1Complete','1');
+    localStorage.removeItem('phase1Draft');
+    try{ if(navigator.vibrate) navigator.vibrate([20,30,20]); }catch{}
     // rerender submissions
     document.getElementById('panel-content').insertAdjacentHTML('beforeend','');
     // refresh panel content
@@ -304,7 +329,10 @@ function exportDemo(){
   const dump = {
     project: GAME_DATA.project,
     submissions: state.submissions,
-    xp: state.xp, level: state.level, exportedAt: new Date().toISOString()
+    xp: state.xp, level: state.level,
+    phase1Complete: state.phase1Complete,
+    fuel: state.fuel.level,
+    exportedAt: new Date().toISOString()
   };
   const blob = new Blob([JSON.stringify(dump,null,2)], {type:'application/json'});
   const a = document.createElement('a');
@@ -315,13 +343,86 @@ function exportDemo(){
   toast('Exported demo JSON 📦');
 }
 
+function importDemo(){
+  const inp = document.createElement('input'); inp.type='file'; inp.accept='.json,application/json';
+  inp.onchange = ()=>{
+    const f = inp.files?.[0]; if(!f) return;
+    const r = new FileReader(); r.onload = ()=>{
+      try{
+        const data = JSON.parse(String(r.result||'{}'));
+        if(data.xp!=null) state.xp = Number(data.xp)||0;
+        if(data.level!=null) state.level = Number(data.level)||1;
+        if(Array.isArray(data.submissions)) state.submissions = data.submissions;
+        if(typeof data.phase1Complete==='boolean' || data.phase1Complete==='1') state.phase1Complete = !!data.phase1Complete;
+        if(data.fuel!=null) state.fuel.level = clamp(Number(data.fuel),0,1);
+        localStorage.setItem('submissions', JSON.stringify(state.submissions));
+        localStorage.setItem('xp', String(state.xp));
+        localStorage.setItem('level', String(state.level));
+        localStorage.setItem('phase1Complete', state.phase1Complete?'1':'0');
+        localStorage.setItem('fuel', String(state.fuel.level));
+        updateHUD(); toast('Imported progress ✅');
+      }catch{ toast('Import failed ❌'); }
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+}
+
+function showPrivacy(){
+  const html = `
+    <div class="card">
+      <h3>Privacy & Consent</h3>
+      <p>We store only what you enter for registration in your browser for this demo. On submission, your data is sent to our secure backend in the live version. No tracking cookies here.</p>
+      <p>Your fuel represents your attention. Opening panels refills your fuel; idling drains it. This helps nudge exploration without coercion.</p>
+      <button id="privacyOk" class="btn">⛽ Fill tank & Continue</button>
+    </div>`;
+  showOverlay('Consent', html);
+  setTimeout(()=>{
+    const b = document.getElementById('privacyOk'); if(!b) return;
+    b.onclick = ()=>{ state.fuel.level = 1; localStorage.setItem('fuel','1'); toast('Tank full ⛽'); closePanel(); };
+  },0);
+}
+
+function shareStamp(){
+  // Create a simple SVG stamp and trigger download
+  const label = state.lastBranchLabel || 'Axis 25';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="256">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#8aa4ff"/><stop offset="100%" stop-color="#7cf8c8"/>
+      </linearGradient>
+    </defs>
+    <rect width="100%" height="100%" fill="#0b1020"/>
+    <rect x="8" y="8" width="496" height="240" rx="18" fill="url(#g)" opacity="0.15" stroke="#8aa4ff"/>
+    <text x="24" y="72" font-size="24" fill="#e6ecff" font-family="Segoe UI, Arial">I unlocked</text>
+    <text x="24" y="120" font-size="40" fill="#7cf8c8" font-family="Segoe UI, Arial" font-weight="bold">${escapeXml(label)}</text>
+    <text x="24" y="170" font-size="18" fill="#a8b3cf" font-family="Segoe UI, Arial">#Axis25</text>
+  </svg>`;
+  const blob = new Blob([svg], {type:'image/svg+xml'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `axis25-stamp-${Date.now()}.svg`; a.click(); URL.revokeObjectURL(a.href);
+  try{
+    const shareText = `I unlocked ${label} 🚀 #Axis25`;
+    if(navigator.share) navigator.share({ text: shareText }).catch(()=>{});
+  }catch{}
+  toast('Stamp saved 🏷️');
+}
+
+function escapeXml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&apos;"}[c]))}
+
 /* ======= Open branch ======= */
 function openBranch(branch){
-  const html = branchHTML(branch.type);
-  showOverlay(branch.label, html);
-  bindForm();
-  addXP(20);
+  // minigame branch support: type "minigame:<id>"
+  if(String(branch.type||'').startsWith('minigame:')){
+    const id = String(branch.type).split(':')[1]||'slalom';
+    openMinigame(id, branch.label);
+  } else {
+    const html = branchHTML(branch.type);
+    showOverlay(branch.label, html);
+    bindForm();
+    addXP(20);
+  }
   state.lastBranchLabel = branch.label;
+  const btn = document.getElementById('btnStamp'); if(btn) btn.style.display = '';
 }
 
 /* ======= Fallback removed ======= */
@@ -333,19 +434,26 @@ function computeDayNight(){
     const hour = Number(hourStr);
     state.dayNight.hour = isNaN(hour)?12:hour;
   }catch{ state.dayNight.hour = new Date().getHours(); }
-  const h = state.dayNight.hour;
-  state.dayNight.isNight = (h >= 18 || h < 6);
+  if(state.settings.forceDark){
+    state.dayNight.isNight = true;
+  } else {
+    const h = state.dayNight.hour;
+    state.dayNight.isNight = (h >= 18 || h < 6);
+  }
 }
 
 function drawBackground(){
   computeDayNight();
   const isNight = state.dayNight.isNight;
+  const reduced = PREFERS_REDUCED_MOTION;
   // sky gradient
   const g = ctx.createLinearGradient(0,0,0,H);
-  if(isNight){
-    g.addColorStop(0,'#07122b'); g.addColorStop(1,'#0a0f1e');
+  if(state.theme==='sunset'){
+    g.addColorStop(0, isNight? '#1a0f2b':'#ff9966');
+    g.addColorStop(1, isNight? '#0a0f1e':'#ff5e62');
   }else{
-    g.addColorStop(0,'#4aa3ff'); g.addColorStop(1,'#9fd0ff');
+    if(isNight){ g.addColorStop(0,'#07122b'); g.addColorStop(1,'#0a0f1e'); }
+    else{ g.addColorStop(0,'#4aa3ff'); g.addColorStop(1,'#9fd0ff'); }
   }
   ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
 
@@ -353,7 +461,7 @@ function drawBackground(){
   const cx = state.camera.x;
   // distant skyline
   ctx.fillStyle = isNight ? 'rgba(138,164,255,.18)' : 'rgba(30,64,120,.25)';
-  const yBase1 = H-240; const speed1 = 0.2; // slowest
+  const yBase1 = H-240; const speed1 = reduced?0.05:0.2; // slowest
   for(let x=-200; x<W+200; x+=220){
     const px = x - (cx*speed1 % 220);
     ctx.fillRect(px, yBase1, 140, 10);
@@ -361,7 +469,7 @@ function drawBackground(){
     ctx.fillRect(px+90, yBase1-40, 40, 40);
   }
   // mid trees/banners
-  const yBase2 = H-180; const speed2 = 0.45;
+  const yBase2 = H-180; const speed2 = reduced?0.18:0.45;
   for(let x=-100; x<W+100; x+=160){
     const px = x - (cx*speed2 % 160);
     // banner
@@ -373,11 +481,21 @@ function drawBackground(){
     ctx.fillRect(px+100-4, yBase2-18, 4, 18);
   }
   // near crowd silhouettes
-  const yBase3 = H-140; const speed3 = 0.75;
+  const yBase3 = H-140; const speed3 = reduced?0.25:0.75;
   ctx.fillStyle = isNight? 'rgba(10,20,40,.9)':'rgba(20,30,50,.9)';
   for(let x=-120; x<W+120; x+=48){
     const px = x - (cx*speed3 % 48);
     ctx.beginPath(); ctx.arc(px, yBase3, 18, 0, Math.PI*2); ctx.fill();
+  }
+  // sponsor boards
+  const sbY = H-200; ctx.fillStyle = 'rgba(255,255,255,.08)';
+  for(let x=-300; x<W+300; x+=300){
+    const px = x - (cx*(reduced?0.2:0.4) % 300);
+    ctx.fillRect(px-60, sbY-50, 120, 50);
+    ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.strokeRect(px-60, sbY-50, 120, 50);
+    ctx.fillStyle = '#a8b3cf'; ctx.font='12px ui-sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('Sponsor', px, sbY-25);
+    ctx.fillStyle = 'rgba(255,255,255,.08)';
   }
 }
 
@@ -401,6 +519,17 @@ function drawRoad(){
   ctx.beginPath(); ctx.moveTo(-state.camera.x, roadY+roadH/2); ctx.lineTo(-state.camera.x+state.world.length+W, roadY+roadH/2); ctx.stroke();
   ctx.setLineDash([]);
 
+  // sponsor speed lane segments
+  const lanes = state.sponsorLanes || (state.sponsorLanes = [
+    {from:400, to:650, brand:'Brand A'}, {from:1200, to:1400, brand:'Brand B'}
+  ]);
+  lanes.forEach(l=>{
+    const sx = l.from - state.camera.x; const ex = l.to - state.camera.x;
+    if(ex<-20 || sx>W+20) return;
+    ctx.fillStyle = 'rgba(124,248,200,.12)';
+    ctx.fillRect(Math.max(sx,-state.camera.x), roadY+roadH-18, Math.min(ex,W+state.camera.x)-Math.max(sx,-state.camera.x), 12);
+  });
+
   // branches (signs)
   GAME_DATA.branches.forEach(b=>{
     const bx = b.x - state.camera.x;
@@ -418,9 +547,12 @@ function drawRoad(){
     ctx.fillRect(bx - sw/2, roadY-130 - sh, sw, sh);
     ctx.strokeRect(bx - sw/2, roadY-130 - sh, sw, sh);
 
-    // sign label
-    ctx.font='14px ui-sans-serif'; ctx.fillStyle='#e6ecff'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(b.label, bx, roadY-130 - sh/2);
+  // sign label with backdrop
+  const label = b.label;
+  ctx.font='600 14px ui-sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  // backdrop halo for contrast
+  ctx.fillStyle='rgba(11,16,32,.5)'; ctx.fillRect(bx - sw/2 + 6, roadY-130 - sh + 6, sw-12, sh-12);
+  ctx.fillStyle='#e6ecff'; ctx.fillText(label, bx, roadY-130 - sh/2);
 
     // interact hint if near
     const near = Math.abs(state.player.x - b.x) < 60;
@@ -430,21 +562,9 @@ function drawRoad(){
     }
   });
 
-  // obstacles: potholes
-  state.obstacles.potholes.forEach(o=>{
-    const bx = o.x - state.camera.x;
-    if(bx<-100 || bx>W+100) return;
-    ctx.fillStyle='rgba(0,0,0,.6)';
-    ctx.beginPath(); ctx.ellipse(bx, roadY+50, 28, 12, 0, 0, Math.PI*2); ctx.fill();
-  });
+  // obstacles removed
 
-  // obstacles: speed bumps
-  state.obstacles.speedBumps.forEach(o=>{
-    const bx = o.x - state.camera.x;
-    if(bx<-100 || bx>W+100) return;
-    const w=60,h=10; ctx.fillStyle='rgba(255,210,120,.8)';
-    ctx.fillRect(bx-w/2, roadY+40, w, h);
-  });
+  // obstacles removed
 
   // phase gate (draw if phase1Complete)
   if(state.phase1Complete){
@@ -511,12 +631,15 @@ function step(){
   state.lastT = now;
 
   if(!state.paused){
-    const left = state.keys['ArrowLeft']||state.keys['KeyA']||leftHeld;
-    const right = state.keys['ArrowRight']||state.keys['KeyD']||rightHeld;
+  const leftKey = state.keys['ArrowLeft']||state.keys['KeyA'];
+  const rightKey = state.keys['ArrowRight']||state.keys['KeyD'];
+  const left = leftKey || leftHeld;
+  const right = rightKey || rightHeld;
     const p = state.player; const dt = state.dt;
     // input acceleration
-    const dir = (right?1:0) - (left?1:0);
-    const targetAx = dir * p.accel;
+  const analog = (rightKey?1:state.throttle.right) - (leftKey?1:state.throttle.left);
+  const dir = clamp(analog, -1, 1);
+  const targetAx = dir * p.accel;
     p.ax = targetAx;
     // apply acceleration
     p.vx += p.ax * dt;
@@ -534,6 +657,10 @@ function step(){
     }else{
       state.boost.energy = Math.min(1, state.boost.energy + state.boost.regen*dt);
     }
+  // sponsor lane buff
+  const lanes = state.sponsorLanes||[];
+  const onSponsor = lanes.some(l=> p.x>=l.from && p.x<=l.to);
+  if(onSponsor){ maxV *= 1.25; }
     // clamp speed
     p.vx = clamp(p.vx, -maxV, maxV);
     // integrate position
@@ -560,6 +687,9 @@ function step(){
     // fade skids
     state.skids.forEach(s=> s.alpha = Math.max(0, s.alpha - 0.3*dt));
     while(state.skids.length && state.skids[0].alpha<=0.01) state.skids.shift();
+
+    // fuel mechanics
+    updateFuel(dt);
   }
 
   // draw
@@ -568,6 +698,7 @@ function step(){
   drawCar();
   drawGhost();
   drawFireworks();
+  drawHUD();
 
   requestAnimationFrame(step);
 }
@@ -587,7 +718,7 @@ function resize(){
   // Set canvas CSS size to viewport and internal buffer to DPR-scaled size.
   canvas.style.width = vw + 'px';
   canvas.style.height = vh + 'px';
-  const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+  const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
   canvas.width = Math.round(vw * dpr);
   canvas.height = Math.round(vh * dpr);
   ctx.setTransform(1,0,0,1,0,0); // reset any transforms
@@ -621,32 +752,11 @@ setTimeout(()=>toast('Drive → and stop at signs. Press E to interact.'), 400);
 /* ======= Collisions, Ghost, Fireworks, Photo Mode ======= */
 function handleCollisions(){
   const p = state.player; const x = p.x;
-  // potholes
-  for(const o of state.obstacles.potholes){
-    if(!o.hit && Math.abs(x - o.x) < 30){
-      o.hit = true; // tip and slow down
-      p.vx *= 0.5;
-      showOverlay('Pothole — Heads up', `<div class="card"><p>${o.tip}</p><button id="tipOk" class="btn">Got it</button></div>`);
-      setTimeout(()=>{
-        const btn = document.getElementById('tipOk'); if(btn) btn.onclick = ()=> closePanel();
-      }, 0);
-    }
-  }
-  // speed bumps (quiz)
-  for(const o of state.obstacles.speedBumps){
-    if(!o.cleared && Math.abs(x - o.x) < 40){
-      o.cleared = true;
-      const q = o.q;
-      showOverlay('Speed Bump — Quick Check', `<div class="card"><p>${q.prompt}</p><button id="quizBtn" class="btn">${q.btn}</button></div>`);
-      setTimeout(()=>{
-        const btn = document.getElementById('quizBtn'); if(btn) btn.onclick = ()=>{ addXP(q.xp); closePanel(); };
-      }, 0);
-    }
-  }
+  // obstacles removed
   // phase gate
   if(state.phase1Complete && !state.gate.triggered && Math.abs(x - state.gate.x) < 40){
     state.gate.triggered = true;
-    launchFireworks();
+  if(!PREFERS_REDUCED_MOTION) launchFireworks();
     showOverlay('Phase 1 Unlocked 🎖️', `<div class="card"><h3>Gate Cleared!</h3><p>You unlocked Phase 1.</p><button id="medalOk" class="btn">Continue</button></div>`);
     setTimeout(()=>{
       const btn = document.getElementById('medalOk'); if(btn) btn.onclick = ()=> closePanel();
@@ -742,4 +852,155 @@ function triggerPhoto(){
       state.paused = wasPaused;
     }
   }, 40);
+}
+
+/* ======= Reduced motion ======= */
+const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || false;
+
+/* ======= Fuel & HUD ======= */
+function updateFuel(dt){
+  const moving = Math.abs(state.player.vx) > 10;
+  if(moving && !state.fuel.reading){
+    state.fuel.level = Math.max(0, state.fuel.level - state.fuel.drain*dt);
+  } else if(state.fuel.reading){
+    state.fuel.level = Math.min(1, state.fuel.level + state.fuel.regen*dt);
+  }
+  if(state.fuel.level<=0.001){ state.fuel.empty = true; }
+  else if(state.fuel.level>0.1){ state.fuel.empty = false; }
+  localStorage.setItem('fuel', String(state.fuel.level));
+  // enforce slowdown when empty
+  if(state.fuel.empty){ state.player.vx = Math.min(state.player.vx, 40); }
+}
+
+function drawHUD(){
+  // fuel and boost bars in top-left
+  const pad = 14; const y0 = pad+6; const w=160, h=10;
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  // fuel
+  ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(pad, y0, w, h);
+  ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.strokeRect(pad, y0, w, h);
+  ctx.fillStyle = '#7cf8c8'; ctx.fillRect(pad, y0, Math.round(w*state.fuel.level), h);
+  ctx.fillStyle = '#a8b3cf'; ctx.font='12px ui-sans-serif'; ctx.textBaseline='top';
+  ctx.fillText('Fuel', pad, y0 - 12);
+  // boost
+  const y1 = y0 + 26;
+  ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(pad, y1, w, h);
+  ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.strokeRect(pad, y1, w, h);
+  ctx.fillStyle = '#8aa4ff'; ctx.fillRect(pad, y1, Math.round(w*state.boost.energy), h);
+  ctx.fillStyle = '#a8b3cf'; ctx.fillText('Boost', pad, y1 - 12);
+  ctx.restore();
+}
+
+/* ======= Theme toggle ======= */
+function toggleTheme(){ state.theme = state.theme==='neon'?'sunset':'neon'; toast(state.theme==='neon'?'Neon Colombo Night':'Galle Face Sunset'); }
+
+/* ======= Deep links ======= */
+window.addEventListener('hashchange', handleHash);
+function handleHash(){
+  const s = new URLSearchParams(location.hash.slice(1));
+  const id = s.get('branch'); if(!id) return;
+  const b = (GAME_DATA.branches||[]).find(br => br.type===id || br.label.toLowerCase()===id.toLowerCase());
+  if(b) openBranch(b);
+}
+handleHash();
+
+/* ======= Content loading ======= */
+async function loadContent(){
+  try{
+    const res = await fetch('assets/content.json');
+    if(res.ok){ const data = await res.json(); GAME_DATA = data; }
+  }catch{}
+  // Rebuild text route and re-handle deep links with new content
+  buildTextRoute();
+  handleHash();
+}
+loadContent();
+
+/* ======= Screen-reader route ======= */
+function buildTextRoute(){
+  const container = document.getElementById('textRoute'); if(!container) return;
+  const div = container.querySelector('div'); if(!div) return;
+  div.innerHTML = '';
+  const title = document.createElement('h2'); title.textContent = 'Project Highway — Text Route'; title.style.position='static';
+  div.appendChild(title);
+  const ul = document.createElement('ul');
+  (GAME_DATA.branches||[]).forEach(b=>{
+    const li = document.createElement('li');
+    const btn = document.createElement('button'); btn.textContent = b.label + ' — open'; btn.className='btn small';
+    btn.onclick = ()=> openBranch(b);
+    li.appendChild(btn); ul.appendChild(li);
+  });
+  div.appendChild(ul);
+}
+setTimeout(buildTextRoute, 300);
+
+/* ======= Minigames ======= */
+function openMinigame(id, label){
+  if(state.minigame.running) return;
+  const html = `
+    <div class="grid">
+      <div class="card">
+        <h3>${label||'Minigame'}</h3>
+        <p class="help">Use ←/A and →/D or touch controls. Collect all pickups before time runs out.</p>
+        <div id="mgWrap" style="position:relative; aspect-ratio: 16/9; width:100%; max-height:60vh; background:rgba(11,16,32,.6); border:1px solid rgba(255,255,255,.12); border-radius:12px; overflow:hidden">
+          <canvas id="mg" aria-label="Minigame canvas" style="width:100%; height:100%"></canvas>
+          <div id="mgHud" style="position:absolute; left:8px; top:8px; font-size:12px; color:#e6ecff; background:rgba(0,0,0,.3); padding:4px 8px; border-radius:8px"></div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn" id="mgStart">Start</button>
+          <button class="btn secondary" id="mgExit">Exit</button>
+        </div>
+      </div>
+    </div>`;
+  showOverlay(label||'Minigame', html);
+  const cvs = document.getElementById('mg'); const hud = document.getElementById('mgHud');
+  const startBtn = document.getElementById('mgStart'); const exitBtn = document.getElementById('mgExit');
+  const ctx2 = cvs.getContext('2d');
+  let stopFn = null; exitBtn.onclick = ()=>{ if(stopFn) stopFn(); closePanel(); };
+  startBtn.onclick = ()=>{
+    if(id==='slalom') stopFn = runSlalom(cvs, ctx2, hud, ()=>finishMinigame('slalom'));
+  };
+}
+
+function finishMinigame(tokenId){
+  state.tokens[tokenId] = true; localStorage.setItem('tokens', JSON.stringify(state.tokens));
+  addXP(80);
+  try{ if(navigator.vibrate) navigator.vibrate([20,20,20]); }catch{}
+  const msg = `<div class="card"><h3>Token earned: ${tokenId}</h3><p>Great drive! You collected understanding.</p></div>`;
+  showOverlay('Token Unlocked', msg);
+}
+
+function runSlalom(cvs, ctx2, hud, onFinish){
+  state.minigame.running = true; let playing = true; let last = performance.now();
+  function resize(){ const r=cvs.getBoundingClientRect(); const dpr=Math.min(2,window.devicePixelRatio||1); cvs.width=Math.round(r.width*dpr); cvs.height=Math.round(r.height*dpr); ctx2.setTransform(dpr,0,0,dpr,0,0); }
+  resize();
+  const px = ()=> cvs.width/(window.devicePixelRatio||1);
+  const py = ()=> cvs.height/(window.devicePixelRatio||1);
+  const roadY = ()=> py() - 100;
+  const car = { x: 80, y: roadY(), w: 60, h: 28, vx: 0 };
+  const cones = []; [220,340,520,640,820,980,1140].forEach(x=> cones.push({x, y: roadY()+22, w:18, h:18}));
+  const picks = ['Problem','User','Outcome'].map((t,i)=>({x: 300+i*220, y: roadY()-40, r:14, label:t, got:false}));
+  let tLeft = 20; const key={};
+  const kd=e=>{ if(['ArrowLeft','ArrowRight','KeyA','KeyD'].includes(e.code)) e.preventDefault(); key[e.code]=true; };
+  const ku=e=>{ key[e.code]=false; };
+  addEventListener('keydown', kd); addEventListener('keyup', ku);
+  const onR=()=>resize(); addEventListener('resize', onR);
+  function loop(now){ if(!playing) return; const dt=Math.min(0.033,(now-last)/1000); last=now; tLeft=Math.max(0,tLeft-dt);
+    const dir=((key['ArrowRight']||key['KeyD'])?1:0)-((key['ArrowLeft']||key['KeyA'])?1:0);
+    car.vx += dir*600*dt; car.vx*=0.9; car.x += car.vx*dt; car.x=Math.max(40,Math.min(px()-40,car.x));
+    cones.forEach(c=>{ const hit=Math.abs(c.x-car.x)<(c.w+car.w)*0.5 && Math.abs(c.y-car.y)<(c.h+car.h)*0.5; if(hit){ car.vx*=-0.4; try{ if(navigator.vibrate) navigator.vibrate(20);}catch{} }});
+    picks.forEach(p=>{ if(!p.got && Math.hypot(p.x-car.x,p.y-car.y)<p.r+18){ p.got=true; try{ if(navigator.vibrate) navigator.vibrate(10);}catch{} }});
+    ctx2.clearRect(0,0,px(),py());
+    ctx2.fillStyle='#0b1020'; ctx2.fillRect(0,0,px(),py());
+    ctx2.fillStyle='#0d1427'; ctx2.fillRect(0, roadY()-10, px(), 120);
+    ctx2.fillStyle='#ff9966'; cones.forEach(c=> ctx2.fillRect(c.x-c.w/2,c.y-c.h/2,c.w,c.h));
+    picks.forEach(p=>{ ctx2.beginPath(); ctx2.fillStyle=p.got?'rgba(124,248,200,.6)':'rgba(124,248,200,.3)'; ctx2.arc(p.x,p.y,p.r,0,Math.PI*2); ctx2.fill(); ctx2.fillStyle='#a8b3cf'; ctx2.font='12px Segoe UI, Arial'; ctx2.textAlign='center'; ctx2.textBaseline='middle'; ctx2.fillText(p.label,p.x,p.y-22); });
+    ctx2.fillStyle='#8aa4ff'; ctx2.fillRect(car.x-car.w/2,car.y-car.h/2,car.w,car.h);
+    hud.textContent=`Time: ${Math.ceil(tLeft)}s • Collected: ${picks.filter(p=>p.got).length}/${picks.length}`;
+    if(tLeft<=0 || picks.every(p=>p.got)){ playing=false; cleanup(); onFinish(); return; }
+    requestAnimationFrame(loop);
+  }
+  function cleanup(){ removeEventListener('keydown', kd); removeEventListener('keyup', ku); removeEventListener('resize', onR); state.minigame.running=false; }
+  requestAnimationFrame(loop); const stop=()=>{ playing=false; cleanup(); }; state.minigame.stop=stop; return stop;
 }
