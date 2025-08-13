@@ -1,0 +1,16 @@
+{
+  "project": { "name": "Axis 25", "tagline": "A project highway to explore, build, and showcase.", "location": "Colombo", "date": "2025-10-10" },
+  "phases": [
+    {"id":1,"title":"Exploration","summary":"Register to join Phase 1.","open":true},
+    {"id":2,"title":"Development","summary":"Prototype with mentors.","open":false},
+    {"id":3,"title":"Showcase","summary":"Present your outcomes.","open":false}
+  ],
+  "branches": [
+    {"x":300,"label":"About","type":"about"},
+  {"x":700,"label":"Register","type":"phase1"},
+    {"x":1150,"label":"Phase 2","type":"phase2"},
+    {"x":1600,"label":"Phase 3","type":"phase3"},
+    {"x":2000,"label":"FAQ","type":"faq"},
+    {"x":2400,"label":"Contact","type":"contact"}
+  ]
+}

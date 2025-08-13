@@ -1,0 +1,872 @@
+/* ======= CONTENT: may be overridden by assets/content.json ======= */
+let GAME_DATA = {
+  project: {
+    name: "Axis 25 — Digital Economy Summit",
+    tagline: "A 3-phase journey: learn, build, and launch.",
+    about: "Axis 25 explores Sri Lanka’s digital economy through hands-on learning and maker energy. Start in Phase 1 to register and pitch your idea; build in Phase 2; showcase in Phase 3.",
+    location: "Colombo, Sri Lanka",
+    date: "October 10–12, 2025"
+  },
+  phases: [
+    {
+      id: 1, title: "Phase 1 — Exploration",
+      summary: "Register, share your idea, and join the cohort.",
+      open: true,
+      formFields: [
+        {name:"fullName", label:"Full Name", type:"text", required:true},
+        {name:"email", label:"Email", type:"email", required:true},
+        {name:"phone", label:"Phone", type:"tel", required:true},
+        {name:"bio", label:"Short Bio / Motivation", type:"textarea", required:true}
+      ]
+    },
+    {
+      id: 2, title: "Phase 2 — Development",
+      summary: "Prototype, test, and get mentored.",
+      open: false
+    },
+    {
+      id: 3, title: "Phase 3 — Showcase",
+      summary: "Pitch and present your outcomes.",
+      open: false
+    }
+  ],
+  branches: [
+    { x: 300,  label:"About Project", type:"about" },
+    { x: 700,  label:"Phase 1 — Register", type:"phase1" },
+    { x: 1150, label:"Phase 2 — Details", type:"phase2" },
+    { x: 1600, label:"Phase 3 — Details", type:"phase3" },
+    { x: 2000, label:"FAQ", type:"faq" },
+    { x: 2400, label:"Contact", type:"contact" }
+  ]
+};
+/* ======= end content ======= */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = canvas.width, H = canvas.height;
+
+const state = {
+  // player physics (px units in CSS pixels; velocities are px/s)
+  player:{
+    x:120, y:H-160, w:80, h:36,
+    vx:0, ax:0,
+    accel: 600,          // px/s^2
+    friction: 380,       // px/s^2
+  maxSpeed: 420        // px/s
+  },
+  camera:{x:0},
+  keys:{}, paused:false, near:null,
+  world:{ length: 3000 },
+  xp: Number(localStorage.getItem('xp')||0),
+  level: Number(localStorage.getItem('level')||1),
+  submissions: JSON.parse(localStorage.getItem('submissions')||'[]'),
+  phase1Complete: localStorage.getItem('phase1Complete')==='1',
+  lastBranchLabel: '',
+  // timing
+  lastT: performance.now(), dt: 0,
+  // environment
+  dayNight: { isNight:false, hour:12 },
+  theme: 'neon', // 'neon' | 'sunset'
+  settings: { forceDark: true },
+  // obstacles and interactions
+  obstacles: { potholes: [], speedBumps: [] },
+  // phase gate
+  gate: { x: 1800, triggered:false },
+  // fireworks particles
+  fireworks: [],
+  // skid marks
+  skids: [],
+  // ghost car
+  ghost: {
+    x: 140, vx: 140, alpha: 0.25, pauseT: 0,
+    stops: [], // will be built from branches
+    stopIndex: 0
+  },
+  // removed fuel/boost systems
+  // photo mode
+  photo: { pending:false }
+};
+
+// throttle state for analog touch input
+state.throttle = { left:0, right:0 };
+
+// initialize derived flags from existing data
+if(state.submissions.length && !state.phase1Complete){
+  state.phase1Complete = true; localStorage.setItem('phase1Complete','1');
+}
+
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.getElementById('toasts').appendChild(t);setTimeout(()=>t.remove(),3000)}
+function addXP(amount=50){
+  state.xp+=amount;
+  if(state.xp>=state.level*200){ state.level++; toast(`Level up! You reached Level ${state.level} ✨`)}
+  localStorage.setItem('xp',state.xp); localStorage.setItem('level',state.level);
+  updateHUD();
+}
+function updateHUD(){
+  // Header/HUD removed; keep no-op for compatibility. If elements exist, update them.
+  const xpEl = document.getElementById('xp'); if(xpEl) xpEl.textContent = state.xp;
+  const lvlEl = document.getElementById('level'); if(lvlEl) lvlEl.textContent = state.level;
+  const bar = document.getElementById('xpbar');
+  if(bar){ const pct = Math.min(99, (state.xp % (state.level*200)) / (state.level*200) * 100); bar.style.width = pct + '%'; }
+  const sEl = document.getElementById('phase1-status'); if(sEl){ const s = state.phase1Complete ? 'Completed' : (GAME_DATA.phases[0].open ? 'Open' : 'Closed'); sEl.textContent = s; }
+}
+updateHUD();
+
+/* ======= Input ======= */
+addEventListener('keydown', e=>{
+  if(['ArrowLeft','ArrowRight','KeyA','KeyD','KeyE','Enter','Escape','KeyP','KeyH','KeyF','KeyT'].includes(e.code)) e.preventDefault();
+  state.keys[e.code]=true;
+  if(e.code==='KeyE' && state.near){ openBranch(state.near) }
+  if(e.code==='Enter' && state.near){ openBranch(state.near) }
+  if(e.code==='Escape'){ closePanel() }
+  if(e.code==='KeyP'){ togglePause() }
+  if(e.code==='KeyH'){ showHelp() }
+  if(e.code==='KeyF'){ triggerPhoto() }
+  if(e.code==='KeyT'){ toggleTheme() }
+});
+addEventListener('keyup', e=>state.keys[e.code]=false);
+
+/* Touch */
+const leftBtn = document.getElementById('leftBtn');
+const rightBtn = document.getElementById('rightBtn');
+const interactBtn = document.getElementById('interactBtn');
+let leftHeld=false, rightHeld=false;
+['pointerdown','pointerup','pointerleave','pointercancel'].forEach(ev=>{
+  leftBtn.addEventListener(ev, e=>{ leftHeld = ev==='pointerdown'; });
+  rightBtn.addEventListener(ev, e=>{ rightHeld = ev==='pointerdown'; });
+  interactBtn.addEventListener(ev, e=>{ if(ev==='pointerdown' && state.near) openBranch(state.near) });
+});
+// analog throttle ramp for touch
+let lastAnalogT = performance.now();
+function updateAnalogThrottle(){
+  const now = performance.now(); const dt = Math.min(0.05, (now - lastAnalogT)/1000); lastAnalogT = now;
+  const rateUp = 2.5, rateDown = 4.0; // per second
+  // ramp towards target
+  const targetR = rightHeld?1:0, targetL = leftHeld?1:0;
+  state.throttle.right += Math.sign(targetR - state.throttle.right) * (targetR>state.throttle.right?rateUp:rateDown) * dt;
+  state.throttle.left  += Math.sign(targetL - state.throttle.left) * (targetL>state.throttle.left?rateUp:rateDown) * dt;
+  state.throttle.right = clamp(state.throttle.right,0,1);
+  state.throttle.left  = clamp(state.throttle.left,0,1);
+  requestAnimationFrame(updateAnalogThrottle);
+}
+updateAnalogThrottle();
+
+/* ======= Panels ======= */
+const overlay = document.getElementById('overlay');
+const panelContent = document.getElementById('panel-content');
+const panelTitle = document.getElementById('panel-title');
+document.getElementById('closePanel').onclick = closePanel;
+const btnExport = document.getElementById('btnExport'); if(btnExport) btnExport.onclick = exportDemo;
+const btnImport = document.getElementById('btnImport'); if(btnImport) btnImport.onclick = importDemo;
+const btnPrivacy = document.getElementById('btnPrivacy'); if(btnPrivacy) btnPrivacy.onclick = showPrivacy;
+const btnStamp = document.getElementById('btnStamp'); if(btnStamp) btnStamp.onclick = shareStamp;
+
+function showOverlay(title, html){
+  panelTitle.textContent = title;
+  panelContent.innerHTML = html;
+  overlay.style.display='grid';
+  overlay.querySelector('.panel').focus();
+  state.paused = true;
+}
+function closePanel(){ overlay.style.display='none'; state.paused=false }
+function togglePause(){ state.paused=!state.paused; toast(state.paused?'Paused ⏸':'Resumed ▶') }
+function showHelp(){
+  showOverlay('Controls',
+    `<div class="grid">
+      <div class="card">
+  <p><b>Keyboard:</b> ←/A and →/D to move. <b>E</b> to interact at a branch. <b>Shift/X</b> to boost. <b>F</b> Photo Mode. <b>Esc</b> to close. <b>P</b> to pause.</p>
+        <p><b>Mobile:</b> Use the on-screen buttons.</p>
+      </div>
+      <div class="card">
+        <p>Collect XP by discovering branches and completing Phase 1 registration. Your progress saves in this browser.</p>
+      </div>
+    </div>`
+  );
+}
+
+/* ======= Branch Content ======= */
+function branchHTML(type){
+  if(type==='about'){
+    return `
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>${GAME_DATA.project.name}</h3>
+          <p>${GAME_DATA.project.tagline}</p>
+          <div class="meta">
+            <span class="chip">📍 ${GAME_DATA.project.location}</span>
+            <span class="chip">🗓 ${GAME_DATA.project.date}</span>
+          </div>
+        </div>
+        <div class="card">
+          <h4>About</h4>
+          <p>${GAME_DATA.project.about}</p>
+        </div>
+        ${GAME_DATA.phases.map(p=>`
+          <div class="card">
+            <h4>${p.title}</h4>
+            <p>${p.summary}</p>
+            <div class="meta"><span class="chip">${p.open?'Open ✅':'Locked 🔒'}</span></div>
+          </div>`).join('')}
+      </div>`;
+  }
+  if(type==='phase1'){
+    const p = GAME_DATA.phases[0];
+    const form = p.formFields.map(f=>{
+      const base = `<label for="${f.name}">${f.label}${f.required?' *':''}</label>`;
+      if(f.type==='textarea') return base + `<textarea id="${f.name}" name="${f.name}" ${f.required?'required':''}></textarea>`;
+      return base + `<input id="${f.name}" name="${f.name}" type="${f.type}" ${f.required?'required':''}/>`;
+    }).join('');
+    return `
+      <div class="card">
+        <h3>${p.title}</h3>
+        <p>${p.summary}</p>
+  <form id="phase1-form">
+          ${form}
+          <button class="btn" type="submit">Register for Phase 1</button>
+          <div class="help">Demo only – your submission is stored locally in this browser. Use “Export Demo Data” to download a JSON file.</div>
+          <div id="formMsg" class="help"></div>
+        </form>
+      </div>
+      ${renderSubmissions()}`;
+  }
+  if(type==='phase2'){
+    return `<div class="card"><h3>Phase 2 — Development</h3><p>Prototype with mentors. Unlocks after Phase 1.</p></div>`;
+  }
+  if(type==='phase3'){
+    return `<div class="card"><h3>Phase 3 — Showcase</h3><p>Final presentations, awards, and press.</p></div>`;
+  }
+  if(type==='faq'){
+    return `
+      <div class="grid">
+        <div class="card"><h4>Who can apply?</h4><p>Students and early-stage builders.</p></div>
+        <div class="card"><h4>Is Phase 1 free?</h4><p>Yes.</p></div>
+        <div class="card"><h4>Team size?</h4><p>Solo or up to 4.</p></div>
+        <div class="card"><h4>Selection?</h4><p>Based on idea clarity and motivation.</p></div>
+      </div>`;
+  }
+  if(type==='contact'){
+    return `
+      <div class="grid cols-2">
+        <div class="card"><h4>Contact</h4><p>Email: hello@axis25.example</p><p>Phone: +94 7X XXX XXXX</p></div>
+        <div class="card"><h4>Social</h4><p>IG: @axis25 • X: @axis25sl</p></div>
+      </div>`;
+  }
+  return `<div class="card"><p>Coming soon.</p></div>`;
+}
+
+function renderSubmissions(){
+  if(!state.submissions.length) return `<div class="card"><h4>No submissions yet</h4><p>Be the first to register.</p></div>`;
+  const rows = state.submissions.map((s,i)=>`<tr><td>${i+1}</td><td>${s.fullName||''}</td><td>${s.email||''}</td><td>${s.phone||''}</td></tr>`).join('');
+  return `
+    <div class="card">
+      <h4>Submissions (local demo)</h4>
+      <div class="help">Stored in localStorage only.</div>
+      <div style="overflow:auto">
+        <table style="width:100%; border-collapse:collapse; font-size:14px">
+          <thead><tr><th style="text-align:left; padding:6px; border-bottom:1px solid rgba(255,255,255,.15)">#</th>
+          <th style="text-align:left; padding:6px; border-bottom:1px solid rgba(255,255,255,.15)">Name</th>
+          <th style="text-align:left; padding:6px; border-bottom:1px solid rgba(255,255,255,.15)">Email</th>
+          <th style="text-align:left; padding:6px; border-bottom:1px solid rgba(255,255,255,.15)">Phone</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function bindForm(){
+  const f = document.getElementById('phase1-form');
+  if(!f) return;
+  // restore partial data
+  try{
+    const saved = JSON.parse(localStorage.getItem('phase1Draft')||'{}');
+    Object.entries(saved).forEach(([k,v])=>{ const el=f.querySelector(`[name="${k}"]`); if(el) el.value=v; });
+  }catch{}
+  // auto-save while typing
+  f.querySelectorAll('input,textarea').forEach(el=>{
+    el.addEventListener('input', ()=>{
+      const draft = Object.fromEntries(new FormData(f).entries());
+      localStorage.setItem('phase1Draft', JSON.stringify(draft));
+    });
+  });
+  f.addEventListener('submit', e=>{
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(f).entries());
+    // basic validation
+    if(!data.fullName || !data.email){ msg('Please fill required fields.', true); return; }
+    state.submissions.push(data);
+    localStorage.setItem('submissions', JSON.stringify(state.submissions));
+    msg('✅ Registered! +100 XP awarded.', false);
+    addXP(100);
+  state.phase1Complete = true; localStorage.setItem('phase1Complete','1');
+    localStorage.removeItem('phase1Draft');
+    try{ if(navigator.vibrate) navigator.vibrate([20,30,20]); }catch{}
+    // rerender submissions
+    document.getElementById('panel-content').insertAdjacentHTML('beforeend','');
+    // refresh panel content
+    showOverlay('Phase 1 — Register', branchHTML('phase1'));
+    bindForm();
+  });
+  function msg(text, err){ const el=document.getElementById('formMsg'); el.textContent=text; el.className='help ' + (err?'error':'success'); }
+}
+
+/* ======= Export demo data ======= */
+function exportDemo(){
+  const dump = {
+    project: GAME_DATA.project,
+    submissions: state.submissions,
+  xp: state.xp, level: state.level,
+  phase1Complete: state.phase1Complete,
+    exportedAt: new Date().toISOString()
+  };
+  const blob = new Blob([JSON.stringify(dump,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'axis25-demo-export.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Exported demo JSON 📦');
+}
+
+function importDemo(){
+  const inp = document.createElement('input'); inp.type='file'; inp.accept='.json,application/json';
+  inp.onchange = ()=>{
+    const f = inp.files?.[0]; if(!f) return;
+    const r = new FileReader(); r.onload = ()=>{
+      try{
+        const data = JSON.parse(String(r.result||'{}'));
+        if(data.xp!=null) state.xp = Number(data.xp)||0;
+        if(data.level!=null) state.level = Number(data.level)||1;
+        if(Array.isArray(data.submissions)) state.submissions = data.submissions;
+        if(typeof data.phase1Complete==='boolean' || data.phase1Complete==='1') state.phase1Complete = !!data.phase1Complete;
+        localStorage.setItem('submissions', JSON.stringify(state.submissions));
+        localStorage.setItem('xp', String(state.xp));
+        localStorage.setItem('level', String(state.level));
+        localStorage.setItem('phase1Complete', state.phase1Complete?'1':'0');
+        updateHUD(); toast('Imported progress ✅');
+      }catch{ toast('Import failed ❌'); }
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+}
+
+function showPrivacy(){
+  const html = `
+    <div class="card">
+      <h3>Privacy & Consent</h3>
+      <p>We store only what you enter for registration locally for this demo. In production, it’s sent securely to our backend. No tracking cookies.</p>
+      <button id="privacyOk" class="btn">OK</button>
+    </div>`;
+  showOverlay('Consent', html);
+  setTimeout(()=>{
+    const b = document.getElementById('privacyOk'); if(!b) return;
+    b.onclick = ()=>{ closePanel(); };
+  },0);
+}
+
+function shareStamp(){
+  // Create a simple SVG stamp and trigger download
+  const label = state.lastBranchLabel || 'Axis 25';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="256">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#8aa4ff"/><stop offset="100%" stop-color="#7cf8c8"/>
+      </linearGradient>
+    </defs>
+    <rect width="100%" height="100%" fill="#0b1020"/>
+    <rect x="8" y="8" width="496" height="240" rx="18" fill="url(#g)" opacity="0.15" stroke="#8aa4ff"/>
+    <text x="24" y="72" font-size="24" fill="#e6ecff" font-family="Segoe UI, Arial">I unlocked</text>
+    <text x="24" y="120" font-size="40" fill="#7cf8c8" font-family="Segoe UI, Arial" font-weight="bold">${escapeXml(label)}</text>
+    <text x="24" y="170" font-size="18" fill="#a8b3cf" font-family="Segoe UI, Arial">#Axis25</text>
+  </svg>`;
+  const blob = new Blob([svg], {type:'image/svg+xml'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `axis25-stamp-${Date.now()}.svg`; a.click(); URL.revokeObjectURL(a.href);
+  try{
+    const shareText = `I unlocked ${label} 🚀 #Axis25`;
+    if(navigator.share) navigator.share({ text: shareText }).catch(()=>{});
+  }catch{}
+  toast('Stamp saved 🏷️');
+}
+
+function escapeXml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&apos;"}[c]))}
+
+/* ======= Open branch ======= */
+function openBranch(branch){
+  const html = branchHTML(branch.type);
+  showOverlay(branch.label, html);
+  bindForm();
+  addXP(20);
+  state.lastBranchLabel = branch.label;
+  const btn = document.getElementById('btnStamp'); if(btn) btn.style.display = '';
+}
+
+/* ======= Fallback removed ======= */
+
+/* ======= Game world drawing ======= */
+function computeDayNight(){
+  try{
+    const hourStr = new Intl.DateTimeFormat('en-US',{hour:'2-digit', hour12:false, timeZone:'Asia/Colombo'}).format(new Date());
+    const hour = Number(hourStr);
+    state.dayNight.hour = isNaN(hour)?12:hour;
+  }catch{ state.dayNight.hour = new Date().getHours(); }
+  if(state.settings.forceDark){
+    state.dayNight.isNight = true;
+  } else {
+    const h = state.dayNight.hour;
+    state.dayNight.isNight = (h >= 18 || h < 6);
+  }
+}
+
+function drawBackground(){
+  computeDayNight();
+  const isNight = state.dayNight.isNight;
+  const reduced = PREFERS_REDUCED_MOTION;
+  // sky gradient
+  const g = ctx.createLinearGradient(0,0,0,H);
+  if(state.theme==='sunset'){
+    g.addColorStop(0, isNight? '#1a0f2b':'#ff9966');
+    g.addColorStop(1, isNight? '#0a0f1e':'#ff5e62');
+  }else{
+    if(isNight){ g.addColorStop(0,'#07122b'); g.addColorStop(1,'#0a0f1e'); }
+    else{ g.addColorStop(0,'#4aa3ff'); g.addColorStop(1,'#9fd0ff'); }
+  }
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+
+  // parallax layers
+  const cx = state.camera.x;
+  // distant skyline
+  ctx.fillStyle = isNight ? 'rgba(138,164,255,.18)' : 'rgba(30,64,120,.25)';
+  const yBase1 = H-240; const speed1 = reduced?0.05:0.2; // slowest
+  for(let x=-200; x<W+200; x+=220){
+    const px = x - (cx*speed1 % 220);
+    ctx.fillRect(px, yBase1, 140, 10);
+    ctx.fillRect(px+20, yBase1-24, 60, 24);
+    ctx.fillRect(px+90, yBase1-40, 40, 40);
+  }
+  // mid trees/banners
+  const yBase2 = H-180; const speed2 = reduced?0.18:0.45;
+  for(let x=-100; x<W+100; x+=160){
+    const px = x - (cx*speed2 % 160);
+    // banner
+    ctx.fillStyle = isNight?'rgba(124,248,200,.35)':'rgba(255,255,255,.35)';
+    ctx.fillRect(px, yBase2, 100, 8);
+    // posts
+    ctx.fillStyle = 'rgba(255,255,255,.2)';
+    ctx.fillRect(px, yBase2-26, 4, 26);
+    ctx.fillRect(px+100-4, yBase2-18, 4, 18);
+  }
+  // near crowd silhouettes
+  const yBase3 = H-140; const speed3 = reduced?0.25:0.75;
+  ctx.fillStyle = isNight? 'rgba(10,20,40,.9)':'rgba(20,30,50,.9)';
+  for(let x=-120; x<W+120; x+=48){
+    const px = x - (cx*speed3 % 48);
+    ctx.beginPath(); ctx.arc(px, yBase3, 18, 0, Math.PI*2); ctx.fill();
+  }
+  // sponsor boards
+  const sbY = H-200; ctx.fillStyle = 'rgba(255,255,255,.08)';
+  for(let x=-300; x<W+300; x+=300){
+    const px = x - (cx*(reduced?0.2:0.4) % 300);
+    ctx.fillRect(px-60, sbY-50, 120, 50);
+    ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.strokeRect(px-60, sbY-50, 120, 50);
+    ctx.fillStyle = '#a8b3cf'; ctx.font='12px ui-sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('Sponsor', px, sbY-25);
+    ctx.fillStyle = 'rgba(255,255,255,.08)';
+  }
+}
+
+function drawRoad(){
+  // background including sky + parallax
+  drawBackground();
+
+  // horizon glow
+  ctx.fillStyle = 'rgba(124,248,200,.08)';
+  ctx.fillRect(-state.camera.x, H-260, state.world.length+W, 2);
+
+  // road
+  const roadY = H-120; const roadH = 80;
+  const rg = ctx.createLinearGradient(0,roadY,0,roadY+roadH);
+  rg.addColorStop(0,'#1a233b'); rg.addColorStop(1,'#0d1427');
+  ctx.fillStyle = rg;
+  ctx.fillRect(-state.camera.x, roadY, state.world.length+W, roadH);
+
+  // center dashes
+  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 4; ctx.setLineDash([24,24]);
+  ctx.beginPath(); ctx.moveTo(-state.camera.x, roadY+roadH/2); ctx.lineTo(-state.camera.x+state.world.length+W, roadY+roadH/2); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // sponsor speed lane segments
+  const lanes = state.sponsorLanes || (state.sponsorLanes = [
+    {from:400, to:650, brand:'Brand A'}, {from:1200, to:1400, brand:'Brand B'}
+  ]);
+  lanes.forEach(l=>{
+    const sx = l.from - state.camera.x; const ex = l.to - state.camera.x;
+    if(ex<-20 || sx>W+20) return;
+    ctx.fillStyle = 'rgba(124,248,200,.12)';
+    ctx.fillRect(Math.max(sx,-state.camera.x), roadY+roadH-18, Math.min(ex,W+state.camera.x)-Math.max(sx,-state.camera.x), 12);
+  });
+
+  // branches (signs)
+  GAME_DATA.branches.forEach(b=>{
+    const bx = b.x - state.camera.x;
+    if(bx<-100 || bx>W+100) return;
+
+    // branch stem
+    ctx.strokeStyle = 'rgba(138,164,255,.6)'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(bx, roadY); ctx.lineTo(bx, roadY-130); ctx.stroke();
+
+    // sign
+    ctx.fillStyle = 'rgba(255,255,255,.08)';
+    ctx.strokeStyle = 'rgba(255,255,255,.2)';
+    ctx.lineWidth=2;
+    const sw=180, sh=48;
+    ctx.fillRect(bx - sw/2, roadY-130 - sh, sw, sh);
+    ctx.strokeRect(bx - sw/2, roadY-130 - sh, sw, sh);
+
+  // sign label with backdrop
+  const label = b.label;
+  ctx.font='600 14px ui-sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  // backdrop halo for contrast
+  ctx.fillStyle='rgba(11,16,32,.5)'; ctx.fillRect(bx - sw/2 + 6, roadY-130 - sh + 6, sw-12, sh-12);
+  ctx.fillStyle='#e6ecff'; ctx.fillText(label, bx, roadY-130 - sh/2);
+
+    // interact hint if near
+    const near = Math.abs(state.player.x - b.x) < 60;
+    if(near){
+      ctx.font='12px ui-sans-serif'; ctx.fillStyle='rgba(124,248,200,.9)'; ctx.fillText('Press E to interact', bx, roadY-140 - sh);
+      state.near = b;
+    }
+  });
+
+  // obstacles removed
+
+  // obstacles removed
+
+  // phase gate (draw if phase1Complete)
+  if(state.phase1Complete){
+    const gx = state.gate.x - state.camera.x;
+    if(!(gx<-200 || gx>W+200)){
+      // gate posts
+      ctx.fillStyle='rgba(138,164,255,.5)';
+      ctx.fillRect(gx-60, roadY-150, 10, 150);
+      ctx.fillRect(gx+50, roadY-150, 10, 150);
+      // banner
+      ctx.fillStyle='rgba(124,248,200,.35)';
+      ctx.fillRect(gx-60, roadY-150, 120, 16);
+      ctx.font='12px ui-sans-serif'; ctx.fillStyle='#e6ecff'; ctx.textAlign='center'; ctx.textBaseline='top';
+      ctx.fillText('Phase 1 Gate', gx, roadY-148);
+    }
+  }
+}
+
+/* ======= Car drawing ======= */
+function drawCar(){
+  const p = state.player;
+  const y = p.y, x = p.x - state.camera.x;
+
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y+p.h, p.w*.6, 10, 0, 0, Math.PI*2); ctx.fill();
+
+  // body
+  const grad = ctx.createLinearGradient(x-p.w/2,y-20,x+p.w/2,y+20);
+  grad.addColorStop(0,'#8aa4ff'); grad.addColorStop(1,'#7cf8c8');
+  ctx.fillStyle = grad; ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=1.2;
+  ctx.beginPath();
+  ctx.roundRect(x-p.w/2, y-p.h/2, p.w, p.h, 8);
+  ctx.fill(); ctx.stroke();
+
+  // windows
+  ctx.fillStyle='rgba(255,255,255,.25)';
+  ctx.fillRect(x-p.w/2+10, y-p.h/2+6, 24, p.h-12);
+  ctx.fillRect(x+p.w/2-34, y-p.h/2+6, 24, p.h-12);
+
+  // wheels
+  ctx.fillStyle='#0c1226';
+  ctx.beginPath(); ctx.arc(x-p.w/3, y+p.h/2, 12, 0, Math.PI*2); ctx.arc(x+p.w/3, y+p.h/2, 12, 0, Math.PI*2); ctx.fill();
+
+  // headlight glow if moving right
+  if(state.player.vx>20){
+    const lg = ctx.createRadialGradient(x+p.w/2, y, 0, x+p.w/2+70, y, 80);
+    lg.addColorStop(0,'rgba(255,255,255,.25)'); lg.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=lg; ctx.beginPath(); ctx.ellipse(x+p.w/2+70, y, 80, 28, 0, 0, Math.PI*2); ctx.fill();
+  }
+
+  // skid marks
+  state.skids.forEach(s=>{
+    const sx = s.x - state.camera.x;
+    ctx.strokeStyle=`rgba(0,0,0,${s.alpha.toFixed(3)})`;
+    ctx.lineWidth=2; ctx.beginPath();
+    ctx.moveTo(sx-6, y+p.h/2-1); ctx.lineTo(sx+6, y+p.h/2+1); ctx.stroke();
+  });
+}
+
+/* ======= Game loop ======= */
+function step(){
+  const now = performance.now();
+  state.dt = Math.min(0.05, (now - state.lastT) / 1000); // clamp to 50ms
+  state.lastT = now;
+
+  if(!state.paused){
+  const leftKey = state.keys['ArrowLeft']||state.keys['KeyA'];
+  const rightKey = state.keys['ArrowRight']||state.keys['KeyD'];
+  const left = leftKey || leftHeld;
+  const right = rightKey || rightHeld;
+    const p = state.player; const dt = state.dt;
+    // input acceleration
+  const analog = (rightKey?1:state.throttle.right) - (leftKey?1:state.throttle.left);
+  const dir = clamp(analog, -1, 1);
+  const targetAx = dir * p.accel;
+    p.ax = targetAx;
+    // apply acceleration
+    p.vx += p.ax * dt;
+    // friction if no input
+    if(dir===0){
+      const sign = Math.sign(p.vx);
+      const mag = Math.max(0, Math.abs(p.vx) - p.friction*dt);
+      p.vx = mag*sign;
+    }
+  // speed cap only
+  let maxV = p.maxSpeed;
+  // sponsor lane buff
+  const lanes = state.sponsorLanes||[];
+  const onSponsor = lanes.some(l=> p.x>=l.from && p.x<=l.to);
+  if(onSponsor){ maxV *= 1.25; }
+    // clamp speed
+    p.vx = clamp(p.vx, -maxV, maxV);
+    // integrate position
+    const prevV = p.vx;
+    p.x += p.vx * dt;
+    p.x = clamp(p.x, 40, state.world.length-40);
+
+    // skid generation on sharp decel
+    if(Math.abs(p.ax) > p.accel*0.8 && Math.abs(prevV) > p.maxSpeed*0.4){
+      state.skids.push({ x:p.x, alpha:0.25 });
+      if(state.skids.length>120) state.skids.shift();
+    }
+
+    // camera follows
+    state.camera.x = clamp(p.x - W*0.5, 0, state.world.length - W + 0);
+    state.near = null;
+
+    // interactions: obstacles
+    handleCollisions();
+    // ghost update
+    updateGhost();
+    // fireworks update
+    updateFireworks();
+    // fade skids
+    state.skids.forEach(s=> s.alpha = Math.max(0, s.alpha - 0.3*dt));
+    while(state.skids.length && state.skids[0].alpha<=0.01) state.skids.shift();
+
+  // fuel removed
+  }
+
+  // draw
+  ctx.clearRect(0,0,W,H);
+  drawRoad();
+  drawCar();
+  drawGhost();
+  drawFireworks();
+  // HUD for fuel/boost removed
+
+  requestAnimationFrame(step);
+}
+requestAnimationFrame(step);
+
+/* ======= Resize handling ======= */
+function positionPlayerOnRoad(){
+  // Keep the car vertically locked relative to the road regardless of canvas CSS size.
+  const roadY = H - 120; // must match drawRoad()
+  const p = state.player;
+  p.y = roadY - p.h/2 - 4; // small ground clearance
+}
+function resize(){
+  // Use visualViewport when available to avoid mobile browser UI affecting layout and causing scroll.
+  const vw = window.visualViewport?.width || window.innerWidth;
+  const vh = window.visualViewport?.height || window.innerHeight;
+  // Set canvas CSS size to viewport and internal buffer to DPR-scaled size.
+  canvas.style.width = vw + 'px';
+  canvas.style.height = vh + 'px';
+  const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  canvas.width = Math.round(vw * dpr);
+  canvas.height = Math.round(vh * dpr);
+  ctx.setTransform(1,0,0,1,0,0); // reset any transforms
+  ctx.scale(dpr, dpr);
+  W = vw; H = vh;
+  positionPlayerOnRoad();
+}
+addEventListener('resize', resize);
+if('visualViewport' in window){
+  // Handle mobile address bar show/hide
+  window.visualViewport.addEventListener('resize', resize);
+}
+resize();
+
+/* ======= Click interaction on signs ======= */
+canvas.addEventListener('pointerdown', (e)=>{
+  // detect if clicked near a sign; translate to world x (CSS pixels)
+  const rect = canvas.getBoundingClientRect();
+  const cx = (e.clientX - rect.left); // CSS px since we scale the context by DPR
+  const wx = cx + state.camera.x;
+  let found = null;
+  for(const b of GAME_DATA.branches){
+    if(Math.abs(wx - b.x) < 80){ found = b; break; }
+  }
+  if(found) openBranch(found);
+});
+
+/* ======= Initial friendly toast ======= */
+setTimeout(()=>toast('Drive → and stop at signs. Press E to interact.'), 400);
+
+/* ======= Collisions, Ghost, Fireworks, Photo Mode ======= */
+function handleCollisions(){
+  const p = state.player; const x = p.x;
+  // obstacles removed
+  // phase gate
+  if(state.phase1Complete && !state.gate.triggered && Math.abs(x - state.gate.x) < 40){
+    state.gate.triggered = true;
+  if(!PREFERS_REDUCED_MOTION) launchFireworks();
+    showOverlay('Phase 1 Unlocked 🎖️', `<div class="card"><h3>Gate Cleared!</h3><p>You unlocked Phase 1.</p><button id="medalOk" class="btn">Continue</button></div>`);
+    setTimeout(()=>{
+      const btn = document.getElementById('medalOk'); if(btn) btn.onclick = ()=> closePanel();
+    }, 0);
+  }
+}
+
+function buildGhostStops(){
+  if(state.ghost.stops.length) return;
+  // visit each branch then loop to start
+  state.ghost.stops = [{x:140, wait:0}].concat(GAME_DATA.branches.map(b=>({x:b.x-20, wait:1.8}))).concat([{x: state.world.length-80, wait:2.0}]);
+  state.ghost.stopIndex = 0;
+}
+
+function updateGhost(){
+  buildGhostStops();
+  const g = state.ghost; const dt = state.dt;
+  if(g.pauseT > 0){ g.pauseT -= dt; return; }
+  const target = g.stops[g.stopIndex]; if(!target) return;
+  const dx = target.x - g.x; const speed = 120; // px/s
+  const step = Math.sign(dx) * speed * dt;
+  if(Math.abs(dx) <= Math.abs(step)){
+    g.x = target.x; g.pauseT = target.wait; g.stopIndex = (g.stopIndex+1)%g.stops.length;
+  } else {
+    g.x += step; g.vx = step/dt;
+  }
+}
+
+function drawGhost(){
+  const g = state.ghost; const y = state.player.y; const x = g.x - state.camera.x;
+  if(x<-120 || x>W+120) return;
+  ctx.save(); ctx.globalAlpha = g.alpha;
+  ctx.fillStyle = 'rgba(138,164,255,.8)'; ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.roundRect(x-state.player.w/2, y-state.player.h/2, state.player.w, state.player.h, 8);
+  ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+
+function launchFireworks(){
+  // spawn bursts
+  for(let i=0;i<8;i++){
+    const cx = (state.gate.x - state.camera.x) + (Math.random()*120-60) + state.camera.x;
+    const cy = H - 220 + (Math.random()*40-20);
+    for(let j=0;j<30;j++){
+      const a = Math.random()*Math.PI*2; const sp = 90 + Math.random()*120;
+      state.fireworks.push({x:cx, y:cy, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:1});
+    }
+  }
+}
+
+function updateFireworks(){
+  if(!state.fireworks.length) return;
+  const dt = state.dt;
+  const g = 220; // gravity
+  state.fireworks.forEach(p=>{
+    p.vy += g*dt; p.x += p.vx*dt; p.y += p.vy*dt; p.life -= 0.9*dt;
+  });
+  state.fireworks = state.fireworks.filter(p=>p.life>0 && p.y < H+50);
+}
+
+function drawFireworks(){
+  if(!state.fireworks.length) return;
+  state.fireworks.forEach(p=>{
+    const a = Math.max(0, Math.min(1, p.life));
+    ctx.fillStyle = `rgba(124,248,200,${a})`;
+    ctx.fillRect(p.x - state.camera.x, p.y, 2, 2);
+  });
+}
+
+function triggerPhoto(){
+  if(state.photo.pending) return;
+  state.photo.pending = true;
+  // briefly pause to stabilize frame
+  const wasPaused = state.paused; state.paused = true;
+  setTimeout(()=>{
+    try{
+      // overlay simple frame
+      ctx.save();
+      ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=3; ctx.strokeRect(12,12,W-24,H-24);
+      ctx.fillStyle='rgba(10,16,32,.6)'; ctx.fillRect(14,H-46,W-28,32);
+      ctx.fillStyle='#e6ecff'; ctx.font='14px ui-sans-serif'; ctx.textBaseline='middle';
+  const tag = `${GAME_DATA.project.name} — ${state.dayNight.isNight?'Night Drive':'Day Cruise'}`;
+  const br = state.lastBranchLabel ? ` • ${state.lastBranchLabel}` : '';
+  ctx.fillText(tag + br, 24, H-30);
+      ctx.restore();
+      // export
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = 'axis25-photo.png'; a.click();
+      toast('Saved photo 📸');
+    }finally{
+      state.photo.pending = false;
+      state.paused = wasPaused;
+    }
+  }, 40);
+}
+
+/* ======= Reduced motion ======= */
+const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || false;
+
+// Fuel/Boost HUD removed
+
+/* ======= Theme toggle ======= */
+function toggleTheme(){ state.theme = state.theme==='neon'?'sunset':'neon'; toast(state.theme==='neon'?'Neon Colombo Night':'Galle Face Sunset'); }
+
+/* ======= Deep links ======= */
+window.addEventListener('hashchange', handleHash);
+function handleHash(){
+  const s = new URLSearchParams(location.hash.slice(1));
+  const id = s.get('branch'); if(!id) return;
+  const b = (GAME_DATA.branches||[]).find(br => br.type===id || br.label.toLowerCase()===id.toLowerCase());
+  if(b) openBranch(b);
+}
+handleHash();
+
+/* ======= Content loading ======= */
+async function loadContent(){
+  try{
+    const res = await fetch('assets/content.json');
+    if(res.ok){ const data = await res.json(); GAME_DATA = data; }
+  }catch{}
+  // Rebuild text route and re-handle deep links with new content
+  buildTextRoute();
+  handleHash();
+}
+loadContent();
+
+/* ======= Screen-reader route ======= */
+function buildTextRoute(){
+  const container = document.getElementById('textRoute'); if(!container) return;
+  const div = container.querySelector('div'); if(!div) return;
+  div.innerHTML = '';
+  const title = document.createElement('h2'); title.textContent = 'Project Highway — Text Route'; title.style.position='static';
+  div.appendChild(title);
+  const ul = document.createElement('ul');
+  (GAME_DATA.branches||[]).forEach(b=>{
+    const li = document.createElement('li');
+    const btn = document.createElement('button'); btn.textContent = b.label + ' — open'; btn.className='btn small';
+    btn.onclick = ()=> openBranch(b);
+    li.appendChild(btn); ul.appendChild(li);
+  });
+  div.appendChild(ul);
+}
+setTimeout(buildTextRoute, 300);

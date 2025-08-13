@@ -1,13 +1,58 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React + TS</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Axis 25 — Project Journey Game</title>
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<!-- Header/HUD removed for cleaner in-world UI -->
+
+<div id="game-wrap" role="application" aria-label="Side-scrolling project game">
+  <canvas id="game" width="1280" height="720" aria-label="Game canvas"></canvas>
+</div>
+
+<!-- Overlay for interactive panels -->
+<div class="overlay" id="overlay" aria-modal="true" role="dialog" aria-labelledby="panel-title">
+  <div class="panel" tabindex="-1">
+    <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:6px">
+      <h2 id="panel-title">Panel</h2>
+      <div class="row">
+        <button class="btn small secondary" id="btnPrivacy" aria-label="Privacy">Privacy</button>
+        <button class="btn small secondary" id="btnImport" aria-label="Import JSON">Import</button>
+        <button class="btn small secondary" id="btnExport" aria-label="Export JSON">Export</button>
+        <button class="btn small" id="btnStamp" aria-label="Share stamp" style="display:none">Share Stamp</button>
+        <button class="btn small secondary" id="closePanel" aria-label="Close (Esc)">Close</button>
+      </div>
+    </div>
+    <div id="panel-content"></div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div id="toasts" aria-live="polite"></div>
+
+<!-- Touch controls -->
+<div id="touch">
+  <button class="padbtn" id="leftBtn" aria-label="Move left">◀</button>
+  <button class="padbtn" id="interactBtn" aria-label="Interact">⩔</button>
+  <button class="padbtn" id="rightBtn" aria-label="Move right">▶</button>
+</div>
+
+<!-- Screen-reader route: populated by JS to mirror the journey in text -->
+<nav id="textRoute" aria-label="Text-only journey" style="position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden">
+  <!-- populated dynamically -->
+  Text-only journey navigation
+  <div></div>
+  <!-- end dynamic -->
+  
+</nav>
+
+<noscript>
+  <strong>JavaScript is disabled.</strong> You can still read about the project and use the Phase 1 registration form.
+</noscript>
+
+<script defer src="assets/game.js"></script>
+</body>
 </html>
