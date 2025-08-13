@@ -46,14 +46,70 @@ const ctx = canvas.getContext('2d');
 let W = canvas.width, H = canvas.height;
 
 const state = {
-  player:{x:120, y:H-160, w:80, h:36, vx:0, speed:4.2},
+  // player physics (px units in CSS pixels; velocities are px/s)
+  player:{
+    x:120, y:H-160, w:80, h:36,
+    vx:0, ax:0,
+    accel: 600,          // px/s^2
+    friction: 380,       // px/s^2
+    maxSpeed: 420,       // px/s
+    boostMultiplier: 1.8,// speed multiplier when boosting
+    boosting:false
+  },
   camera:{x:0},
   keys:{}, paused:false, near:null,
-  world:{ length: 2800 },
+  world:{ length: 3000 },
   xp: Number(localStorage.getItem('xp')||0),
   level: Number(localStorage.getItem('level')||1),
-  submissions: JSON.parse(localStorage.getItem('submissions')||'[]')
+  submissions: JSON.parse(localStorage.getItem('submissions')||'[]'),
+  phase1Complete: localStorage.getItem('phase1Complete')==='1',
+  lastBranchLabel: '',
+  // timing
+  lastT: performance.now(), dt: 0,
+  // environment
+  dayNight: { isNight:false, hour:12 },
+  // obstacles and interactions
+  obstacles: {
+    potholes: [
+      {x: 520, hit:false, tip:"Scope creep: define a clear MVP."},
+      {x: 980, hit:false, tip:"Overengineering: ship simple first."},
+      {x: 1520, hit:false, tip:"No user feedback: talk to users early."}
+    ],
+    speedBumps: [
+      {x: 740, cleared:false, q:{
+        prompt:"What’s the best next step after ideation?",
+        btn:"Validate with 5 users",
+        xp:60
+      }},
+      {x: 1350, cleared:false, q:{
+        prompt:"Pick one for momentum:",
+        btn:"Define a tiny, testable scope",
+        xp:60
+      }}
+    ]
+  },
+  // phase gate
+  gate: { x: 1800, triggered:false },
+  // fireworks particles
+  fireworks: [],
+  // skid marks
+  skids: [],
+  // ghost car
+  ghost: {
+    x: 140, vx: 140, alpha: 0.25, pauseT: 0,
+    stops: [], // will be built from branches
+    stopIndex: 0
+  },
+  // boost energy (0..1)
+  boost: { energy: 1, drain: 0.55, regen: 0.25 },
+  // photo mode
+  photo: { pending:false }
 };
+
+// initialize derived flags from existing data
+if(state.submissions.length && !state.phase1Complete){
+  state.phase1Complete = true; localStorage.setItem('phase1Complete','1');
+}
 
 function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
 function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.getElementById('toasts').appendChild(t);setTimeout(()=>t.remove(),3000)}
@@ -68,20 +124,26 @@ function updateHUD(){
   document.getElementById('level').textContent = state.level;
   const pct = Math.min(99, (state.xp % (state.level*200)) / (state.level*200) * 100);
   document.getElementById('xpbar').style.width = pct + '%';
-  document.getElementById('phase1-status').textContent = GAME_DATA.phases[0].open ? 'Open' : 'Closed';
+  const s = state.phase1Complete ? 'Completed' : (GAME_DATA.phases[0].open ? 'Open' : 'Closed');
+  document.getElementById('phase1-status').textContent = s;
 }
 updateHUD();
 
 /* ======= Input ======= */
 addEventListener('keydown', e=>{
-  if(['ArrowLeft','ArrowRight','KeyA','KeyD','KeyE','Escape','KeyP','KeyH'].includes(e.code)) e.preventDefault();
+  if(['ArrowLeft','ArrowRight','KeyA','KeyD','KeyE','Escape','KeyP','KeyH','KeyF','KeyX'].includes(e.code)) e.preventDefault();
   state.keys[e.code]=true;
   if(e.code==='KeyE' && state.near){ openBranch(state.near) }
   if(e.code==='Escape'){ closePanel() }
   if(e.code==='KeyP'){ togglePause() }
   if(e.code==='KeyH'){ showHelp() }
+  if(e.code==='KeyF'){ triggerPhoto() }
+  if(e.code==='ShiftLeft' || e.code==='ShiftRight' || e.code==='KeyX'){ state.player.boosting = true }
 });
 addEventListener('keyup', e=>state.keys[e.code]=false);
+addEventListener('keyup', e=>{
+  if(e.code==='ShiftLeft' || e.code==='ShiftRight' || e.code==='KeyX'){ state.player.boosting = false }
+});
 
 /* Touch */
 const leftBtn = document.getElementById('leftBtn');
@@ -116,7 +178,7 @@ function showHelp(){
   showOverlay('Controls',
     `<div class="grid">
       <div class="card">
-        <p><b>Keyboard:</b> ←/A and →/D to move. <b>E</b> to interact at a branch. <b>Esc</b> to close. <b>P</b> to pause.</p>
+  <p><b>Keyboard:</b> ←/A and →/D to move. <b>E</b> to interact at a branch. <b>Shift/X</b> to boost. <b>F</b> Photo Mode. <b>Esc</b> to close. <b>P</b> to pause.</p>
         <p><b>Mobile:</b> Use the on-screen buttons.</p>
       </div>
       <div class="card">
@@ -227,6 +289,7 @@ function bindForm(){
     localStorage.setItem('submissions', JSON.stringify(state.submissions));
     msg('✅ Registered! +100 XP awarded.', false);
     addXP(100);
+  state.phase1Complete = true; localStorage.setItem('phase1Complete','1');
     // rerender submissions
     document.getElementById('panel-content').insertAdjacentHTML('beforeend','');
     // refresh panel content
@@ -258,16 +321,69 @@ function openBranch(branch){
   showOverlay(branch.label, html);
   bindForm();
   addXP(20);
+  state.lastBranchLabel = branch.label;
 }
 
 /* ======= Fallback removed ======= */
 
 /* ======= Game world drawing ======= */
-function drawRoad(){
+function computeDayNight(){
+  try{
+    const hourStr = new Intl.DateTimeFormat('en-US',{hour:'2-digit', hour12:false, timeZone:'Asia/Colombo'}).format(new Date());
+    const hour = Number(hourStr);
+    state.dayNight.hour = isNaN(hour)?12:hour;
+  }catch{ state.dayNight.hour = new Date().getHours(); }
+  const h = state.dayNight.hour;
+  state.dayNight.isNight = (h >= 18 || h < 6);
+}
+
+function drawBackground(){
+  computeDayNight();
+  const isNight = state.dayNight.isNight;
   // sky gradient
   const g = ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,'#0b1530'); g.addColorStop(1,'#0a0f1e');
+  if(isNight){
+    g.addColorStop(0,'#07122b'); g.addColorStop(1,'#0a0f1e');
+  }else{
+    g.addColorStop(0,'#4aa3ff'); g.addColorStop(1,'#9fd0ff');
+  }
   ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+
+  // parallax layers
+  const cx = state.camera.x;
+  // distant skyline
+  ctx.fillStyle = isNight ? 'rgba(138,164,255,.18)' : 'rgba(30,64,120,.25)';
+  const yBase1 = H-240; const speed1 = 0.2; // slowest
+  for(let x=-200; x<W+200; x+=220){
+    const px = x - (cx*speed1 % 220);
+    ctx.fillRect(px, yBase1, 140, 10);
+    ctx.fillRect(px+20, yBase1-24, 60, 24);
+    ctx.fillRect(px+90, yBase1-40, 40, 40);
+  }
+  // mid trees/banners
+  const yBase2 = H-180; const speed2 = 0.45;
+  for(let x=-100; x<W+100; x+=160){
+    const px = x - (cx*speed2 % 160);
+    // banner
+    ctx.fillStyle = isNight?'rgba(124,248,200,.35)':'rgba(255,255,255,.35)';
+    ctx.fillRect(px, yBase2, 100, 8);
+    // posts
+    ctx.fillStyle = 'rgba(255,255,255,.2)';
+    ctx.fillRect(px, yBase2-26, 4, 26);
+    ctx.fillRect(px+100-4, yBase2-18, 4, 18);
+  }
+  // near crowd silhouettes
+  const yBase3 = H-140; const speed3 = 0.75;
+  ctx.fillStyle = isNight? 'rgba(10,20,40,.9)':'rgba(20,30,50,.9)';
+  for(let x=-120; x<W+120; x+=48){
+    const px = x - (cx*speed3 % 48);
+    ctx.beginPath(); ctx.arc(px, yBase3, 18, 0, Math.PI*2); ctx.fill();
+  }
+}
+
+function drawRoad(){
+  // background including sky + parallax
+  drawBackground();
 
   // horizon glow
   ctx.fillStyle = 'rgba(124,248,200,.08)';
@@ -313,6 +429,38 @@ function drawRoad(){
       state.near = b;
     }
   });
+
+  // obstacles: potholes
+  state.obstacles.potholes.forEach(o=>{
+    const bx = o.x - state.camera.x;
+    if(bx<-100 || bx>W+100) return;
+    ctx.fillStyle='rgba(0,0,0,.6)';
+    ctx.beginPath(); ctx.ellipse(bx, roadY+50, 28, 12, 0, 0, Math.PI*2); ctx.fill();
+  });
+
+  // obstacles: speed bumps
+  state.obstacles.speedBumps.forEach(o=>{
+    const bx = o.x - state.camera.x;
+    if(bx<-100 || bx>W+100) return;
+    const w=60,h=10; ctx.fillStyle='rgba(255,210,120,.8)';
+    ctx.fillRect(bx-w/2, roadY+40, w, h);
+  });
+
+  // phase gate (draw if phase1Complete)
+  if(state.phase1Complete){
+    const gx = state.gate.x - state.camera.x;
+    if(!(gx<-200 || gx>W+200)){
+      // gate posts
+      ctx.fillStyle='rgba(138,164,255,.5)';
+      ctx.fillRect(gx-60, roadY-150, 10, 150);
+      ctx.fillRect(gx+50, roadY-150, 10, 150);
+      // banner
+      ctx.fillStyle='rgba(124,248,200,.35)';
+      ctx.fillRect(gx-60, roadY-150, 120, 16);
+      ctx.font='12px ui-sans-serif'; ctx.fillStyle='#e6ecff'; ctx.textAlign='center'; ctx.textBaseline='top';
+      ctx.fillText('Phase 1 Gate', gx, roadY-148);
+    }
+  }
 }
 
 /* ======= Car drawing ======= */
@@ -341,30 +489,85 @@ function drawCar(){
   ctx.beginPath(); ctx.arc(x-p.w/3, y+p.h/2, 12, 0, Math.PI*2); ctx.arc(x+p.w/3, y+p.h/2, 12, 0, Math.PI*2); ctx.fill();
 
   // headlight glow if moving right
-  if(state.player.vx>0.2){
+  if(state.player.vx>20){
     const lg = ctx.createRadialGradient(x+p.w/2, y, 0, x+p.w/2+70, y, 80);
     lg.addColorStop(0,'rgba(255,255,255,.25)'); lg.addColorStop(1,'rgba(255,255,255,0)');
     ctx.fillStyle=lg; ctx.beginPath(); ctx.ellipse(x+p.w/2+70, y, 80, 28, 0, 0, Math.PI*2); ctx.fill();
   }
+
+  // skid marks
+  state.skids.forEach(s=>{
+    const sx = s.x - state.camera.x;
+    ctx.strokeStyle=`rgba(0,0,0,${s.alpha.toFixed(3)})`;
+    ctx.lineWidth=2; ctx.beginPath();
+    ctx.moveTo(sx-6, y+p.h/2-1); ctx.lineTo(sx+6, y+p.h/2+1); ctx.stroke();
+  });
 }
 
 /* ======= Game loop ======= */
 function step(){
+  const now = performance.now();
+  state.dt = Math.min(0.05, (now - state.lastT) / 1000); // clamp to 50ms
+  state.lastT = now;
+
   if(!state.paused){
     const left = state.keys['ArrowLeft']||state.keys['KeyA']||leftHeld;
     const right = state.keys['ArrowRight']||state.keys['KeyD']||rightHeld;
-    state.player.vx = (right?1:0) - (left?1:0);
-    state.player.x += state.player.vx * state.player.speed;
-    state.player.x = clamp(state.player.x, 40, state.world.length-40);
+    const p = state.player; const dt = state.dt;
+    // input acceleration
+    const dir = (right?1:0) - (left?1:0);
+    const targetAx = dir * p.accel;
+    p.ax = targetAx;
+    // apply acceleration
+    p.vx += p.ax * dt;
+    // friction if no input
+    if(dir===0){
+      const sign = Math.sign(p.vx);
+      const mag = Math.max(0, Math.abs(p.vx) - p.friction*dt);
+      p.vx = mag*sign;
+    }
+    // boost
+    let maxV = p.maxSpeed;
+    if(p.boosting && state.boost.energy>0.05){
+      maxV *= p.boostMultiplier;
+      state.boost.energy = Math.max(0, state.boost.energy - state.boost.drain*dt);
+    }else{
+      state.boost.energy = Math.min(1, state.boost.energy + state.boost.regen*dt);
+    }
+    // clamp speed
+    p.vx = clamp(p.vx, -maxV, maxV);
+    // integrate position
+    const prevV = p.vx;
+    p.x += p.vx * dt;
+    p.x = clamp(p.x, 40, state.world.length-40);
+
+    // skid generation on sharp decel
+    if(Math.abs(p.ax) > p.accel*0.8 && Math.abs(prevV) > p.maxSpeed*0.4){
+      state.skids.push({ x:p.x, alpha:0.25 });
+      if(state.skids.length>120) state.skids.shift();
+    }
+
     // camera follows
-    state.camera.x = clamp(state.player.x - W*0.5, 0, state.world.length - W + 0);
+    state.camera.x = clamp(p.x - W*0.5, 0, state.world.length - W + 0);
     state.near = null;
+
+    // interactions: obstacles
+    handleCollisions();
+    // ghost update
+    updateGhost();
+    // fireworks update
+    updateFireworks();
+    // fade skids
+    state.skids.forEach(s=> s.alpha = Math.max(0, s.alpha - 0.3*dt));
+    while(state.skids.length && state.skids[0].alpha<=0.01) state.skids.shift();
   }
 
   // draw
   ctx.clearRect(0,0,W,H);
   drawRoad();
   drawCar();
+  drawGhost();
+  drawFireworks();
 
   requestAnimationFrame(step);
 }
@@ -414,3 +617,129 @@ canvas.addEventListener('pointerdown', (e)=>{
 
 /* ======= Initial friendly toast ======= */
 setTimeout(()=>toast('Drive → and stop at signs. Press E to interact.'), 400);
+
+/* ======= Collisions, Ghost, Fireworks, Photo Mode ======= */
+function handleCollisions(){
+  const p = state.player; const x = p.x;
+  // potholes
+  for(const o of state.obstacles.potholes){
+    if(!o.hit && Math.abs(x - o.x) < 30){
+      o.hit = true; // tip and slow down
+      p.vx *= 0.5;
+      showOverlay('Pothole — Heads up', `<div class="card"><p>${o.tip}</p><button id="tipOk" class="btn">Got it</button></div>`);
+      setTimeout(()=>{
+        const btn = document.getElementById('tipOk'); if(btn) btn.onclick = ()=> closePanel();
+      }, 0);
+    }
+  }
+  // speed bumps (quiz)
+  for(const o of state.obstacles.speedBumps){
+    if(!o.cleared && Math.abs(x - o.x) < 40){
+      o.cleared = true;
+      const q = o.q;
+      showOverlay('Speed Bump — Quick Check', `<div class="card"><p>${q.prompt}</p><button id="quizBtn" class="btn">${q.btn}</button></div>`);
+      setTimeout(()=>{
+        const btn = document.getElementById('quizBtn'); if(btn) btn.onclick = ()=>{ addXP(q.xp); closePanel(); };
+      }, 0);
+    }
+  }
+  // phase gate
+  if(state.phase1Complete && !state.gate.triggered && Math.abs(x - state.gate.x) < 40){
+    state.gate.triggered = true;
+    launchFireworks();
+    showOverlay('Phase 1 Unlocked 🎖️', `<div class="card"><h3>Gate Cleared!</h3><p>You unlocked Phase 1.</p><button id="medalOk" class="btn">Continue</button></div>`);
+    setTimeout(()=>{
+      const btn = document.getElementById('medalOk'); if(btn) btn.onclick = ()=> closePanel();
+    }, 0);
+  }
+}
+
+function buildGhostStops(){
+  if(state.ghost.stops.length) return;
+  // visit each branch then loop to start
+  state.ghost.stops = [{x:140, wait:0}].concat(GAME_DATA.branches.map(b=>({x:b.x-20, wait:1.8}))).concat([{x: state.world.length-80, wait:2.0}]);
+  state.ghost.stopIndex = 0;
+}
+
+function updateGhost(){
+  buildGhostStops();
+  const g = state.ghost; const dt = state.dt;
+  if(g.pauseT > 0){ g.pauseT -= dt; return; }
+  const target = g.stops[g.stopIndex]; if(!target) return;
+  const dx = target.x - g.x; const speed = 120; // px/s
+  const step = Math.sign(dx) * speed * dt;
+  if(Math.abs(dx) <= Math.abs(step)){
+    g.x = target.x; g.pauseT = target.wait; g.stopIndex = (g.stopIndex+1)%g.stops.length;
+  } else {
+    g.x += step; g.vx = step/dt;
+  }
+}
+
+function drawGhost(){
+  const g = state.ghost; const y = state.player.y; const x = g.x - state.camera.x;
+  if(x<-120 || x>W+120) return;
+  ctx.save(); ctx.globalAlpha = g.alpha;
+  ctx.fillStyle = 'rgba(138,164,255,.8)'; ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.roundRect(x-state.player.w/2, y-state.player.h/2, state.player.w, state.player.h, 8);
+  ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+
+function launchFireworks(){
+  // spawn bursts
+  for(let i=0;i<8;i++){
+    const cx = (state.gate.x - state.camera.x) + (Math.random()*120-60) + state.camera.x;
+    const cy = H - 220 + (Math.random()*40-20);
+    for(let j=0;j<30;j++){
+      const a = Math.random()*Math.PI*2; const sp = 90 + Math.random()*120;
+      state.fireworks.push({x:cx, y:cy, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:1});
+    }
+  }
+}
+
+function updateFireworks(){
+  if(!state.fireworks.length) return;
+  const dt = state.dt;
+  const g = 220; // gravity
+  state.fireworks.forEach(p=>{
+    p.vy += g*dt; p.x += p.vx*dt; p.y += p.vy*dt; p.life -= 0.9*dt;
+  });
+  state.fireworks = state.fireworks.filter(p=>p.life>0 && p.y < H+50);
+}
+
+function drawFireworks(){
+  if(!state.fireworks.length) return;
+  state.fireworks.forEach(p=>{
+    const a = Math.max(0, Math.min(1, p.life));
+    ctx.fillStyle = `rgba(124,248,200,${a})`;
+    ctx.fillRect(p.x - state.camera.x, p.y, 2, 2);
+  });
+}
+
+function triggerPhoto(){
+  if(state.photo.pending) return;
+  state.photo.pending = true;
+  // briefly pause to stabilize frame
+  const wasPaused = state.paused; state.paused = true;
+  setTimeout(()=>{
+    try{
+      // overlay simple frame
+      ctx.save();
+      ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=3; ctx.strokeRect(12,12,W-24,H-24);
+      ctx.fillStyle='rgba(10,16,32,.6)'; ctx.fillRect(14,H-46,W-28,32);
+      ctx.fillStyle='#e6ecff'; ctx.font='14px ui-sans-serif'; ctx.textBaseline='middle';
+  const tag = `${GAME_DATA.project.name} — ${state.dayNight.isNight?'Night Drive':'Day Cruise'}`;
+  const br = state.lastBranchLabel ? ` • ${state.lastBranchLabel}` : '';
+  ctx.fillText(tag + br, 24, H-30);
+      ctx.restore();
+      // export
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = 'axis25-photo.png'; a.click();
+      toast('Saved photo 📸');
+    }finally{
+      state.photo.pending = false;
+      state.paused = wasPaused;
+    }
+  }, 40);
+}
