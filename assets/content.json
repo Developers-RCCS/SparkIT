@@ -7,7 +7,7 @@
   ],
   "branches": [
     {"x":300,"label":"About","type":"about"},
-    {"x":700,"label":"Register","type":"phase1"},
+  {"x":700,"label":"Register","type":"phase1"},
     {"x":1150,"label":"Phase 2","type":"phase2"},
     {"x":1600,"label":"Phase 3","type":"phase3"},
     {"x":2000,"label":"FAQ","type":"faq"},

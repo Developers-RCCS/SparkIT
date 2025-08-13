@@ -52,9 +52,7 @@ const state = {
     vx:0, ax:0,
     accel: 600,          // px/s^2
     friction: 380,       // px/s^2
-    maxSpeed: 420,       // px/s
-    boostMultiplier: 1.8,// speed multiplier when boosting
-    boosting:false
+  maxSpeed: 420        // px/s
   },
   camera:{x:0},
   keys:{}, paused:false, near:null,
@@ -84,15 +82,9 @@ const state = {
     stops: [], // will be built from branches
     stopIndex: 0
   },
-  // boost energy (0..1)
-  boost: { energy: 1, drain: 0.55, regen: 0.25 },
-  // fuel (0..1)
-  fuel: { level: Number(localStorage.getItem('fuel')||'1'), drain: 0.06, regen: 0.35, empty:false, reading:false, lastReadT:0 },
+  // removed fuel/boost systems
   // photo mode
-  photo: { pending:false },
-  // tokens & minigames
-  tokens: JSON.parse(localStorage.getItem('tokens')||'{}'),
-  minigame: { running:false, stop:null }
+  photo: { pending:false }
 };
 
 // throttle state for analog touch input
@@ -123,7 +115,7 @@ updateHUD();
 
 /* ======= Input ======= */
 addEventListener('keydown', e=>{
-  if(['ArrowLeft','ArrowRight','KeyA','KeyD','KeyE','Escape','KeyP','KeyH','KeyF','KeyX'].includes(e.code)) e.preventDefault();
+  if(['ArrowLeft','ArrowRight','KeyA','KeyD','KeyE','Enter','Escape','KeyP','KeyH','KeyF','KeyT'].includes(e.code)) e.preventDefault();
   state.keys[e.code]=true;
   if(e.code==='KeyE' && state.near){ openBranch(state.near) }
   if(e.code==='Enter' && state.near){ openBranch(state.near) }
@@ -131,13 +123,9 @@ addEventListener('keydown', e=>{
   if(e.code==='KeyP'){ togglePause() }
   if(e.code==='KeyH'){ showHelp() }
   if(e.code==='KeyF'){ triggerPhoto() }
-  if(e.code==='ShiftLeft' || e.code==='ShiftRight' || e.code==='KeyX'){ state.player.boosting = true }
   if(e.code==='KeyT'){ toggleTheme() }
 });
 addEventListener('keyup', e=>state.keys[e.code]=false);
-addEventListener('keyup', e=>{
-  if(e.code==='ShiftLeft' || e.code==='ShiftRight' || e.code==='KeyX'){ state.player.boosting = false }
-});
 
 /* Touch */
 const leftBtn = document.getElementById('leftBtn');
@@ -180,10 +168,8 @@ function showOverlay(title, html){
   overlay.style.display='grid';
   overlay.querySelector('.panel').focus();
   state.paused = true;
-  // reading mode fuels up
-  state.fuel.reading = true; state.fuel.lastReadT = performance.now();
 }
-function closePanel(){ overlay.style.display='none'; state.paused=false; state.fuel.reading = false }
+function closePanel(){ overlay.style.display='none'; state.paused=false }
 function togglePause(){ state.paused=!state.paused; toast(state.paused?'Paused ⏸':'Resumed ▶') }
 function showHelp(){
   showOverlay('Controls',
@@ -329,9 +315,8 @@ function exportDemo(){
   const dump = {
     project: GAME_DATA.project,
     submissions: state.submissions,
-    xp: state.xp, level: state.level,
-    phase1Complete: state.phase1Complete,
-    fuel: state.fuel.level,
+  xp: state.xp, level: state.level,
+  phase1Complete: state.phase1Complete,
     exportedAt: new Date().toISOString()
   };
   const blob = new Blob([JSON.stringify(dump,null,2)], {type:'application/json'});
@@ -354,12 +339,10 @@ function importDemo(){
         if(data.level!=null) state.level = Number(data.level)||1;
         if(Array.isArray(data.submissions)) state.submissions = data.submissions;
         if(typeof data.phase1Complete==='boolean' || data.phase1Complete==='1') state.phase1Complete = !!data.phase1Complete;
-        if(data.fuel!=null) state.fuel.level = clamp(Number(data.fuel),0,1);
         localStorage.setItem('submissions', JSON.stringify(state.submissions));
         localStorage.setItem('xp', String(state.xp));
         localStorage.setItem('level', String(state.level));
         localStorage.setItem('phase1Complete', state.phase1Complete?'1':'0');
-        localStorage.setItem('fuel', String(state.fuel.level));
         updateHUD(); toast('Imported progress ✅');
       }catch{ toast('Import failed ❌'); }
     };
@@ -372,14 +355,13 @@ function showPrivacy(){
   const html = `
     <div class="card">
       <h3>Privacy & Consent</h3>
-      <p>We store only what you enter for registration in your browser for this demo. On submission, your data is sent to our secure backend in the live version. No tracking cookies here.</p>
-      <p>Your fuel represents your attention. Opening panels refills your fuel; idling drains it. This helps nudge exploration without coercion.</p>
-      <button id="privacyOk" class="btn">⛽ Fill tank & Continue</button>
+      <p>We store only what you enter for registration locally for this demo. In production, it’s sent securely to our backend. No tracking cookies.</p>
+      <button id="privacyOk" class="btn">OK</button>
     </div>`;
   showOverlay('Consent', html);
   setTimeout(()=>{
     const b = document.getElementById('privacyOk'); if(!b) return;
-    b.onclick = ()=>{ state.fuel.level = 1; localStorage.setItem('fuel','1'); toast('Tank full ⛽'); closePanel(); };
+    b.onclick = ()=>{ closePanel(); };
   },0);
 }
 
@@ -411,16 +393,10 @@ function escapeXml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"
 
 /* ======= Open branch ======= */
 function openBranch(branch){
-  // minigame branch support: type "minigame:<id>"
-  if(String(branch.type||'').startsWith('minigame:')){
-    const id = String(branch.type).split(':')[1]||'slalom';
-    openMinigame(id, branch.label);
-  } else {
-    const html = branchHTML(branch.type);
-    showOverlay(branch.label, html);
-    bindForm();
-    addXP(20);
-  }
+  const html = branchHTML(branch.type);
+  showOverlay(branch.label, html);
+  bindForm();
+  addXP(20);
   state.lastBranchLabel = branch.label;
   const btn = document.getElementById('btnStamp'); if(btn) btn.style.display = '';
 }
@@ -649,14 +625,8 @@ function step(){
       const mag = Math.max(0, Math.abs(p.vx) - p.friction*dt);
       p.vx = mag*sign;
     }
-    // boost
-    let maxV = p.maxSpeed;
-    if(p.boosting && state.boost.energy>0.05){
-      maxV *= p.boostMultiplier;
-      state.boost.energy = Math.max(0, state.boost.energy - state.boost.drain*dt);
-    }else{
-      state.boost.energy = Math.min(1, state.boost.energy + state.boost.regen*dt);
-    }
+  // speed cap only
+  let maxV = p.maxSpeed;
   // sponsor lane buff
   const lanes = state.sponsorLanes||[];
   const onSponsor = lanes.some(l=> p.x>=l.from && p.x<=l.to);
@@ -688,8 +658,7 @@ function step(){
     state.skids.forEach(s=> s.alpha = Math.max(0, s.alpha - 0.3*dt));
     while(state.skids.length && state.skids[0].alpha<=0.01) state.skids.shift();
 
-    // fuel mechanics
-    updateFuel(dt);
+  // fuel removed
   }
 
   // draw
@@ -698,7 +667,7 @@ function step(){
   drawCar();
   drawGhost();
   drawFireworks();
-  drawHUD();
+  // HUD for fuel/boost removed
 
   requestAnimationFrame(step);
 }
@@ -857,40 +826,7 @@ function triggerPhoto(){
 /* ======= Reduced motion ======= */
 const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || false;
 
-/* ======= Fuel & HUD ======= */
-function updateFuel(dt){
-  const moving = Math.abs(state.player.vx) > 10;
-  if(moving && !state.fuel.reading){
-    state.fuel.level = Math.max(0, state.fuel.level - state.fuel.drain*dt);
-  } else if(state.fuel.reading){
-    state.fuel.level = Math.min(1, state.fuel.level + state.fuel.regen*dt);
-  }
-  if(state.fuel.level<=0.001){ state.fuel.empty = true; }
-  else if(state.fuel.level>0.1){ state.fuel.empty = false; }
-  localStorage.setItem('fuel', String(state.fuel.level));
-  // enforce slowdown when empty
-  if(state.fuel.empty){ state.player.vx = Math.min(state.player.vx, 40); }
-}
-
-function drawHUD(){
-  // fuel and boost bars in top-left
-  const pad = 14; const y0 = pad+6; const w=160, h=10;
-  ctx.save();
-  ctx.globalAlpha = 0.9;
-  // fuel
-  ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(pad, y0, w, h);
-  ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.strokeRect(pad, y0, w, h);
-  ctx.fillStyle = '#7cf8c8'; ctx.fillRect(pad, y0, Math.round(w*state.fuel.level), h);
-  ctx.fillStyle = '#a8b3cf'; ctx.font='12px ui-sans-serif'; ctx.textBaseline='top';
-  ctx.fillText('Fuel', pad, y0 - 12);
-  // boost
-  const y1 = y0 + 26;
-  ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(pad, y1, w, h);
-  ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.strokeRect(pad, y1, w, h);
-  ctx.fillStyle = '#8aa4ff'; ctx.fillRect(pad, y1, Math.round(w*state.boost.energy), h);
-  ctx.fillStyle = '#a8b3cf'; ctx.fillText('Boost', pad, y1 - 12);
-  ctx.restore();
-}
+// Fuel/Boost HUD removed
 
 /* ======= Theme toggle ======= */
 function toggleTheme(){ state.theme = state.theme==='neon'?'sunset':'neon'; toast(state.theme==='neon'?'Neon Colombo Night':'Galle Face Sunset'); }
@@ -934,73 +870,3 @@ function buildTextRoute(){
   div.appendChild(ul);
 }
 setTimeout(buildTextRoute, 300);
-
-/* ======= Minigames ======= */
-function openMinigame(id, label){
-  if(state.minigame.running) return;
-  const html = `
-    <div class="grid">
-      <div class="card">
-        <h3>${label||'Minigame'}</h3>
-        <p class="help">Use ←/A and →/D or touch controls. Collect all pickups before time runs out.</p>
-        <div id="mgWrap" style="position:relative; aspect-ratio: 16/9; width:100%; max-height:60vh; background:rgba(11,16,32,.6); border:1px solid rgba(255,255,255,.12); border-radius:12px; overflow:hidden">
-          <canvas id="mg" aria-label="Minigame canvas" style="width:100%; height:100%"></canvas>
-          <div id="mgHud" style="position:absolute; left:8px; top:8px; font-size:12px; color:#e6ecff; background:rgba(0,0,0,.3); padding:4px 8px; border-radius:8px"></div>
-        </div>
-        <div class="row" style="margin-top:10px">
-          <button class="btn" id="mgStart">Start</button>
-          <button class="btn secondary" id="mgExit">Exit</button>
-        </div>
-      </div>
-    </div>`;
-  showOverlay(label||'Minigame', html);
-  const cvs = document.getElementById('mg'); const hud = document.getElementById('mgHud');
-  const startBtn = document.getElementById('mgStart'); const exitBtn = document.getElementById('mgExit');
-  const ctx2 = cvs.getContext('2d');
-  let stopFn = null; exitBtn.onclick = ()=>{ if(stopFn) stopFn(); closePanel(); };
-  startBtn.onclick = ()=>{
-    if(id==='slalom') stopFn = runSlalom(cvs, ctx2, hud, ()=>finishMinigame('slalom'));
-  };
-}
-
-function finishMinigame(tokenId){
-  state.tokens[tokenId] = true; localStorage.setItem('tokens', JSON.stringify(state.tokens));
-  addXP(80);
-  try{ if(navigator.vibrate) navigator.vibrate([20,20,20]); }catch{}
-  const msg = `<div class="card"><h3>Token earned: ${tokenId}</h3><p>Great drive! You collected understanding.</p></div>`;
-  showOverlay('Token Unlocked', msg);
-}
-
-function runSlalom(cvs, ctx2, hud, onFinish){
-  state.minigame.running = true; let playing = true; let last = performance.now();
-  function resize(){ const r=cvs.getBoundingClientRect(); const dpr=Math.min(2,window.devicePixelRatio||1); cvs.width=Math.round(r.width*dpr); cvs.height=Math.round(r.height*dpr); ctx2.setTransform(dpr,0,0,dpr,0,0); }
-  resize();
-  const px = ()=> cvs.width/(window.devicePixelRatio||1);
-  const py = ()=> cvs.height/(window.devicePixelRatio||1);
-  const roadY = ()=> py() - 100;
-  const car = { x: 80, y: roadY(), w: 60, h: 28, vx: 0 };
-  const cones = []; [220,340,520,640,820,980,1140].forEach(x=> cones.push({x, y: roadY()+22, w:18, h:18}));
-  const picks = ['Problem','User','Outcome'].map((t,i)=>({x: 300+i*220, y: roadY()-40, r:14, label:t, got:false}));
-  let tLeft = 20; const key={};
-  const kd=e=>{ if(['ArrowLeft','ArrowRight','KeyA','KeyD'].includes(e.code)) e.preventDefault(); key[e.code]=true; };
-  const ku=e=>{ key[e.code]=false; };
-  addEventListener('keydown', kd); addEventListener('keyup', ku);
-  const onR=()=>resize(); addEventListener('resize', onR);
-  function loop(now){ if(!playing) return; const dt=Math.min(0.033,(now-last)/1000); last=now; tLeft=Math.max(0,tLeft-dt);
-    const dir=((key['ArrowRight']||key['KeyD'])?1:0)-((key['ArrowLeft']||key['KeyA'])?1:0);
-    car.vx += dir*600*dt; car.vx*=0.9; car.x += car.vx*dt; car.x=Math.max(40,Math.min(px()-40,car.x));
-    cones.forEach(c=>{ const hit=Math.abs(c.x-car.x)<(c.w+car.w)*0.5 && Math.abs(c.y-car.y)<(c.h+car.h)*0.5; if(hit){ car.vx*=-0.4; try{ if(navigator.vibrate) navigator.vibrate(20);}catch{} }});
-    picks.forEach(p=>{ if(!p.got && Math.hypot(p.x-car.x,p.y-car.y)<p.r+18){ p.got=true; try{ if(navigator.vibrate) navigator.vibrate(10);}catch{} }});
-    ctx2.clearRect(0,0,px(),py());
-    ctx2.fillStyle='#0b1020'; ctx2.fillRect(0,0,px(),py());
-    ctx2.fillStyle='#0d1427'; ctx2.fillRect(0, roadY()-10, px(), 120);
-    ctx2.fillStyle='#ff9966'; cones.forEach(c=> ctx2.fillRect(c.x-c.w/2,c.y-c.h/2,c.w,c.h));
-    picks.forEach(p=>{ ctx2.beginPath(); ctx2.fillStyle=p.got?'rgba(124,248,200,.6)':'rgba(124,248,200,.3)'; ctx2.arc(p.x,p.y,p.r,0,Math.PI*2); ctx2.fill(); ctx2.fillStyle='#a8b3cf'; ctx2.font='12px Segoe UI, Arial'; ctx2.textAlign='center'; ctx2.textBaseline='middle'; ctx2.fillText(p.label,p.x,p.y-22); });
-    ctx2.fillStyle='#8aa4ff'; ctx2.fillRect(car.x-car.w/2,car.y-car.h/2,car.w,car.h);
-    hud.textContent=`Time: ${Math.ceil(tLeft)}s • Collected: ${picks.filter(p=>p.got).length}/${picks.length}`;
-    if(tLeft<=0 || picks.every(p=>p.got)){ playing=false; cleanup(); onFinish(); return; }
-    requestAnimationFrame(loop);
-  }
-  function cleanup(){ removeEventListener('keydown', kd); removeEventListener('keyup', ku); removeEventListener('resize', onR); state.minigame.running=false; }
-  requestAnimationFrame(loop); const stop=()=>{ playing=false; cleanup(); }; state.minigame.stop=stop; return stop;
-}
