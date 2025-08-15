@@ -82,6 +82,8 @@ const state = {
     stops: [], // will be built from branches
     stopIndex: 0
   },
+  // decorative world billboards (to be initialized after world length known)
+  billboards: [],
   // removed fuel/boost systems
   // photo mode
   photo: { pending:false }
@@ -404,6 +406,107 @@ function openBranch(branch){
 /* ======= Fallback removed ======= */
 
 /* ======= Game world drawing ======= */
+/* ======= Billboards ======= */
+class Billboard {
+  constructor(imgSrc, x){
+    this.img = new Image();
+    this.img.src = imgSrc;
+    this.x = x; // world coordinate (center)
+    this.maxW = 260; this.maxH = 140; // bounding box for logo
+    this.w = 200; this.h = 110; // fallback until image loads
+    this.framePad = 12;
+    this.wobble = 0; this.wobbleSpeed = 500 + Math.random()*500; // ms period variety
+  this.parallax = 1; // use full world movement horizontally so all become reachable
+    this.loaded = false;
+    this.img.onload = ()=>{
+      const iw = this.img.naturalWidth || 1;
+      const ih = this.img.naturalHeight || 1;
+      const scale = Math.min(this.maxW/iw, this.maxH/ih, 1);
+      this.w = Math.round(iw*scale);
+      this.h = Math.round(ih*scale);
+      this.loaded = true;
+    };
+    this.img.onerror = ()=>{
+      console.warn('Billboard image failed to load:', imgSrc);
+      this.loaded = false; // keep placeholder
+    };
+  }
+  update(){ this.wobble = Math.sin(performance.now()/this.wobbleSpeed)*1.5; }
+  draw(ctx, cameraX){
+    // Horizontal position: full world space so last billboard can appear before track ends.
+    const screenX = this.x - cameraX; // no horizontal parallax (previous parallax prevented final visibility)
+    if(screenX < -350 || screenX > W+350) return; // cull
+    const horizonBase = H - 260; // recompute each frame so resize keeps alignment
+    const baseY = horizonBase - 10 + this.wobble; // anchor baseline
+    const poleH = 100; const poleW = 8;
+    const frameX = screenX - this.w/2 - this.framePad;
+    const frameY = baseY - this.h - 26; // lift to peek over skyline silhouettes
+    const frameW = this.w + this.framePad*2;
+    const frameH = this.h + this.framePad*2;
+
+    ctx.save();
+    // optional glow at night
+    if(state.dayNight.isNight){
+      const glowGrad = ctx.createRadialGradient(screenX, frameY+frameH/2, 10, screenX, frameY+frameH/2, frameW);
+      glowGrad.addColorStop(0,'rgba(124,248,200,0.15)');
+      glowGrad.addColorStop(1,'rgba(124,248,200,0)');
+      ctx.fillStyle = glowGrad;
+      ctx.fillRect(frameX-20, frameY-20, frameW+40, frameH+60);
+    }
+    // pole
+    ctx.fillStyle = 'rgba(138,164,255,.38)';
+    ctx.fillRect(screenX - poleW/2, frameY + frameH - 4, poleW, poleH);
+    // shadow below
+    ctx.fillStyle = 'rgba(0,0,0,.28)';
+    ctx.beginPath(); ctx.ellipse(screenX, frameY + frameH + poleH + 4, this.w*0.48, 10, 0, 0, Math.PI*2); ctx.fill();
+    // frame
+    ctx.fillStyle = 'rgba(255,255,255,.10)';
+    ctx.strokeStyle = 'rgba(255,255,255,.28)';
+    ctx.lineWidth = 2;
+    ctx.fillRect(frameX, frameY, frameW, frameH);
+    ctx.strokeRect(frameX, frameY, frameW, frameH);
+    // inner subtle gradient overlay for depth
+    const innerGrad = ctx.createLinearGradient(frameX, frameY, frameX, frameY+frameH);
+    innerGrad.addColorStop(0,'rgba(255,255,255,.04)');
+    innerGrad.addColorStop(1,'rgba(0,0,0,.12)');
+    ctx.fillStyle = innerGrad;
+    ctx.fillRect(frameX+1, frameY+1, frameW-2, frameH-2);
+    // logo
+    if(this.loaded){
+      ctx.drawImage(this.img, screenX - this.w/2, frameY + this.framePad, this.w, this.h);
+      // desaturate look: a dark translucent film
+      ctx.fillStyle = 'rgba(16,24,40,0.18)';
+      ctx.fillRect(screenX - this.w/2, frameY + this.framePad, this.w, this.h);
+    }else{
+      ctx.fillStyle='rgba(255,255,255,.06)';
+      ctx.fillRect(screenX - this.w/2, frameY + this.framePad, this.w, this.h);
+      ctx.fillStyle='rgba(255,255,255,.25)';
+      ctx.font='10px ui-sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('Loading', screenX, frameY + this.framePad + this.h/2);
+    }
+    ctx.restore();
+  }
+}
+
+function initBillboards(){
+  // Equal spacing from BEFORE first branch (About) to last branch (Contact).
+  const branches = GAME_DATA.branches||[];
+  const about = branches.find(b=> /about/i.test(b.label)) || branches[0];
+  const contact = branches.slice().reverse().find(b=> /contact/i.test(b.label)) || branches[branches.length-1];
+  if(!about || !contact){ return; }
+  const startX = Math.max(40, (about.x||300) - 220); // start a little before About
+  const endX = contact.x; // end aligned with Contact branch
+  const count = 4;
+  const span = Math.max(200, endX - startX);
+  const step = span / (count - 1);
+  const positions = Array.from({length:count}, (_,i)=> Math.round(startX + step*i));
+  state.billboards = [];
+  const imgs = ['assets/rc1.png','assets/kghs1.png','assets/rc2.png','assets/kghs2.png'];
+  positions.forEach((x,i)=> state.billboards.push(new Billboard(imgs[i], x)));
+}
+
+initBillboards();
+
 function computeDayNight(){
   try{
     const hourStr = new Intl.DateTimeFormat('en-US',{hour:'2-digit', hour12:false, timeZone:'Asia/Colombo'}).format(new Date());
@@ -444,6 +547,8 @@ function drawBackground(){
     ctx.fillRect(px+20, yBase1-24, 60, 24);
     ctx.fillRect(px+90, yBase1-40, 40, 40);
   }
+  // billboards (parallax layer between skyline and mid trees)
+  state.billboards.forEach(b=>{ b.update(); b.draw(ctx, cx); });
   // mid trees/banners
   const yBase2 = H-180; const speed2 = reduced?0.18:0.45;
   for(let x=-100; x<W+100; x+=160){
@@ -694,6 +799,7 @@ function resize(){
   ctx.scale(dpr, dpr);
   W = vw; H = vh;
   positionPlayerOnRoad();
+  initBillboards(); // recompute billboard placements (y alignment & potential world length changes)
 }
 addEventListener('resize', resize);
 if('visualViewport' in window){
