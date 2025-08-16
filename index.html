@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Axis 25 — Project Journey Game</title>
+<title>SparkIT — ICT Literacy Initiative Game</title>
 <link rel="stylesheet" href="assets/style.css" />
 </head>
-<body>
+<body class="bot-cursor">
 <!-- Header/HUD removed for cleaner in-world UI -->
 
-<div id="game-wrap" role="application" aria-label="Side-scrolling project game">
+<div id="game-wrap" role="application" aria-label="Side-scrolling SparkIT journey game">
   <canvas id="game" width="1280" height="720" aria-label="Game canvas"></canvas>
 </div>
 
@@ -54,5 +54,18 @@
 </noscript>
 
 <script defer src="assets/game.js"></script>
+<!-- Robot Cursor Container -->
+<div id="cursor-bot" aria-hidden="true">
+  <div class="bot">
+    <div class="antenna"><span></span></div>
+    <div class="face" role="presentation">
+      <div style="display:flex; align-items:center;">
+        <div class="eye"></div>
+        <div class="eye"></div>
+        <div class="mouth"></div>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>

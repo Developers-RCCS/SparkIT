@@ -1,16 +1,16 @@
-/* ======= CONTENT: may be overridden by assets/content.json ======= */
+/* ==    about: "SparkIT is a bold initiative to ignite ICT literacy across the nation, starting from schools. It unfolds in three powerful phases to bridge the gap between what schools teach and what the tech industry demands.",==== CONTENT: may be overridden by assets/content.json ======= */
 let GAME_DATA = {
   project: {
-    name: "Axis 25 — Digital Economy Summit",
-    tagline: "A 3-phase journey: learn, build, and launch.",
+    name: "SparkIT — ICT Literacy Initiative",
+    tagline: "Igniting ICT literacy across Sri Lanka, one district at a time.",
     about: "Axis 25 explores Sri Lanka’s digital economy through hands-on learning and maker energy. Start in Phase 1 to register and pitch your idea; build in Phase 2; showcase in Phase 3.",
-    location: "Colombo, Sri Lanka",
-    date: "October 10–12, 2025"
+    location: "Sri Lanka",
+    date: "2024-2025"
   },
   phases: [
     {
-      id: 1, title: "Phase 1 — Exploration",
-      summary: "Register, share your idea, and join the cohort.",
+      id: 1, title: "Phase 1 & 2 — Bridging the Gap",
+      summary: "For schools already exposed to ICT, SparkIT strengthens their foundation with advanced programming, robotics, and cybersecurity.",
       open: true,
       formFields: [
         {name:"fullName", label:"Full Name", type:"text", required:true},
@@ -20,18 +20,18 @@ let GAME_DATA = {
       ]
     },
     {
-      id: 2, title: "Phase 2 — Development",
-      summary: "Prototype, test, and get mentored.",
+      id: 2, title: "Phase 2 — Advanced Foundation",
+      summary: "Students dive into advanced topics like programming, robotics, and cybersecurity to match real industry needs.",
       open: false
     },
     {
-      id: 3, title: "Phase 3 — Showcase",
-      summary: "Pitch and present your outcomes.",
+      id: 3, title: "Phase 3 — The Big Leap",
+      summary: "Monthly district workshops with sci-fi themed immersive learning, establishing ICT societies and continuous mentorship.",
       open: false
     }
   ],
   branches: [
-    { x: 300,  label:"About Project", type:"about" },
+    { x: 300,  label:"Overview", type:"about" },
     { x: 700,  label:"Phase 1 — Register", type:"phase1" },
     { x: 1150, label:"Phase 2 — Details", type:"phase2" },
     { x: 1600, label:"Phase 3 — Details", type:"phase3" },
@@ -159,10 +159,7 @@ const overlay = document.getElementById('overlay');
 const panelContent = document.getElementById('panel-content');
 const panelTitle = document.getElementById('panel-title');
 document.getElementById('closePanel').onclick = closePanel;
-const btnExport = document.getElementById('btnExport'); if(btnExport) btnExport.onclick = exportDemo;
-const btnImport = document.getElementById('btnImport'); if(btnImport) btnImport.onclick = importDemo;
-const btnPrivacy = document.getElementById('btnPrivacy'); if(btnPrivacy) btnPrivacy.onclick = showPrivacy;
-const btnStamp = document.getElementById('btnStamp'); if(btnStamp) btnStamp.onclick = shareStamp;
+// Removed Export/Import/Privacy/Share Stamp buttons per request
 
 function showOverlay(title, html){
   panelTitle.textContent = title;
@@ -191,8 +188,8 @@ function showHelp(){
 function branchHTML(type){
   if(type==='about'){
     return `
-      <div class="grid cols-2">
-        <div class="card">
+      <div class="grid overview">
+        <div class="card hero">
           <h3>${GAME_DATA.project.name}</h3>
           <p>${GAME_DATA.project.tagline}</p>
           <div class="meta">
@@ -200,16 +197,31 @@ function branchHTML(type){
             <span class="chip">🗓 ${GAME_DATA.project.date}</span>
           </div>
         </div>
-        <div class="card">
-          <h4>About</h4>
+        <div class="card problem">
+          <h4>🚨 The Problem</h4>
+          <p>Sri Lankan students face a growing gap between what schools teach and what the tech industry demands. With AI and global competition rising fast, students risk leaving school unprepared for the digital future.</p>
+        </div>
+        <div class="card solution">
+          <h4>💡 The SparkIT Solution</h4>
           <p>${GAME_DATA.project.about}</p>
         </div>
-        ${GAME_DATA.phases.map(p=>`
-          <div class="card">
-            <h4>${p.title}</h4>
-            <p>${p.summary}</p>
-            <div class="meta"><span class="chip">${p.open?'Open ✅':'Locked 🔒'}</span></div>
-          </div>`).join('')}
+        <div class="card phase">
+          <h4>⚡ Phase 1 & 2 — Bridging the Gap</h4>
+          <p>For schools already exposed to ICT, SparkIT strengthens their foundation. Students dive into advanced topics like programming, robotics, and cybersecurity to match real industry needs.</p>
+        </div>
+        <div class="card phase">
+          <h4>🚀 Phase 3 — The Big Leap</h4>
+          <p>Each month, SparkIT goes out to a new district, bringing an immersive one-day sci-fi themed workshop that transforms learning into an adventure. This is followed by:</p>
+          <ul style="margin-top: 10px;">
+            <li>• Establishing ICT societies in schools</li>
+            <li>• Equipping them with resources</li>
+            <li>• Continuous mentorship and follow-ups to ensure long-term growth</li>
+          </ul>
+        </div>
+        <div class="card impact">
+          <h4>🌍 The Impact</h4>
+          <p>SparkIT isn't just another school project — it's a national movement. By empowering schools across districts, we aim to raise ICT literacy for an entire generation of Sri Lankans. This might be the most impactful initiative ever carried out by a student-led organization in Sri Lanka.</p>
+        </div>
       </div>`;
   }
   if(type==='phase1'){
@@ -313,83 +325,6 @@ function bindForm(){
 }
 
 /* ======= Export demo data ======= */
-function exportDemo(){
-  const dump = {
-    project: GAME_DATA.project,
-    submissions: state.submissions,
-  xp: state.xp, level: state.level,
-  phase1Complete: state.phase1Complete,
-    exportedAt: new Date().toISOString()
-  };
-  const blob = new Blob([JSON.stringify(dump,null,2)], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'axis25-demo-export.json';
-  a.click();
-  URL.revokeObjectURL(a.href);
-  toast('Exported demo JSON 📦');
-}
-
-function importDemo(){
-  const inp = document.createElement('input'); inp.type='file'; inp.accept='.json,application/json';
-  inp.onchange = ()=>{
-    const f = inp.files?.[0]; if(!f) return;
-    const r = new FileReader(); r.onload = ()=>{
-      try{
-        const data = JSON.parse(String(r.result||'{}'));
-        if(data.xp!=null) state.xp = Number(data.xp)||0;
-        if(data.level!=null) state.level = Number(data.level)||1;
-        if(Array.isArray(data.submissions)) state.submissions = data.submissions;
-        if(typeof data.phase1Complete==='boolean' || data.phase1Complete==='1') state.phase1Complete = !!data.phase1Complete;
-        localStorage.setItem('submissions', JSON.stringify(state.submissions));
-        localStorage.setItem('xp', String(state.xp));
-        localStorage.setItem('level', String(state.level));
-        localStorage.setItem('phase1Complete', state.phase1Complete?'1':'0');
-        updateHUD(); toast('Imported progress ✅');
-      }catch{ toast('Import failed ❌'); }
-    };
-    r.readAsText(f);
-  };
-  inp.click();
-}
-
-function showPrivacy(){
-  const html = `
-    <div class="card">
-      <h3>Privacy & Consent</h3>
-      <p>We store only what you enter for registration locally for this demo. In production, it’s sent securely to our backend. No tracking cookies.</p>
-      <button id="privacyOk" class="btn">OK</button>
-    </div>`;
-  showOverlay('Consent', html);
-  setTimeout(()=>{
-    const b = document.getElementById('privacyOk'); if(!b) return;
-    b.onclick = ()=>{ closePanel(); };
-  },0);
-}
-
-function shareStamp(){
-  // Create a simple SVG stamp and trigger download
-  const label = state.lastBranchLabel || 'Axis 25';
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="256">
-    <defs>
-      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#8aa4ff"/><stop offset="100%" stop-color="#7cf8c8"/>
-      </linearGradient>
-    </defs>
-    <rect width="100%" height="100%" fill="#0b1020"/>
-    <rect x="8" y="8" width="496" height="240" rx="18" fill="url(#g)" opacity="0.15" stroke="#8aa4ff"/>
-    <text x="24" y="72" font-size="24" fill="#e6ecff" font-family="Segoe UI, Arial">I unlocked</text>
-    <text x="24" y="120" font-size="40" fill="#7cf8c8" font-family="Segoe UI, Arial" font-weight="bold">${escapeXml(label)}</text>
-    <text x="24" y="170" font-size="18" fill="#a8b3cf" font-family="Segoe UI, Arial">#Axis25</text>
-  </svg>`;
-  const blob = new Blob([svg], {type:'image/svg+xml'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `axis25-stamp-${Date.now()}.svg`; a.click(); URL.revokeObjectURL(a.href);
-  try{
-    const shareText = `I unlocked ${label} 🚀 #Axis25`;
-    if(navigator.share) navigator.share({ text: shareText }).catch(()=>{});
-  }catch{}
-  toast('Stamp saved 🏷️');
-}
 
 function escapeXml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&apos;"}[c]))}
 
@@ -400,7 +335,11 @@ function openBranch(branch){
   bindForm();
   addXP(20);
   state.lastBranchLabel = branch.label;
-  const btn = document.getElementById('btnStamp'); if(btn) btn.style.display = '';
+  // Removed share stamp button usage
+  // Initialize liquid interaction & panel car only for overview
+  if(branch.type==='about'){
+    setTimeout(()=>{ try{ enhanceOverviewLiquidEffects(); }catch(e){ console.warn(e);} },0);
+  }
 }
 
 /* ======= Fallback removed ======= */
@@ -486,12 +425,12 @@ class Billboard {
 }
 
 function initBillboards(){
-  // Equal spacing from BEFORE first branch (About) to last branch (Contact).
+  // Equal spacing from BEFORE first branch (Overview) to last branch (Contact).
   const branches = GAME_DATA.branches||[];
   const about = branches.find(b=> /about/i.test(b.label)) || branches[0];
   const contact = branches.slice().reverse().find(b=> /contact/i.test(b.label)) || branches[branches.length-1];
   if(!about || !contact){ return; }
-  const startX = Math.max(40, (about.x||300) - 220); // start a little before About
+  const startX = Math.max(40, (about.x||300) - 220); // start a little before Overview
   const endX = contact.x; // end aligned with Contact branch
   const count = 4;
   const span = Math.max(200, endX - startX);
@@ -931,6 +870,71 @@ function triggerPhoto(){
 /* ======= Reduced motion ======= */
 const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || false;
 
+/* ======= Robot Cursor Character ======= */
+(()=>{
+  const bot = document.getElementById('cursor-bot');
+  if(!bot) return;
+  const body = document.body;
+  let tx=window.innerWidth/2, ty=window.innerHeight/2; // target
+  let x=tx, y=ty; // current
+  let vx=0, vy=0; // velocity for easing
+  let lastMoveT = performance.now();
+  let waveCooldown = 0;
+  const followEase = 10; // higher = snappier
+  const damp = 5.5;
+  function loop(now){
+    const dt = Math.min(.05,(now - (loop._last||now))/1000); loop._last = now;
+    const ax = (tx - x)*followEase - vx*damp;
+    const ay = (ty - y)*followEase - vy*damp;
+    vx += ax*dt; vy += ay*dt;
+    x += vx*dt; y += vy*dt;
+    bot.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+    // idle / active state
+    if(now - lastMoveT < 280){ bot.classList.add('active'); } else { bot.classList.remove('active'); }
+    if(waveCooldown>0) waveCooldown -= dt;
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+  window.addEventListener('pointermove', e=>{
+    tx = e.clientX; ty = e.clientY; lastMoveT = performance.now();
+  }, {passive:true});
+  window.addEventListener('pointerdown', ()=>{
+    if(waveCooldown<=0){ bot.classList.add('wave'); setTimeout(()=>bot.classList.remove('wave'), 650); waveCooldown = 2.2; }
+  });
+  // Accessibility: allow toggle with keyboard (press C) to show system cursor again
+  window.addEventListener('keydown', e=>{ if(e.code==='KeyC'){ body.classList.toggle('bot-cursor'); if(!body.classList.contains('bot-cursor')){ bot.style.display='none'; } else { bot.style.display='block'; } } });
+  // Interaction with overview liquid cards: slight lean towards nearest animated card
+  const observeLiquid = new MutationObserver(()=>attach());
+  observeLiquid.observe(document.getElementById('panel-content'), {childList:true, subtree:true});
+  function attach(){
+    const grid = document.querySelector('#panel-content .grid.overview'); if(!grid) return;
+    grid.addEventListener('pointermove', e=>{
+      const card = e.target.closest('.card'); if(!card) return;
+      // small attract effect: nudge bot 6% toward card center
+      const r = card.getBoundingClientRect();
+      const cx = r.left + r.width/2; const cy = r.top + r.height/2;
+      tx += (cx - tx)*0.06; ty += (cy - ty)*0.06;
+      // expression mode selection
+      let mode = 'hero';
+      if(card.classList.contains('problem')) mode='problem'; else
+      if(card.classList.contains('solution')) mode='solution'; else
+      if(card.classList.contains('impact')) mode='impact'; else
+      if(card.classList.contains('phase')) mode='phase'; else
+      if(card.classList.contains('hero')) mode='hero';
+      if(bot._mode !== mode){
+        bot._mode = mode;
+        bot.classList.add('transitioning');
+        bot.setAttribute('data-mode', mode);
+        clearTimeout(bot._t1); bot._t1 = setTimeout(()=> bot.classList.remove('transitioning'), 320);
+      }
+    }, {passive:true});
+    grid.addEventListener('pointerleave', ()=>{
+      bot._mode=''; bot.removeAttribute('data-mode');
+    });
+  }
+  attach();
+})();
+
 // Fuel/Boost HUD removed
 
 /* ======= Theme toggle ======= */
@@ -975,3 +979,108 @@ function buildTextRoute(){
   div.appendChild(ul);
 }
 setTimeout(buildTextRoute, 300);
+
+/* ======= Liquid Overview FX & Panel Car ======= */
+function enhanceOverviewLiquidEffects(){
+  const panel = document.querySelector('#panel-content .grid.overview');
+  if(!panel) return;
+  panel.classList.add('liquid-enabled');
+  // Clean any previous FX
+  if(state.liquidFX){
+    cancelAnimationFrame(state.liquidFX.raf);
+    if(state.liquidFX.interval) clearInterval(state.liquidFX.interval);
+  }
+  const cards = [...panel.querySelectorAll('.card')];
+  const physics = cards.map(el=>({el, x:0,y:0,vx:0,vy:0, tx:0,ty:0}));
+  let lastT = performance.now();
+  let lastMX = null, lastMY = null;
+  function frame(now){
+    const dt = Math.min(.05,(now-lastT)/1000); lastT = now;
+    physics.forEach(p=>{
+      const k = 6, d = 4; // spring & damping
+      const ax = (p.tx - p.x)*k - p.vx*d;
+      const ay = (p.ty - p.y)*k - p.vy*d;
+      p.vx += ax*dt; p.vy += ay*dt;
+      p.x += p.vx*dt; p.y += p.vy*dt;
+      // gentle friction
+      p.vx *= 0.995; p.vy *= 0.995;
+      p.el.style.setProperty('--dx', p.x.toFixed(3)+'px');
+      p.el.style.setProperty('--dy', p.y.toFixed(3)+'px');
+      // subtle sheen parallax
+      p.el.style.setProperty('--glowX', (p.x*0.6).toFixed(2)+'px');
+      p.el.style.setProperty('--glowY', (p.y*0.6).toFixed(2)+'px');
+      // tilt based on displacement
+      p.el.style.setProperty('--rotX', (p.y*-0.4).toFixed(2)+'deg');
+      p.el.style.setProperty('--rotY', (p.x*0.4).toFixed(2)+'deg');
+    });
+    state.liquidFX.raf = requestAnimationFrame(frame);
+  }
+  state.liquidFX = {physics, raf: requestAnimationFrame(frame), interval:0};
+  const panelEl = document.querySelector('.panel');
+  if(!panelEl) return;
+  // Pointer influence
+  panel.addEventListener('pointermove', e=>{
+    const rect = panel.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    let vx = 0, vy = 0;
+    if(lastMX!=null){ vx = mx - lastMX; vy = my - lastMY; }
+    lastMX = mx; lastMY = my;
+    physics.forEach(p=>{
+      const r = p.el.getBoundingClientRect();
+      const cx = r.left + r.width/2 - rect.left;
+      const cy = r.top + r.height/2 - rect.top;
+      const dx = (mx - cx)/r.width;
+      const dy = (my - cy)/r.height;
+      const dist = Math.hypot(dx,dy);
+      const influence = Math.max(0, 1 - dist*1.05);
+      // Cursor velocity gives extra impulse (fluid feel)
+      p.tx = dx*16*influence;
+      p.ty = dy*16*influence;
+      p.vx += vx*0.04*influence;
+      p.vy += vy*0.04*influence;
+    });
+  }, {passive:true});
+  panel.addEventListener('pointerleave', ()=>{
+    physics.forEach(p=>{ p.tx = 0; p.ty = 0; });
+  });
+  panel.addEventListener('pointerdown', e=>{
+    // ripple impulse
+    const rect = panel.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    physics.forEach(p=>{
+      const r = p.el.getBoundingClientRect();
+      const cx = r.left + r.width/2 - rect.left;
+      const cy = r.top + r.height/2 - rect.top;
+      const dx = (cx - mx); const dy = (cy - my);
+      const dist = Math.hypot(dx,dy);
+      const fall = Math.max(0, 1 - dist/420);
+      p.vx += (dx/dist||0)*-4*fall;
+      p.vy += (dy/dist||0)*-4*fall;
+    });
+  });
+  // Scroll influence
+  let lastScroll = panelEl.scrollTop;
+  panelEl.addEventListener('scroll', ()=>{
+    const s = panelEl.scrollTop; const delta = s - lastScroll; lastScroll = s;
+    physics.forEach(p=>{ p.vy += delta*0.11; p.vx += (Math.random()*2-1)*0.3; });
+  }, {passive:true});
+  // Random drifting impulses
+  state.liquidFX.interval = setInterval(()=>{
+    physics.forEach(p=>{ if(Math.random()<0.18){ p.vx += (Math.random()*2-1)*2.4; p.vy += (Math.random()*2-1)*2.4; }});
+  }, 2400);
+}
+
+// Extend closePanel to cleanup FX
+const _closePanelOrig = closePanel;
+closePanel = function(){
+  try{
+    if(state.liquidFX){
+      cancelAnimationFrame(state.liquidFX.raf);
+      if(state.liquidFX.interval) clearInterval(state.liquidFX.interval);
+      delete state.liquidFX;
+    }
+  }catch{}
+  _closePanelOrig();
+};
