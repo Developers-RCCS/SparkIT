@@ -432,18 +432,18 @@ class Billboard {
     };
   }
   update(){ this.wobble = Math.sin(performance.now()/this.wobbleSpeed)*1.5; }
-  draw(ctx, cameraX){
+  draw(ctx, cameraX, groundY){
     // Horizontal position: full world space so last billboard can appear before track ends.
     const screenX = this.x - cameraX; // no horizontal parallax (previous parallax prevented final visibility)
     if(screenX < -350 || screenX > W+350) return; // cull
-    const horizonBase = H - 260; // recompute each frame so resize keeps alignment
-    const baseY = horizonBase - 10 + this.wobble; // anchor baseline
-    const poleH = 100; const poleW = 8;
-    const frameX = screenX - this.w/2 - this.framePad;
-    const frameY = baseY - this.h - 26; // lift to peek over skyline silhouettes
-    const frameW = this.w + this.framePad*2;
+    // Ground line behind buildings (passed from background renderer)
+    const gY = groundY || (H - 240);
+    // Desired clearance from ground to bottom of sign frame
+    const clearance = 118 + this.wobble; // wobble subtly affects vertical feel
     const frameH = this.h + this.framePad*2;
-
+    const frameW = this.w + this.framePad*2;
+    const frameY = gY - clearance - frameH; // mount sign so pole reaches ground
+    const frameX = screenX - this.w/2 - this.framePad;
     ctx.save();
     // optional glow at night
     if(state.dayNight.isNight){
@@ -453,12 +453,9 @@ class Billboard {
       ctx.fillStyle = glowGrad;
       ctx.fillRect(frameX-20, frameY-20, frameW+40, frameH+60);
     }
-    // pole
-    ctx.fillStyle = 'rgba(138,164,255,.38)';
-    ctx.fillRect(screenX - poleW/2, frameY + frameH - 4, poleW, poleH);
-    // shadow below
+    // shadow below (floating board - no poles)
     ctx.fillStyle = 'rgba(0,0,0,.28)';
-    ctx.beginPath(); ctx.ellipse(screenX, frameY + frameH + poleH + 4, this.w*0.48, 10, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(screenX, frameY + frameH + 8, this.w*0.48, 10, 0, 0, Math.PI*2); ctx.fill();
     // frame
     ctx.fillStyle = 'rgba(255,255,255,.10)';
     ctx.strokeStyle = 'rgba(255,255,255,.28)';
@@ -538,17 +535,19 @@ function drawBackground(){
 
   // parallax layers
   const cx = state.camera.x;
-  // distant skyline
+  // establish building baseline first so billboards can anchor behind it
+  const yBase1 = H-240; const speed1 = reduced?0.05:0.2; // slowest layer movement
+  // billboards (draw FIRST so buildings will partially occlude their poles, making them appear behind)
+  state.billboards.forEach(b=>{ b.update(); b.draw(ctx, cx, yBase1); });
+  // distant skyline (draw after billboards to sit visually in front of them)
   ctx.fillStyle = isNight ? 'rgba(138,164,255,.18)' : 'rgba(30,64,120,.25)';
-  const yBase1 = H-240; const speed1 = reduced?0.05:0.2; // slowest
   for(let x=-200; x<W+200; x+=220){
     const px = x - (cx*speed1 % 220);
+    // building base & simple shape
     ctx.fillRect(px, yBase1, 140, 10);
     ctx.fillRect(px+20, yBase1-24, 60, 24);
     ctx.fillRect(px+90, yBase1-40, 40, 40);
   }
-  // billboards (parallax layer between skyline and mid trees)
-  state.billboards.forEach(b=>{ b.update(); b.draw(ctx, cx); });
   // mid trees/banners
   const yBase2 = H-180; const speed2 = reduced?0.18:0.45;
   for(let x=-100; x<W+100; x+=160){
