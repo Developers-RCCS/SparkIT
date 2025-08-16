@@ -875,11 +875,15 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
   const bot = document.getElementById('cursor-bot');
   if(!bot) return;
   const body = document.body;
+  const closeBtn = document.getElementById('closePanel');
   let tx=window.innerWidth/2, ty=window.innerHeight/2; // target
   let x=tx, y=ty; // current
   let vx=0, vy=0; // velocity for easing
   let lastMoveT = performance.now();
   let waveCooldown = 0;
+  let mobileMode = false; // compact mode for touch devices
+  let targetExpr = null; // {mode,cx,cy,radius}
+  let activeMode = ''; // currently applied expression
   const followEase = 10; // higher = snappier
   const damp = 5.5;
   function loop(now){
@@ -892,6 +896,21 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
     // idle / active state
     if(now - lastMoveT < 280){ bot.classList.add('active'); } else { bot.classList.remove('active'); }
     if(waveCooldown>0) waveCooldown -= dt;
+
+    // Expression activation strictly on arrival inside target inner bounds (rectangle hysteresis)
+    if(targetExpr){
+      const {mode, inner, outer} = targetExpr;
+      const inInner = x >= inner.l && x <= inner.r && y >= inner.t && y <= inner.b;
+      const inOuter = x >= outer.l && x <= outer.r && y >= outer.t && y <= outer.b;
+      if(inInner && activeMode !== mode){
+        activeMode = mode;
+        bot.classList.add('transitioning');
+        bot.setAttribute('data-mode', activeMode);
+        clearTimeout(bot._t1); bot._t1 = setTimeout(()=> bot.classList.remove('transitioning'), 240);
+      } else if(activeMode === mode && !inOuter){
+        activeMode=''; bot.removeAttribute('data-mode');
+      }
+    } else if(activeMode){ activeMode=''; bot.removeAttribute('data-mode'); }
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
@@ -914,25 +933,92 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
       const r = card.getBoundingClientRect();
       const cx = r.left + r.width/2; const cy = r.top + r.height/2;
       tx += (cx - tx)*0.06; ty += (cy - ty)*0.06;
-      // expression mode selection
-      let mode = 'hero';
-      if(card.classList.contains('problem')) mode='problem'; else
-      if(card.classList.contains('solution')) mode='solution'; else
-      if(card.classList.contains('impact')) mode='impact'; else
-      if(card.classList.contains('phase')) mode='phase'; else
-      if(card.classList.contains('hero')) mode='hero';
-      if(bot._mode !== mode){
-        bot._mode = mode;
-        bot.classList.add('transitioning');
-        bot.setAttribute('data-mode', mode);
-        clearTimeout(bot._t1); bot._t1 = setTimeout(()=> bot.classList.remove('transitioning'), 320);
-      }
+      // record desired expression ONLY; activation happens when robot enters inner bounds
+  let mode = 'hero';
+  if(card.classList.contains('problem')) mode='problem'; else
+  if(card.classList.contains('solution')) mode='solution'; else
+  if(card.classList.contains('impact')) mode='impact'; else
+  if(card.classList.contains('phase')) mode='phase'; else
+  if(card.classList.contains('hero')) mode='hero';
+      const padInner = 6; // tighter to delay activation until real arrival
+      const padOuter = 14; // looser to prevent rapid flicker on exit
+      targetExpr = {
+        mode,
+        inner:{ l:r.left+padInner, t:r.top+padInner, r:r.right-padInner, b:r.bottom-padInner },
+        outer:{ l:r.left-padOuter, t:r.top-padOuter, r:r.right+padOuter, b:r.bottom+padOuter }
+      };
     }, {passive:true});
     grid.addEventListener('pointerleave', ()=>{
-      bot._mode=''; bot.removeAttribute('data-mode');
+  targetExpr = null; // expression will clear once out of range
     });
   }
   attach();
+
+  /* ===== Mobile / Touch Optimization ===== */
+  function detectMobile(){
+    const small = window.innerWidth < 760 || window.innerHeight < 600;
+    const touchCap = ('ontouchstart' in window) || navigator.maxTouchPoints>0;
+    return small && touchCap;
+  }
+  function applyMobileMode(on){
+    if(on === mobileMode) return;
+    mobileMode = on;
+    if(on){
+      bot.classList.add('mobile');
+      bot.style.width='64px'; bot.style.height='64px';
+      // Park helper at bottom-right as an assist bubble until user touches screen
+      tx = window.innerWidth - 70; ty = window.innerHeight - 80;
+      x = tx; y = ty; bot.style.transform=`translate(${x}px,${y}px)`;
+      bot.setAttribute('data-mode','hero');
+      // Tap to toggle follow
+      let following = false;
+      bot.addEventListener('pointerdown', ()=>{
+        following = !following;
+        if(following){ waveCooldown = 0; lastMoveT = performance.now(); bot.classList.add('active'); }
+      });
+      window.addEventListener('pointermove', e=>{ if(following){ tx = e.clientX; ty = e.clientY; lastMoveT = performance.now(); } }, {passive:true});
+    } else {
+      bot.classList.remove('mobile');
+      bot.style.width='54px'; bot.style.height='54px';
+    }
+  }
+  applyMobileMode(detectMobile());
+  window.addEventListener('resize', ()=> applyMobileMode(detectMobile()));
+
+  /* ===== Reaction to Close Button ===== */
+  if(closeBtn){
+    const updateCloseTarget = ()=>{
+      const r = closeBtn.getBoundingClientRect();
+      const padInner = 2; const padOuter = 12; // tight inner, generous outer for easy exit
+      const cx = r.left + r.width/2, cy = r.top + r.height/2;
+      targetExpr = {
+        mode:'phase',
+        inner:{ l:r.left+padInner, t:r.top+padInner, r:r.right-padInner, b:r.bottom-padInner },
+        outer:{ l:r.left-padOuter, t:r.top-padOuter, r:r.right+padOuter, b:r.bottom+padOuter }
+      };
+      // Soft attraction toward center
+      tx += (cx - tx)*0.25; ty += (cy - ty)*0.25;
+    };
+    closeBtn.addEventListener('pointerenter', updateCloseTarget);
+    closeBtn.addEventListener('focus', updateCloseTarget);
+    closeBtn.addEventListener('pointerleave', ()=>{ targetExpr = null; });
+    closeBtn.addEventListener('blur', ()=>{ targetExpr = null; });
+    closeBtn.addEventListener('pointerdown', ()=>{
+      // On click animate impact; immediate override independent of arrival
+      activeMode='impact'; bot.setAttribute('data-mode','impact');
+      setTimeout(()=>{ if(activeMode==='impact'){ activeMode=''; bot.removeAttribute('data-mode'); targetExpr=null; } }, 520);
+    });
+
+    // Expanded hit area (logic only) without altering button size
+    const HIT_PAD = 14;
+    document.addEventListener('pointerup', e=>{
+      if(!overlay || overlay.style.display==='none') return;
+      const r = closeBtn.getBoundingClientRect();
+      if(e.clientX >= r.left - HIT_PAD && e.clientX <= r.right + HIT_PAD && e.clientY >= r.top - HIT_PAD && e.clientY <= r.bottom + HIT_PAD){
+        closeBtn.click();
+      }
+    });
+  }
 })();
 
 // Fuel/Boost HUD removed

@@ -552,6 +552,14 @@ body.bot-cursor * { cursor: none !important; }
 
 #cursor-bot.transitioning .face { transition:background .25s ease, transform .25s ease; }
 
+/* Mobile compact helper mode */
+#cursor-bot.mobile { transition:transform .5s ease; }
+#cursor-bot.mobile .face { border-radius:22px; }
+#cursor-bot.mobile .mouth { top:8px; }
+
+/* Close button synergy */
+button#closePanel:hover, button#closePanel:focus-visible { outline:2px solid var(--accent); outline-offset:2px; box-shadow:0 0 12px -2px rgba(124,248,200,.6); }
+
 @keyframes eye-blink { 0%,4%,100% { transform:scaleY(1);} 2%,3% { transform:scaleY(.15);} }
 @media (prefers-reduced-motion: reduce){
   #cursor-bot .bot, #cursor-bot .eye, #cursor-bot .antenna span::after { animation:none !important; }
