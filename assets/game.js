@@ -623,8 +623,9 @@ function drawRoad(){
     ctx.fillRect(bx - sw/2, roadY-130 - sh, sw, sh);
     ctx.strokeRect(bx - sw/2, roadY-130 - sh, sw, sh);
 
-  // sign label with backdrop
-  const label = b.label;
+  // sign label with backdrop (rename Phase 1 register)
+  let label = b.label;
+  if(/phase 1/i.test(label) || b.type==='phase1') label = 'SparkIT Flash';
   ctx.font='600 14px ui-sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
   // backdrop halo for contrast
   ctx.fillStyle='rgba(11,16,32,.5)'; ctx.fillRect(bx - sw/2 + 6, roadY-130 - sh + 6, sw-12, sh-12);
@@ -677,8 +678,33 @@ function exitTimeline(){
   toast('Returned to Highway');
 }
 function drawTimeline(){
-  // backdrop
-  ctx.fillStyle = '#081224'; ctx.fillRect(0,0,W,H);
+  // dark base
+  ctx.fillStyle = '#04080f'; ctx.fillRect(0,0,W,H);
+  // parallax cave layers (simple sine contours)
+  const t = performance.now()/1000;
+  for(let layer=0; layer<4; layer++){
+    const speed = 0.1 + layer*0.07;
+    const amp = 18 + layer*6;
+    const col = ['#0a1622','#0d1d2b','#102534','#142e3f'][layer];
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    for(let x=0;x<=W;x+=40){
+      const y = Math.sin((x*0.35 + t*120*speed) / 50 + layer)*amp + layer*28;
+      ctx.lineTo(x,y);
+    }
+    ctx.lineTo(W,0); ctx.closePath();
+    ctx.globalAlpha = 0.25 - layer*0.04; ctx.fill(); ctx.globalAlpha=1;
+    // lower strata floor silhouettes
+    ctx.beginPath();
+    ctx.moveTo(0,H);
+    for(let x=0;x<=W;x+=60){
+      const y = H - (layer*40 + 60) - Math.sin((x*0.25 + t*90*speed))/ (0.6+layer*0.2) * 18;
+      ctx.lineTo(x,y);
+    }
+    ctx.lineTo(W,H); ctx.closePath();
+    ctx.globalAlpha=0.12 + layer*0.05; ctx.fill(); ctx.globalAlpha=1;
+  }
   // vertical track
   const trackX = W/2;
   ctx.strokeStyle='rgba(124,248,200,.4)'; ctx.lineWidth=10; ctx.lineCap='round';
@@ -691,7 +717,16 @@ function drawTimeline(){
     if(yScreen < -140 || yScreen > H+140) return;
     const active = Math.abs(p.y - m.y) < 70;
     if(active){ state.near = { label:m.title, type:'timeline:'+m.key, _timeline:m }; }
-    ctx.fillStyle = active? 'rgba(124,248,200,.9)' : 'rgba(138,164,255,.55)';
+    // compute attenuation based on torch distance (bot position)
+    let atten = 1;
+    try{
+      const bot = document.getElementById('cursor-bot');
+      const r = bot?.getBoundingClientRect();
+      const by = r ? r.top + r.height/2 : H/2;
+      const dy = Math.abs(by - yScreen);
+      atten = Math.max(0.15, 1 - dy/520);
+    }catch{}
+    ctx.fillStyle = active? `rgba(124,248,200,${0.6+0.3*atten})` : `rgba(138,164,255,${0.25+0.35*atten})`;
     ctx.beginPath(); ctx.ellipse(trackX, yScreen, 22, 22, 0, 0, Math.PI*2); ctx.fill();
     // outline
     ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.lineWidth=2; ctx.beginPath(); ctx.ellipse(trackX, yScreen, 30, 30, 0, 0, Math.PI*2); ctx.stroke();
@@ -706,6 +741,21 @@ function drawTimeline(){
   });
   ctx.font='12px ui-sans-serif'; ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.6)';
   if(p.y < 240) ctx.fillText('Spark Flash ↓ / S descend • Up / W exit', trackX, 54); else ctx.fillText('Spark Flash: E open • Up climb • Up @ top exit', trackX, 54);
+  // torch spotlight (simulate from bot head relative to pointer; fallback center)
+  try{
+    const bot = document.getElementById('cursor-bot');
+    const r = bot?.getBoundingClientRect();
+    const bx = r ? r.left + r.width/2 : W/2;
+    const by = r ? r.top + r.height/2 : H/2;
+    const grad = ctx.createRadialGradient(bx,by,20,bx,by,320);
+    grad.addColorStop(0,'rgba(255,255,210,0.55)');
+    grad.addColorStop(0.25,'rgba(255,255,180,0.25)');
+    grad.addColorStop(1,'rgba(0,0,0,0.88)');
+    ctx.fillStyle = grad;
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillRect(0,0,W,H);
+    ctx.globalCompositeOperation = 'source-over';
+  }catch{}
 }
 
 /* ======= Car drawing ======= */
