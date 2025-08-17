@@ -1,4 +1,3 @@
-/* ==    about: "SparkIT is a bold initiative to ignite ICT literacy across the nation, starting from schools. It unfolds in three powerful phases to bridge the gap between what schools teach and what the tech industry demands.",==== CONTENT: may be overridden by assets/content.json ======= */
 let GAME_DATA = {
   project: {
     name: "SparkIT — ICT Literacy Initiative",
@@ -39,7 +38,6 @@ let GAME_DATA = {
     { x: 2400, label:"Contact", type:"contact" }
   ]
 };
-/* ======= end content ======= */
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -54,20 +52,22 @@ const state = {
     accel: 600,          // px/s^2
     friction: 380,       // px/s^2
   maxSpeed: 420        // px/s
-  },
+  },/* ======= end content ======= */
+
   camera:{x:0, y:0},
   mode:'road', // 'road' | 'timeline'
   timeline:{
     active:false,
     length: 2000,
     milestones:[
-      { y:160, key:'intro', title:'Phase 1 Overview', text:'Goals & orientation.' },
-      { y:520, key:'register', title:'Registration Submitted', text:'Form completion and validation.' },
-      { y:880, key:'mentor', title:'Mentor Match', text:'Pairing with mentor for guidance.' },
-      { y:1240, key:'prototype', title:'Prototype Draft', text:'Early prototype checkpoint.' },
-      { y:1600, key:'refine', title:'Refinement Sprint', text:'Iterate based on feedback.' },
-      { y:1960, key:'final', title:'Final Pitch', text:'Presentation & submission.' }
+  { y:160, key:'registration', title:'Registration', text:'Complete your Spark Flash registration.' },
+  { y:560, key:'workshop1', title:'Workshop 1', text:'Foundations & orientation session.' },
+  { y:960, key:'workshop2', title:'Workshop 2', text:'Deep dive: skills & applied practice.' },
+  { y:1360, key:'workshop3', title:'Workshop 3', text:'Advanced challenges & mentor sync.' },
+  { y:1760, key:'competitions', title:'Competitions', text:'Pitch, demo & compete for recognition.' }
     ],
+  crystals:[],
+  particles:[],
     visited:new Set(),
     roadReturnY:null
   },
@@ -136,8 +136,12 @@ addEventListener('keydown', e=>{
   if(['ArrowLeft','ArrowRight','KeyA','KeyD','KeyE','Enter','Escape','KeyP','KeyH','KeyF','KeyT'].includes(e.code)) e.preventDefault();
   state.keys[e.code]=true;
   if(state.mode==='road'){
-    if((e.code==='ArrowDown'||e.code==='KeyS') && state.near && /phase 1/i.test(state.near.label||'')){
-      enterTimeline();
+    if(state.near && /phase 1/i.test(state.near.label||'')){
+      // Allow either Down/S or E/Enter to enter timeline (no popup anymore)
+      if(e.code==='ArrowDown' || e.code==='KeyS' || e.code==='KeyE' || e.code==='Enter'){
+        enterTimeline();
+        return; // prevent branch popup
+      }
     }
   } else if(state.mode==='timeline'){
     if((e.code==='ArrowUp'||e.code==='KeyW') && state.player.y <= 140){ exitTimeline(); }
@@ -358,6 +362,11 @@ function openBranch(branch){
     const m = branch._timeline;
     if(m){ state.timeline.visited.add(m.key); showOverlay(m.title, `<div class="card"><h3>${m.title}</h3><p>${m.text}</p><p class="help">Timeline milestone (demo)</p></div>`); return; }
   }
+  // Intercept Phase 1 branch to enter underground timeline instead of popup
+  if(branch && branch.type==='phase1'){
+    enterTimeline();
+    return;
+  }
   const html = branchHTML(branch.type);
   showOverlay(branch.label, html);
   bindForm();
@@ -383,7 +392,7 @@ class Billboard {
     this.w = 200; this.h = 110; // fallback until image loads
     this.framePad = 12;
     this.wobble = 0; this.wobbleSpeed = 500 + Math.random()*500; // ms period variety
-  this.parallax = 1; // use full world movement horizontally so all become reachable
+    this.parallax = 1; // use full world movement horizontally so all become reachable
     this.loaded = false;
     this.img.onload = ()=>{
       const iw = this.img.naturalWidth || 1;
@@ -637,7 +646,7 @@ function enterTimeline(){
   state.timeline.roadReturnY = state.player.y;
   // reposition player at entry node near top (represent start of vertical track)
   state.player.vx=0; state.player.ax=0; state.player.vy=0; state.player.ay=0; state.player.y = 160;
-  toast('Entered Phase 1 Timeline');
+  toast('Entered Spark Flash');
 }
 function exitTimeline(){
   if(!state.timeline.active) return;
@@ -676,40 +685,63 @@ function drawTimeline(){
     }
   });
   ctx.font='12px ui-sans-serif'; ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.6)';
-  if(p.y < 240) ctx.fillText('↓ Arrow / S to descend • Up / W near top to exit', trackX, 54); else ctx.fillText('E to open milestone • Up to climb • Up at top exits', trackX, 54);
+  if(p.y < 240) ctx.fillText('Spark Flash ↓ / S descend • Up / W exit', trackX, 54); else ctx.fillText('Spark Flash: E open • Up climb • Up @ top exit', trackX, 54);
 }
 
 /* ======= Car drawing ======= */
 function drawCar(){
   const p = state.player;
   const y = p.y, x = p.x - state.camera.x;
+  // transformation progress
+  let transP = 0;
+  if(state.transition){
+    const {start,duration,kind} = state.transition;
+    transP = clamp((performance.now()-start)/duration,0,1);
+    if(transP>=1){ delete state.transition; }
+    if(kind==='exit-underground') transP = 1 - transP; // reverse for exit morph
+  }
 
   // shadow
-  ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y+p.h, p.w*.6, 10, 0, 0, Math.PI*2); ctx.fill();
-
-  // body
-  const grad = ctx.createLinearGradient(x-p.w/2,y-20,x+p.w/2,y+20);
-  grad.addColorStop(0,'#8aa4ff'); grad.addColorStop(1,'#7cf8c8');
-  ctx.fillStyle = grad; ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=1.2;
-  ctx.beginPath();
-  ctx.roundRect(x-p.w/2, y-p.h/2, p.w, p.h, 8);
-  ctx.fill(); ctx.stroke();
-
-  // windows
-  ctx.fillStyle='rgba(255,255,255,.25)';
-  ctx.fillRect(x-p.w/2+10, y-p.h/2+6, 24, p.h-12);
-  ctx.fillRect(x+p.w/2-34, y-p.h/2+6, 24, p.h-12);
-
-  // wheels
-  ctx.fillStyle='#0c1226';
-  ctx.beginPath(); ctx.arc(x-p.w/3, y+p.h/2, 12, 0, Math.PI*2); ctx.arc(x+p.w/3, y+p.h/2, 12, 0, Math.PI*2); ctx.fill();
-
-  // headlight glow if moving right
-  if(state.player.vx>20){
-    const lg = ctx.createRadialGradient(x+p.w/2, y, 0, x+p.w/2+70, y, 80);
-    lg.addColorStop(0,'rgba(255,255,255,.25)'); lg.addColorStop(1,'rgba(255,255,255,0)');
-    ctx.fillStyle=lg; ctx.beginPath(); ctx.ellipse(x+p.w/2+70, y, 80, 28, 0, 0, Math.PI*2); ctx.fill();
+  if(state.mode==='timeline'){
+    // Rocket / drilling module hybrid
+    const baseW = p.w * (1 - 0.3*transP);
+    const bodyH = p.h + 50;
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.fillStyle = '#7cf8c8';
+    ctx.strokeStyle='rgba(255,255,255,.3)'; ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(0,-bodyH/2);
+    ctx.lineTo(baseW/2, bodyH/2-14);
+    ctx.lineTo(0, bodyH/2);
+    ctx.lineTo(-baseW/2, bodyH/2-14);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // window
+    ctx.fillStyle='rgba(0,0,0,.5)'; ctx.beginPath(); ctx.ellipse(0,-6, baseW*0.25, 14,0,0,Math.PI*2); ctx.fill();
+    // flame if moving down
+    if(state.player.vy>20){
+      const f = ctx.createLinearGradient(0,0,0,60); f.addColorStop(0,'rgba(255,200,80,.9)'); f.addColorStop(1,'rgba(255,80,20,0)');
+      ctx.fillStyle=f; ctx.beginPath(); ctx.moveTo(0, bodyH/2); ctx.lineTo(10, bodyH/2+60); ctx.lineTo(-10, bodyH/2+60); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  } else {
+    // Car (default)
+    const grad = ctx.createLinearGradient(x-p.w/2,y-20,x+p.w/2,y+20);
+    grad.addColorStop(0,'#8aa4ff'); grad.addColorStop(1,'#7cf8c8');
+    ctx.fillStyle = grad; ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.roundRect(x-p.w/2, y-p.h/2, p.w, p.h, 8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.25)';
+    ctx.fillRect(x-p.w/2+10, y-p.h/2+6, 24, p.h-12);
+    ctx.fillRect(x+p.w/2-34, y-p.h/2+6, 24, p.h-12);
+    ctx.fillStyle='#0c1226';
+    ctx.beginPath(); ctx.arc(x-p.w/3, y+p.h/2, 12, 0, Math.PI*2); ctx.arc(x+p.w/3, y+p.h/2, 12, 0, Math.PI*2); ctx.fill();
+    if(state.player.vx>20){
+      const lg = ctx.createRadialGradient(x+p.w/2, y, 0, x+p.w/2+70, y, 80);
+      lg.addColorStop(0,'rgba(255,255,255,.25)'); lg.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.fillStyle=lg; ctx.beginPath(); ctx.ellipse(x+p.w/2+70, y, 80, 28, 0, 0, Math.PI*2); ctx.fill();
+    }
   }
+  // end transformation branch
 
   // skid marks
   state.skids.forEach(s=>{
@@ -845,7 +877,9 @@ canvas.addEventListener('pointerdown', (e)=>{
   for(const b of GAME_DATA.branches){
     if(Math.abs(wx - b.x) < 80){ found = b; break; }
   }
-  if(found) openBranch(found);
+  if(found){
+    if(found.type==='phase1'){ enterTimeline(); } else { openBranch(found); }
+  }
 });
 
 /* ======= Initial friendly toast ======= */
@@ -965,6 +999,7 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
   if(!bot) return;
   const body = document.body;
   const closeBtn = document.getElementById('closePanel');
+  const hat = bot.querySelector('.hard-hat');
   let tx=window.innerWidth/2, ty=window.innerHeight/2; // target
   let x=tx, y=ty; // current
   let vx=0, vy=0; // velocity for easing
@@ -1073,6 +1108,14 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
   }
   applyMobileMode(detectMobile());
   window.addEventListener('resize', ()=> applyMobileMode(detectMobile()));
+
+  // Observe body class changes to toggle hard-hat
+  const classObserver = new MutationObserver(()=>{
+    if(!hat) return;
+    if(document.body.classList.contains('underground-mode')) hat.style.display='block'; else hat.style.display='none';
+  });
+  classObserver.observe(document.body,{attributes:true, attributeFilter:['class']});
+  if(document.body.classList.contains('underground-mode')){ if(hat) hat.style.display='block'; }
 
   /* ===== Reaction to Close Button ===== */
   if(closeBtn){
