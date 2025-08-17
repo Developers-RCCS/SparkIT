@@ -50,11 +50,27 @@ const state = {
   player:{
     x:120, y:H-160, w:80, h:36,
     vx:0, ax:0,
+    vy:0, ay:0,
     accel: 600,          // px/s^2
     friction: 380,       // px/s^2
   maxSpeed: 420        // px/s
   },
-  camera:{x:0},
+  camera:{x:0, y:0},
+  mode:'road', // 'road' | 'timeline'
+  timeline:{
+    active:false,
+    length: 2000,
+    milestones:[
+      { y:160, key:'intro', title:'Phase 1 Overview', text:'Goals & orientation.' },
+      { y:520, key:'register', title:'Registration Submitted', text:'Form completion and validation.' },
+      { y:880, key:'mentor', title:'Mentor Match', text:'Pairing with mentor for guidance.' },
+      { y:1240, key:'prototype', title:'Prototype Draft', text:'Early prototype checkpoint.' },
+      { y:1600, key:'refine', title:'Refinement Sprint', text:'Iterate based on feedback.' },
+      { y:1960, key:'final', title:'Final Pitch', text:'Presentation & submission.' }
+    ],
+    visited:new Set(),
+    roadReturnY:null
+  },
   keys:{}, paused:false, near:null,
   world:{ length: 3000 },
   xp: Number(localStorage.getItem('xp')||0),
@@ -119,6 +135,13 @@ updateHUD();
 addEventListener('keydown', e=>{
   if(['ArrowLeft','ArrowRight','KeyA','KeyD','KeyE','Enter','Escape','KeyP','KeyH','KeyF','KeyT'].includes(e.code)) e.preventDefault();
   state.keys[e.code]=true;
+  if(state.mode==='road'){
+    if((e.code==='ArrowDown'||e.code==='KeyS') && state.near && /phase 1/i.test(state.near.label||'')){
+      enterTimeline();
+    }
+  } else if(state.mode==='timeline'){
+    if((e.code==='ArrowUp'||e.code==='KeyW') && state.player.y <= 140){ exitTimeline(); }
+  }
   if(e.code==='KeyE' && state.near){ openBranch(state.near) }
   if(e.code==='Enter' && state.near){ openBranch(state.near) }
   if(e.code==='Escape'){ closePanel() }
@@ -330,6 +353,11 @@ function escapeXml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"
 
 /* ======= Open branch ======= */
 function openBranch(branch){
+  // Handle synthetic timeline milestone branches
+  if(branch && typeof branch.type==='string' && branch.type.startsWith('timeline:')){
+    const m = branch._timeline;
+    if(m){ state.timeline.visited.add(m.key); showOverlay(m.title, `<div class="card"><h3>${m.title}</h3><p>${m.text}</p><p class="help">Timeline milestone (demo)</p></div>`); return; }
+  }
   const html = branchHTML(branch.type);
   showOverlay(branch.label, html);
   bindForm();
@@ -602,6 +630,55 @@ function drawRoad(){
   }
 }
 
+/* ===== Timeline Vertical Mode ===== */
+function enterTimeline(){
+  if(state.timeline.active) return;
+  state.timeline.active = true; state.mode='timeline';
+  state.timeline.roadReturnY = state.player.y;
+  // reposition player at entry node near top (represent start of vertical track)
+  state.player.vx=0; state.player.ax=0; state.player.vy=0; state.player.ay=0; state.player.y = 160;
+  toast('Entered Phase 1 Timeline');
+}
+function exitTimeline(){
+  if(!state.timeline.active) return;
+  state.timeline.active=false; state.mode='road';
+  state.player.vy=0; state.player.ay=0;
+  positionPlayerOnRoad();
+  state.camera.y = 0;
+  toast('Returned to Highway');
+}
+function drawTimeline(){
+  // backdrop
+  ctx.fillStyle = '#081224'; ctx.fillRect(0,0,W,H);
+  // vertical track
+  const trackX = W/2;
+  ctx.strokeStyle='rgba(124,248,200,.4)'; ctx.lineWidth=10; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(trackX, -state.camera.y + 100); ctx.lineTo(trackX, -state.camera.y + state.timeline.length + 200); ctx.stroke();
+  // milestones
+  const p = state.player;
+  state.near = null;
+  state.timeline.milestones.forEach(m=>{
+    const yScreen = m.y - state.camera.y;
+    if(yScreen < -140 || yScreen > H+140) return;
+    const active = Math.abs(p.y - m.y) < 70;
+    if(active){ state.near = { label:m.title, type:'timeline:'+m.key, _timeline:m }; }
+    ctx.fillStyle = active? 'rgba(124,248,200,.9)' : 'rgba(138,164,255,.55)';
+    ctx.beginPath(); ctx.ellipse(trackX, yScreen, 22, 22, 0, 0, Math.PI*2); ctx.fill();
+    // outline
+    ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.lineWidth=2; ctx.beginPath(); ctx.ellipse(trackX, yScreen, 30, 30, 0, 0, Math.PI*2); ctx.stroke();
+    // label
+    ctx.font='600 16px ui-sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillStyle='#e6ecff';
+    ctx.fillText(m.title, trackX + 48, yScreen);
+    // progress bar
+    ctx.fillStyle='rgba(255,255,255,.1)'; ctx.fillRect(trackX+48, yScreen+16, 180, 5);
+    if(state.timeline.visited.has(m.key)){
+      ctx.fillStyle='rgba(124,248,200,.85)'; ctx.fillRect(trackX+48, yScreen+16, 180, 5);
+    }
+  });
+  ctx.font='12px ui-sans-serif'; ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.6)';
+  if(p.y < 240) ctx.fillText('↓ Arrow / S to descend • Up / W near top to exit', trackX, 54); else ctx.fillText('E to open milestone • Up to climb • Up at top exits', trackX, 54);
+}
+
 /* ======= Car drawing ======= */
 function drawCar(){
   const p = state.player;
@@ -650,66 +727,78 @@ function step(){
   state.lastT = now;
 
   if(!state.paused){
-  const leftKey = state.keys['ArrowLeft']||state.keys['KeyA'];
-  const rightKey = state.keys['ArrowRight']||state.keys['KeyD'];
-  const left = leftKey || leftHeld;
-  const right = rightKey || rightHeld;
+    const leftKey = state.keys['ArrowLeft']||state.keys['KeyA'];
+    const rightKey = state.keys['ArrowRight']||state.keys['KeyD'];
+    const upKey = state.keys['ArrowUp']||state.keys['KeyW'];
+    const downKey = state.keys['ArrowDown']||state.keys['KeyS'];
+    const left = leftKey || leftHeld; // retained for potential lateral movement reuse
+    const right = rightKey || rightHeld;
     const p = state.player; const dt = state.dt;
-    // input acceleration
-  const analog = (rightKey?1:state.throttle.right) - (leftKey?1:state.throttle.left);
-  const dir = clamp(analog, -1, 1);
-  const targetAx = dir * p.accel;
-    p.ax = targetAx;
-    // apply acceleration
-    p.vx += p.ax * dt;
-    // friction if no input
-    if(dir===0){
-      const sign = Math.sign(p.vx);
-      const mag = Math.max(0, Math.abs(p.vx) - p.friction*dt);
-      p.vx = mag*sign;
+    if(state.mode==='road'){
+      const analog = (rightKey?1:state.throttle.right) - (leftKey?1:state.throttle.left);
+      const dir = clamp(analog, -1, 1);
+      p.ax = dir * p.accel;
+      p.vx += p.ax * dt;
+      if(dir===0){
+        const sign = Math.sign(p.vx);
+        const mag = Math.max(0, Math.abs(p.vx) - p.friction*dt);
+        p.vx = mag*sign;
+      }
+      let maxV = p.maxSpeed;
+      const lanes = state.sponsorLanes||[];
+      const onSponsor = lanes.some(l=> p.x>=l.from && p.x<=l.to);
+      if(onSponsor){ maxV *= 1.25; }
+      p.vx = clamp(p.vx, -maxV, maxV);
+      const prevV = p.vx;
+      p.x += p.vx * dt;
+      p.x = clamp(p.x, 40, state.world.length-40);
+      if(Math.abs(p.ax) > p.accel*0.8 && Math.abs(prevV) > p.maxSpeed*0.4){
+        state.skids.push({ x:p.x, alpha:0.25 });
+        if(state.skids.length>120) state.skids.shift();
+      }
+      state.camera.x = clamp(p.x - W*0.5, 0, state.world.length - W + 0);
+      state.near = null;
+      handleCollisions();
+      updateGhost();
+      updateFireworks();
+      state.skids.forEach(s=> s.alpha = Math.max(0, s.alpha - 0.3*dt));
+      while(state.skids.length && state.skids[0].alpha<=0.01) state.skids.shift();
+    } else if(state.mode==='timeline'){
+      const dirY = (downKey?1:0) - (upKey?1:0);
+      p.ay = dirY * p.accel;
+      p.vy += p.ay * dt;
+      if(dirY===0){
+        const sign = Math.sign(p.vy);
+        const mag = Math.max(0, Math.abs(p.vy) - p.friction*dt);
+        p.vy = mag*sign;
+      }
+      p.vy = clamp(p.vy, -p.maxSpeed*0.75, p.maxSpeed*0.75);
+      p.y += p.vy * dt;
+      p.y = clamp(p.y, 140, state.timeline.length);
+      state.camera.y = clamp(p.y - H*0.45, 0, state.timeline.length - H*0.5 + 200);
     }
-  // speed cap only
-  let maxV = p.maxSpeed;
-  // sponsor lane buff
-  const lanes = state.sponsorLanes||[];
-  const onSponsor = lanes.some(l=> p.x>=l.from && p.x<=l.to);
-  if(onSponsor){ maxV *= 1.25; }
-    // clamp speed
-    p.vx = clamp(p.vx, -maxV, maxV);
-    // integrate position
-    const prevV = p.vx;
-    p.x += p.vx * dt;
-    p.x = clamp(p.x, 40, state.world.length-40);
-
-    // skid generation on sharp decel
-    if(Math.abs(p.ax) > p.accel*0.8 && Math.abs(prevV) > p.maxSpeed*0.4){
-      state.skids.push({ x:p.x, alpha:0.25 });
-      if(state.skids.length>120) state.skids.shift();
-    }
-
-    // camera follows
-    state.camera.x = clamp(p.x - W*0.5, 0, state.world.length - W + 0);
-    state.near = null;
-
-    // interactions: obstacles
-    handleCollisions();
-    // ghost update
-    updateGhost();
-    // fireworks update
-    updateFireworks();
-    // fade skids
-    state.skids.forEach(s=> s.alpha = Math.max(0, s.alpha - 0.3*dt));
-    while(state.skids.length && state.skids[0].alpha<=0.01) state.skids.shift();
 
   // fuel removed
   }
 
   // draw
   ctx.clearRect(0,0,W,H);
-  drawRoad();
-  drawCar();
-  drawGhost();
-  drawFireworks();
+  if(state.mode==='road'){
+    drawRoad();
+    drawCar();
+    drawGhost();
+    drawFireworks();
+  } else if(state.mode==='timeline'){
+    drawTimeline();
+    const trackX = W/2; // center alignment
+    const savedX = state.player.x;
+    state.player.x = trackX; // lock horizontally in timeline
+    ctx.save();
+    ctx.translate(0, -state.camera.y);
+    drawCar();
+    ctx.restore();
+    state.player.x = savedX;
+  }
   // HUD for fuel/boost removed
 
   requestAnimationFrame(step);
