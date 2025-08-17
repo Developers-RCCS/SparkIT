@@ -461,24 +461,44 @@ class Billboard {
   }
 }
 
-function initBillboards(){
-  // Equal spacing from BEFORE first branch (Overview) to last branch (Contact).
-  const branches = GAME_DATA.branches||[];
-  const about = branches.find(b=> /about/i.test(b.label)) || branches[0];
-  const contact = branches.slice().reverse().find(b=> /contact/i.test(b.label)) || branches[branches.length-1];
-  if(!about || !contact){ return; }
-  const startX = Math.max(40, (about.x||300) - 220); // start a little before Overview
-  const endX = contact.x; // end aligned with Contact branch
-  const count = 4;
-  const span = Math.max(200, endX - startX);
-  const step = span / (count - 1);
-  const positions = Array.from({length:count}, (_,i)=> Math.round(startX + step*i));
-  state.billboards = [];
-  const imgs = ['assets/rc1.png','assets/kghs1.png','assets/rc2.png','assets/kghs2.png'];
-  positions.forEach((x,i)=> state.billboards.push(new Billboard(imgs[i], x)));
+function initBillboards() {
+  // remove old container if exists
+  let container = document.getElementById("logo-container");
+  if (container) container.remove();
+
+  // create a container for logos
+  container = document.createElement("div");
+  container.id = "logo-container";
+  container.style.position = "fixed";      // stay in place
+  container.style.top = "10px";            // little space from top
+  container.style.left = "50%";            // start at center
+  container.style.transform = "translateX(-50%)"; // center align
+  container.style.display = "flex";        // arrange in a row
+  container.style.alignItems = "center";   // vertically center logos
+  container.style.gap = "20px";            // spacing between logos
+  container.style.height = "100px";        // container height
+  container.style.zIndex = "9999";
+
+  const imgs = [
+    { src: 'assets/rc1.png', width: 70, height: 100},
+    { src: 'assets/kghs1.png', width: 80, height: 80 },
+    { src: 'assets/rc2.png', width: 100, height: 50 },
+    { src: 'assets/kghs2.png', width: 120, height: 120 }
+  ];
+
+  imgs.forEach(({src, width, height}) => {
+    const img = document.createElement("img");
+    img.src = src;
+    img.style.width = width + "px";
+    img.style.height = height + "px";
+    container.appendChild(img);
+  });
+
+  document.body.appendChild(container);
 }
 
 initBillboards();
+
 
 function computeDayNight(){
   try{
