@@ -105,6 +105,39 @@ const state = {
   photo: { pending:false }
 };
 
+// Lightning (SparkIT Flash energizer)
+state.lightning = {
+  next: performance.now() + 4500, // initial delay
+  active:false,
+  t:0,
+  duration: 320,
+  afterglow:0,
+  strikeX:null,
+  strikeY:null,
+  points:[],
+  arcs:[]
+};
+function scheduleLightningStrike(delay=6000){ state.lightning.next = performance.now() + delay; }
+function buildLightningPath(x1,y1,x2,y2){
+  const pts=[{x:x1,y:y1}];
+  const segments = 14;
+  for(let i=1;i<segments;i++){
+    const t=i/segments; const ix = x1 + (x2-x1)*t + (Math.random()-0.5)*38*(1-t);
+    const iy = y1 + (y2-y1)*t + (Math.random()-0.5)*22;
+    pts.push({x:ix,y:iy});
+  }
+  pts.push({x:x2,y:y2});
+  return pts;
+}
+function triggerLightning(){
+  const L = state.lightning; if(!state.phase1Sign) return;
+  L.active=true; L.t=0; L.afterglow=0; L.strikeX = state.phase1Sign.x; L.strikeY = state.phase1Sign.y;
+  L.points = buildLightningPath(L.strikeX, -140 + state.camera.x, L.strikeX, L.strikeY - 40);
+  L.arcs = Array.from({length:5},()=>({life: 140+Math.random()*160, x:L.strikeX+(Math.random()*120-60), y:L.strikeY-60+Math.random()*60}));
+  // slight XP reward easter egg
+  addXP(5);
+}
+
 // throttle state for analog touch input
 state.throttle = { left:0, right:0 };
 
@@ -652,6 +685,25 @@ function drawRoad(){
   ctx.font='600 14px ui-sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
   // backdrop halo for contrast
   ctx.fillStyle='rgba(11,16,32,.5)'; ctx.fillRect(bx - sw/2 + 6, roadY-130 - sh + 6, sw-12, sh-12);
+  // record phase1 sign world position for lightning (center of sign face)
+  if(b.type==='phase1' || /sparkit flash/i.test(label)){
+    state.phase1Sign = { x: b.x, y: roadY-130 - sh/2 };
+  }
+  // energetic animation overlay if lightning afterglow
+  const L = state.lightning;
+  let glowPulse = 0;
+  if(L.afterglow>0 && state.phase1Sign && Math.abs(b.x - state.phase1Sign.x)<2){
+    glowPulse = (Math.sin(performance.now()/120)+1)/2;
+    ctx.fillStyle = `rgba(124,248,200,${0.55 + 0.35*glowPulse})`;
+    ctx.save();
+    ctx.translate(bx, roadY-130 - sh/2);
+    for(let r=70;r>18;r-=14){
+      ctx.strokeStyle = `rgba(124,248,200,${(0.05 + glowPulse*0.08).toFixed(3)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.stroke();
+    }
+    ctx.restore();
+  }
   ctx.fillStyle='#e6ecff'; ctx.fillText(label, bx, roadY-130 - sh/2);
 
     // interact hint if near
@@ -661,6 +713,58 @@ function drawRoad(){
       state.near = b;
     }
   });
+
+  // Lightning update & draw (overlay after signs)
+  const L = state.lightning; const now = performance.now();
+  if(!L.active && now >= L.next){ triggerLightning(); }
+  if(L.active){
+    L.t += state.dt*1000; // ms
+    // flicker rebuild path for dynamic effect
+    if(Math.random()<0.25){
+      L.points = buildLightningPath(L.strikeX, -140 + state.camera.x, L.strikeX, L.strikeY - 40);
+    }
+    // screen flash
+    const flashA = Math.max(0, 1 - L.t/ L.duration);
+    ctx.save();
+    ctx.globalCompositeOperation='lighter';
+    ctx.strokeStyle = `rgba(124,248,200,${0.8*flashA})`; ctx.lineWidth=4;
+    ctx.beginPath();
+    L.points.forEach((pt,i)=>{ const sx = pt.x - state.camera.x; const sy = pt.y; if(i===0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy); });
+    ctx.stroke();
+    // inner core
+    ctx.strokeStyle = `rgba(255,255,255,${flashA})`; ctx.lineWidth=2;
+    ctx.beginPath();
+    L.points.forEach((pt,i)=>{ const sx = pt.x - state.camera.x; const sy = pt.y; if(i===0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy); });
+    ctx.stroke();
+    // radial flash near impact
+    if(state.phase1Sign){
+      const ix = L.strikeX - state.camera.x; const iy = L.strikeY;
+      const radG = ctx.createRadialGradient(ix,iy,0,ix,iy,160);
+      radG.addColorStop(0,`rgba(124,248,200,${0.35*flashA})`);
+      radG.addColorStop(1,'rgba(124,248,200,0)');
+      ctx.fillStyle = radG; ctx.beginPath(); ctx.arc(ix,iy,160,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+    // arcs
+    L.arcs.forEach(a=>{ a.life -= state.dt*1000; if(a.life>0){
+      ctx.save(); ctx.globalAlpha = Math.min(0.6, a.life/160);
+      ctx.strokeStyle='rgba(124,248,200,.8)'; ctx.lineWidth=1.5;
+      ctx.beginPath();
+      const sx = L.strikeX - state.camera.x, sy = L.strikeY;
+      const ex = a.x - state.camera.x, ey = a.y;
+      ctx.moveTo(sx,sy);
+      const midx = (sx+ex)/2 + (Math.random()-0.5)*18;
+      const midy = (sy+ey)/2 + (Math.random()-0.5)*18;
+      ctx.lineTo(midx, midy); ctx.lineTo(ex,ey);
+      ctx.stroke(); ctx.restore();
+    }});
+    L.arcs = L.arcs.filter(a=>a.life>0);
+    if(L.t >= L.duration){
+      L.active=false; L.afterglow = 3600; scheduleLightningStrike(6500 + Math.random()*4000);
+    }
+  } else if(L.afterglow>0){
+    L.afterglow -= state.dt*1000; if(L.afterglow<0) L.afterglow=0;
+  }
 
   // obstacles removed
 
