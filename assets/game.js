@@ -68,6 +68,13 @@ const state = {
     ],
   crystals:[],
   particles:[],
+  // enhancements
+  orbs:[],            // collectible energy orbs
+  ambient:[],         // ambient floating particles / motes
+  badges: JSON.parse(localStorage.getItem('badges')||'[]'), // earned badges
+  hack:{ active:false, progress:0, target:'', timer:0, completed:false },
+  confetti:[],        // celebration particles for competitions
+  camY:0,             // inertial camera y (smoothed)
     visited:new Set(),
     roadReturnY:null
   },
@@ -1023,6 +1030,7 @@ function exitTimeline(){
 function drawTimeline(){
   // dark base
   ctx.fillStyle = '#04080f'; ctx.fillRect(0,0,W,H);
+  ensureTimelineEnhancementsInit();
   // parallax cave layers (simple sine contours)
   const t = performance.now()/1000;
   for(let layer=0; layer<4; layer++){
@@ -1102,6 +1110,9 @@ function drawTimeline(){
       ctx.fillStyle='rgba(124,248,200,.85)'; ctx.fillRect(trackX+48, yScreen+16, 180, 5);
     }
   });
+  // collectibles & ambient & hack progress updates
+  updateAmbient(); updateOrbs(); updateHackMiniGame(); updateConfetti(); checkCompetitionCelebration();
+  drawAmbient(); drawOrbs(); drawTimelineParticles(); drawTether(); drawHackMiniGame(); drawMilestoneTooltip(); drawConfetti(); drawTimelineMinimap(); drawBadgesHUD();
   // clear workshop variant if no current active workshop milestone proximity
   if(!(state.near && /workshop/.test(state.near.type||''))){
     if(state.currentWorkshopVariant){
@@ -1174,6 +1185,204 @@ function drawTimelineParticles(){
     }
   }
 }
+
+/* ===== Timeline Enhancements (collectibles, ambient, minimap, tether, hack, badges) ===== */
+function ensureTimelineEnhancementsInit(){
+  const tl = state.timeline;
+  // seed ambient motes lazily
+  if(!tl._ambientSeeded){
+    for(let i=0;i<140;i++) tl.ambient.push({x: (Math.random()*W*0.6 + W*0.2), y: Math.random()*tl.length, r: 2+Math.random()*4, drift:(Math.random()*0.4+0.2), pulse:Math.random()*Math.PI*2});
+    tl._ambientSeeded = true;
+  }
+  // seed orbs (one at each milestone gap midpoint)
+  if(!tl._orbsSeeded){
+    const ms = tl.milestones.slice().sort((a,b)=>a.y-b.y);
+    for(let i=0;i<ms.length-1;i++){
+      const a = ms[i], b = ms[i+1];
+      const mid = (a.y + b.y)/2;
+      tl.orbs.push({y: mid, x: W/2 + (i%2===0? -70:70), collected:false, wobble:Math.random()*Math.PI*2});
+    }
+    tl._orbsSeeded = true;
+  }
+}
+
+function updateAmbient(){
+  const tl = state.timeline; const arr = tl.ambient;
+  const camY = state.camera.y;
+  arr.forEach(p=>{ p.pulse += state.dt*0.9; p.x += Math.sin(p.pulse*0.6)*p.drift; });
+  // occasional shimmer spawn
+  if(!tl._lastAmbientSpark || performance.now()-tl._lastAmbientSpark>900){
+    tl._lastAmbientSpark = performance.now();
+    const baseY = camY + Math.random()*H;
+    tl.ambient.push({x: W/2 + (Math.random()*240-120), y: baseY, r:1.5, drift:0.3, pulse:0, spark:true, life:1400});
+  }
+  // update spark life
+  for(let i=tl.ambient.length-1;i>=0;i--){ const p=tl.ambient[i]; if(p.spark){ p.life -= state.dt*1000; if(p.life<=0) tl.ambient.splice(i,1); }}
+}
+function drawAmbient(){
+  const tl = state.timeline; const arr = tl.ambient; const camY = state.camera.y;
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  arr.forEach(p=>{
+    const yScreen = p.y - camY; if(yScreen<-50||yScreen>H+50) return;
+    const a = p.spark? Math.min(1, (p.life||0)/1400) : 0.4 + Math.sin(p.pulse)*0.2;
+    ctx.fillStyle = p.spark? `rgba(124,248,200,${a.toFixed(3)})` : `rgba(200,255,235,${(0.15*a).toFixed(3)})`;
+    ctx.beginPath(); ctx.arc(p.x, yScreen, p.r*(p.spark?1.8:1), 0, Math.PI*2); ctx.fill();
+  });
+  ctx.restore();
+}
+
+function updateOrbs(){
+  const tl = state.timeline; const p = state.player; const camY = state.camera.y;
+  tl.orbs.forEach(o=>{
+    o.wobble += state.dt*2.2; o.wx = o.x + Math.sin(o.wobble)*14; o.sy = o.y + Math.sin(o.wobble*0.7)*10;
+    if(!o.collected && Math.abs(p.y - o.y) < 38){
+      o.collected = true; addXP(25); awardBadge('orb-collector');
+      // small burst confetti inside timeline
+      for(let i=0;i<14;i++) state.timeline.confetti.push({x:W/2,y:o.y, vx:(Math.random()*2-1)*60, vy:(Math.random()*-1-0.2)*80, life:1100+Math.random()*600, col:i%3});
+    }
+  });
+}
+function drawOrbs(){
+  const tl = state.timeline; const camY = state.camera.y;
+  tl.orbs.forEach(o=>{
+    const yScreen = o.sy - camY; if(yScreen<-80||yScreen>H+80) return;
+    if(o.collected){ return; }
+    const pul = (Math.sin(o.wobble*2)+1)/2;
+    ctx.save(); ctx.translate(o.wx, yScreen);
+    const r = 12 + pul*2;
+    const g = ctx.createRadialGradient(0,0,2,0,0,r);
+    g.addColorStop(0,'rgba(255,255,255,0.9)');
+    g.addColorStop(0.5,'rgba(124,248,200,0.9)');
+    g.addColorStop(1,'rgba(124,248,200,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  });
+}
+
+function drawTimelineMinimap(){
+  const tl = state.timeline; const padding = 8; const mapH = 180; const mapW = 70;
+  ctx.save(); ctx.translate(W - mapW - padding, padding+30);
+  ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.fillRect(0,0,mapW,mapH);
+  ctx.strokeStyle='rgba(255,255,255,0.18)'; ctx.strokeRect(0,0,mapW,mapH);
+  // milestones
+  tl.milestones.forEach(m=>{
+    const yRat = m.y / tl.length; const y = yRat * (mapH-16) + 8;
+    ctx.fillStyle = tl.visited.has(m.key)? '#7cf8c8' : 'rgba(124,248,200,.35)';
+    ctx.fillRect(mapW/2-4, y-4, 8,8);
+  });
+  // orbs
+  tl.orbs.forEach(o=>{
+    const yRat = o.y / tl.length; const y = yRat * (mapH-16) + 8;
+    ctx.fillStyle = o.collected? 'rgba(255,255,255,.35)' : '#b4ffe9';
+    ctx.fillRect(mapW/2-2, y-2, 4,4);
+  });
+  // player marker
+  const py = (state.player.y / tl.length) * (mapH-16) + 8;
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(mapW/2, py, 5, 0, Math.PI*2); ctx.fill();
+  ctx.font='10px ui-sans-serif'; ctx.fillStyle='rgba(255,255,255,.6)'; ctx.textAlign='center'; ctx.fillText('Map', mapW/2, mapH+10);
+  ctx.restore();
+}
+
+function drawTether(){
+  const tl = state.timeline; if(!tl.milestones.length) return; const p = state.player;
+  // find next milestone above player
+  const next = tl.milestones.filter(m=> m.y > p.y).sort((a,b)=>a.y-b.y)[0];
+  if(!next) return;
+  const x = W/2; const y1 = p.y - state.camera.y; const y2 = next.y - state.camera.y;
+  ctx.save(); ctx.strokeStyle='rgba(124,248,200,0.25)'; ctx.lineWidth=2; ctx.setLineDash([6,6]);
+  ctx.beginPath(); ctx.moveTo(x+42, y1); ctx.lineTo(x+42, y2); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+}
+
+function updateHackMiniGame(){
+  const tl = state.timeline; const hack = tl.hack; if(hack.completed) return;
+  // trigger near CTF milestone (workshop2) when visited
+  const ctf = tl.milestones.find(m=>m.key==='workshop2'); if(!ctf) return;
+  const active = Math.abs(state.player.y - ctf.y) < 70;
+  if(active && !hack.active && !hack.completed){ hack.active=true; hack.progress=0; hack.timer=0; hack.target = (Math.random()*9000|0).toString(16); }
+  if(hack.active){
+    hack.timer += state.dt;
+    // auto progress slowly; accelerate if Down key held
+    const fast = state.keys['ArrowDown']||state.keys['KeyS'];
+    hack.progress += state.dt * (fast? 28: 8);
+    if(hack.progress >= 100){ hack.completed=true; hack.active=false; addXP(120); awardBadge('ctf-hack'); toast('Hack solved! +120 XP'); }
+  }
+}
+function drawHackMiniGame(){
+  const hack = state.timeline.hack; if(!(hack.active||hack.completed)) return;
+  const x = 30, y = 80; const w = 200, h = 70;
+  ctx.save(); ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(x,y,w,h);
+  ctx.strokeStyle='rgba(124,248,200,0.6)'; ctx.strokeRect(x,y,w,h);
+  ctx.font='12px ui-sans-serif'; ctx.textAlign='left'; ctx.textBaseline='top'; ctx.fillStyle='#7cf8c8';
+  ctx.fillText('CTF Hack Module', x+10, y+8);
+  ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.fillRect(x+10,y+30,w-20,14);
+  const pct = hack.completed? 1 : Math.min(1, hack.progress/100);
+  ctx.fillStyle='#7cf8c8'; ctx.fillRect(x+10,y+30,(w-20)*pct,14);
+  ctx.fillStyle='#fff'; ctx.fillText(hack.completed? 'ACCESS GRANTED' : ('TARGET '+hack.target+' '+Math.floor(pct*100)+'%'), x+10, y+50);
+  ctx.restore();
+}
+
+function drawMilestoneTooltip(){
+  if(!state.near || !(state.near.type||'').startsWith('timeline:')) return;
+  const m = state.near._timeline; if(!m) return; const text = m.text;
+  const wMax = 260;
+  const x = W/2 + 100; const y = m.y - state.camera.y - 50;
+  ctx.save(); ctx.font='12px ui-sans-serif'; ctx.textAlign='left'; ctx.textBaseline='top';
+  // wrap text simple
+  const words = text.split(' '); let line=''; const lines=[];
+  words.forEach(w=>{ const test = line? line+' '+w : w; if(ctx.measureText(test).width > wMax-24){ lines.push(line); line=w; } else line=test; });
+  if(line) lines.push(line);
+  const boxH = 20 + lines.length*16;
+  ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(x,y,wMax, boxH);
+  ctx.strokeStyle='rgba(124,248,200,0.4)'; ctx.strokeRect(x,y,wMax, boxH);
+  ctx.fillStyle='#e6ecff'; lines.forEach((ln,i)=> ctx.fillText(ln, x+12, y+10+i*16));
+  ctx.restore();
+}
+
+function awardBadge(name){
+  const tl = state.timeline; if(tl.badges.includes(name)) return;
+  tl.badges.push(name); localStorage.setItem('badges', JSON.stringify(tl.badges));
+  toast('Badge earned: '+name);
+}
+function drawBadgesHUD(){
+  const tl = state.timeline; if(!tl.badges.length) return;
+  ctx.save(); ctx.font='11px ui-sans-serif'; ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillStyle='rgba(0,0,0,0.45)'; const x=12,y=12; const h=18+tl.badges.length*14; const w=140; ctx.fillRect(x,y,w,h);
+  ctx.strokeStyle='rgba(255,255,255,.2)'; ctx.strokeRect(x,y,w,h);
+  ctx.fillStyle='#7cf8c8'; ctx.fillText('Badges', x+10,y+6);
+  tl.badges.forEach((b,i)=> ctx.fillText('• '+b, x+10, y+22+i*14));
+  ctx.restore();
+}
+
+function updateConfetti(){
+  const list = state.timeline.confetti; if(!list.length) return;
+  list.forEach(p=>{ p.life -= state.dt*1000; p.vy += 200*state.dt; p.x += p.vx*state.dt; p.y += p.vy*state.dt; });
+  for(let i=list.length-1;i>=0;i--) if(list[i].life<=0) list.splice(i,1);
+}
+function drawConfetti(){
+  const list = state.timeline.confetti; if(!list.length) return; const camY = state.camera.y;
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  list.forEach(p=>{
+    const yScreen = p.y - camY; if(yScreen<-40||yScreen>H+40) return;
+    const a = Math.min(1, p.life/1200);
+    const col = p.col===0? '#7cf8c8' : p.col===1? '#b488ff' : '#ebc400';
+    ctx.fillStyle = col.replace('#','rgba(') + ', '+a.toFixed(3)+')'; // quick hack? convert hex - fallback below
+    // safer fill style compute
+    if(col==='#7cf8c8') ctx.fillStyle = `rgba(124,248,200,${a.toFixed(3)})`;
+    if(col==='#b488ff') ctx.fillStyle = `rgba(180,136,255,${a.toFixed(3)})`;
+    if(col==='#ebc400') ctx.fillStyle = `rgba(235,196,0,${a.toFixed(3)})`;
+    ctx.fillRect(p.x, yScreen, 4,4);
+  });
+  ctx.restore();
+}
+
+function checkCompetitionCelebration(){
+  const tl = state.timeline; const comp = tl.milestones.find(m=>m.key==='competitions'); if(!comp) return;
+  if(!tl._compCelebrated && Math.abs(state.player.y - comp.y) < 60){
+    tl._compCelebrated = true; awardBadge('competitor');
+    for(let i=0;i<120;i++) tl.confetti.push({x:(Math.random()*120-60)+W/2, y:comp.y + (Math.random()*40-20), vx:(Math.random()*2-1)*100, vy:(Math.random()*-1-0.2)*160, life:1000+Math.random()*1200, col:i%3});
+  }
+}
+
 
 // Apply a small accessory/transform to the robot cursor for each workshop
 function applyRobotWorkshopVariant(key){
@@ -1322,7 +1531,11 @@ function step(){
       p.vy = clamp(p.vy, -p.maxSpeed*0.75, p.maxSpeed*0.75);
       p.y += p.vy * dt;
       p.y = clamp(p.y, 140, state.timeline.length);
-      state.camera.y = clamp(p.y - H*0.45, 0, state.timeline.length - H*0.5 + 200);
+  // inertial smoothing for camera (ease toward target)
+  const targetCam = clamp(p.y - H*0.45, 0, state.timeline.length - H*0.5 + 200);
+  if(!state.timeline.camY) state.timeline.camY = targetCam;
+  state.timeline.camY += (targetCam - state.timeline.camY) * Math.min(1, dt*3.5);
+  state.camera.y = state.timeline.camY;
     }
 
   // fuel removed
