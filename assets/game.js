@@ -61,9 +61,9 @@ const state = {
     length: 2000,
     milestones:[
   { y:160, key:'registration', title:'Registration', text:'Complete your Spark Flash registration.' },
-  { y:560, key:'workshop1', title:'Workshop 1', text:'Foundations & orientation session.' },
-  { y:960, key:'workshop2', title:'Workshop 2', text:'Deep dive: skills & applied practice.' },
-  { y:1360, key:'workshop3', title:'Workshop 3', text:'Advanced challenges & mentor sync.' },
+  { y:560, key:'workshop1', title:'Game Dev', text:'Workshop 1 — Game Development: design, engines & rapid prototyping.' },
+  { y:960, key:'workshop2', title:'CTF', text:'Workshop 2 — Capture The Flag: hacking challenges & cybersecurity basics.' },
+  { y:1360, key:'workshop3', title:'Programming', text:'Workshop 3 — Programming: algorithms, team projects & mentoring.' },
   { y:1760, key:'competitions', title:'Competitions', text:'Pitch, demo & compete for recognition.' }
     ],
   crystals:[],
@@ -110,12 +110,18 @@ state.lightning = {
   next: performance.now() + 4500, // initial delay
   active:false,
   t:0,
-  duration: 320,
+  duration: 640, // slower, more visible bolt lifecycle (ms)
   afterglow:0,
+  afterglowMax:0,
   strikeX:null,
   strikeY:null,
   points:[],
-  arcs:[]
+  arcs:[],
+  focus:0,          // 0..1 focus vignette intensity
+  sparks:[],        // small particle sparks around sign
+  rings:[],         // expanding energy rings
+  lastSpawn:0,      // ring spawn timer
+  cameraShake:0     // shake amplitude in px
 };
 function scheduleLightningStrike(delay=6000){ state.lightning.next = performance.now() + delay; }
 function buildLightningPath(x1,y1,x2,y2){
@@ -131,10 +137,33 @@ function buildLightningPath(x1,y1,x2,y2){
 }
 function triggerLightning(){
   const L = state.lightning; if(!state.phase1Sign) return;
-  L.active=true; L.t=0; L.afterglow=0; L.strikeX = state.phase1Sign.x; L.strikeY = state.phase1Sign.y;
-  L.points = buildLightningPath(L.strikeX, -140 + state.camera.x, L.strikeX, L.strikeY - 40);
-  L.arcs = Array.from({length:5},()=>({life: 140+Math.random()*160, x:L.strikeX+(Math.random()*120-60), y:L.strikeY-60+Math.random()*60}));
-  // slight XP reward easter egg
+  L.active=true; L.t=0; L.afterglow=0; L.afterglowMax=0; L.focus=1;
+  // randomize the origin so bolts can come from random sky/cloud positions
+  const signX = state.phase1Sign.x;
+  const signY = state.phase1Sign.y;
+  // source tends to be above and somewhat lateral — sometimes far, sometimes near
+  const srcOffsetX = (Math.random()*1.6 - 0.8) * W; // ± ~80% of screen
+  const srcX = state.camera.x + (W/2) + srcOffsetX;
+  const srcY = -180 - Math.random()*160; // above the top
+  L.strikeX = signX; L.strikeY = signY;
+  L.points = buildLightningPath(srcX, srcY, L.strikeX, L.strikeY - 40);
+  L.arcs = Array.from({length:7},()=>({life: 220+Math.random()*220, x:L.strikeX+(Math.random()*140-70), y:L.strikeY-80+Math.random()*90}));
+  L.sparks = []; L.rings = []; L.lastSpawn = performance.now();
+  L.leaks = [];
+  L.cameraShake = 10; // initial intense shake
+  // pre-seed sparks
+  for(let i=0;i<40;i++){
+    const a = Math.random()*Math.PI*2; const sp = 60+Math.random()*220;
+    L.sparks.push({x:L.strikeX, y:L.strikeY-20, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - 40, life: 300+Math.random()*260, fade: 0.6+Math.random()*0.4});
+  }
+  // spawn multiple electric leaks that will "crawl" out of the sign and fade
+  const leaksCount = 8 + Math.floor(Math.random()*8);
+  for(let i=0;i<leaksCount;i++){
+    const ang = (Math.random()*Math.PI*2);
+    const len = 80 + Math.random()*240;
+    L.leaks.push({ang, lenTarget: len, len: 8 + Math.random()*18, v: 120 + Math.random()*240, life: 1200 + Math.random()*2600, alpha:1, nodes:6 + Math.floor(Math.random()*6)});
+  }
+  // slight XP reward easter egg (throttled: only if not within afterglow previously)
   addXP(5);
 }
 
@@ -633,6 +662,16 @@ function drawBackground(){
 
 function drawRoad(){
   // background including sky + parallax
+  const L = state.lightning;
+  // camera shake while focused
+  let shakeX=0, shakeY=0;
+  if(L.cameraShake>0){
+    shakeX = (Math.random()*2-1)*L.cameraShake;
+    shakeY = (Math.random()*2-1)*L.cameraShake*0.6;
+    L.cameraShake = Math.max(0, L.cameraShake - state.dt*22);
+  }
+  ctx.save();
+  ctx.translate(shakeX, shakeY);
   drawBackground();
 
   // horizon glow
@@ -689,22 +728,82 @@ function drawRoad(){
   if(b.type==='phase1' || /sparkit flash/i.test(label)){
     state.phase1Sign = { x: b.x, y: roadY-130 - sh/2 };
   }
-  // energetic animation overlay if lightning afterglow
-  const L = state.lightning;
-  let glowPulse = 0;
-  if(L.afterglow>0 && state.phase1Sign && Math.abs(b.x - state.phase1Sign.x)<2){
-    glowPulse = (Math.sin(performance.now()/120)+1)/2;
-    ctx.fillStyle = `rgba(124,248,200,${0.55 + 0.35*glowPulse})`;
+  // energetic animation overlay if lightning active / afterglow
+  let glowPulse = 0; const isFlash = state.phase1Sign && Math.abs(b.x - state.phase1Sign.x)<2;
+  if(isFlash && (L.active || L.afterglow>0)){
+    const tNow = performance.now();
+    glowPulse = (Math.sin(tNow/90)+1)/2;
+    const baseEnergy = L.active?1: (L.afterglow/3600);
+    const energy = baseEnergy * (0.6 + 0.4*glowPulse);
+    // expanding rings (added to lightning rings pool, drawn later)
+    if(L.active && tNow - L.lastSpawn > 110){
+      L.lastSpawn = tNow;
+      L.rings.push({r:16, v: 180 + Math.random()*120, alpha:0.55});
+      // occasional extra spark cluster
+      if(Math.random()<0.35){
+        for(let i=0;i<8;i++){
+          const a = Math.random()*Math.PI*2; const sp = 80+Math.random()*160;
+          L.sparks.push({x:L.strikeX, y:L.strikeY-20, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - 30, life: 200+Math.random()*260, fade: 0.4+Math.random()*0.4});
+        }
+      }
+    }
     ctx.save();
     ctx.translate(bx, roadY-130 - sh/2);
-    for(let r=70;r>18;r-=14){
-      ctx.strokeStyle = `rgba(124,248,200,${(0.05 + glowPulse*0.08).toFixed(3)})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.stroke();
-    }
+    // sign electrified fill flicker
+    const grad = ctx.createLinearGradient(-sw/2, -sh/2, sw/2, sh/2);
+    grad.addColorStop(0,'rgba(124,248,200,'+(0.85*energy).toFixed(3)+')');
+    grad.addColorStop(0.5,'rgba(255,255,255,'+(0.35*energy).toFixed(3)+')');
+    grad.addColorStop(1,'rgba(235,185,0,'+(0.65*energy).toFixed(3)+')');
+    ctx.fillStyle = grad; ctx.globalAlpha = 0.35 + 0.55*energy; ctx.fillRect(-sw/2 + 6, -sh/2 + 6, sw-12, sh-12);
+    ctx.globalAlpha = 1;
+  // refined sheen sweep for a professional electric panel look
+  // slow horizontal sweep highlights the sign face
+  const nowT = performance.now();
+  const sweepPos = ((nowT/1600) % 1); // slow loop
+  const sweepX = -sw/2 + 6 + sweepPos * (sw-12);
+  const sweepW = Math.max(28, sw * 0.18);
+  const sheenGrad = ctx.createLinearGradient(sweepX - sweepW/2, -sh/2, sweepX + sweepW/2, sh/2);
+  sheenGrad.addColorStop(0, 'rgba(255,255,255,0)');
+  sheenGrad.addColorStop(0.45, 'rgba(255,255,255,' + (0.06 * energy).toFixed(3) + ')');
+  sheenGrad.addColorStop(0.5, 'rgba(255,255,255,' + (0.16 * energy).toFixed(3) + ')');
+  sheenGrad.addColorStop(0.55, 'rgba(255,255,255,' + (0.06 * energy).toFixed(3) + ')');
+  sheenGrad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.fillStyle = sheenGrad;
+  ctx.fillRect(-sw/2 + 8, -sh/2 + 8, sw - 16, sh - 16);
+  ctx.globalCompositeOperation = 'source-over';
+  // subtle static circuit/cut lines overlay for texture (very low alpha)
+  ctx.strokeStyle = `rgba(255,255,255,${(0.03 + 0.02 * energy).toFixed(3)})`;
+  ctx.lineWidth = 1;
+  // a few diagonal accent strokes to suggest circuitry without being noisy
+  ctx.beginPath(); ctx.moveTo(-sw/4, -sh/2 + 10); ctx.lineTo(sw/4, sh/2 - 10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-sw/2 + 10,  -sh/4); ctx.lineTo(sw/2 - 10, sh/4); ctx.stroke();
+  ctx.restore();
+    // pulsing border
+    ctx.strokeStyle = `rgba(124,248,200,${(0.45+0.4*energy).toFixed(3)})`;
+    ctx.lineWidth = 3; ctx.strokeRect(-sw/2 + 4, -sh/2 + 4, sw-8, sh-8);
     ctx.restore();
   }
-  ctx.fillStyle='#e6ecff'; ctx.fillText(label, bx, roadY-130 - sh/2);
+  // label with jitter & multi-layer glow if focused
+  if(isFlash && (L.active || L.afterglow>0)){
+    const focusAmt = L.active?1:Math.min(1, L.afterglow/1400);
+    const jitter = L.active? (1.4 + Math.random()*1.2) : 0.6*Math.random();
+    ctx.save();
+    ctx.translate(bx, roadY-130 - sh/2);
+    ctx.font='700 15px ui-sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    const text = 'SparkIT Flash';
+    // outer glow layers
+    for(let gL=0; gL<3; gL++){
+      ctx.fillStyle = `rgba(${gL===2?235:124},${gL===2?185:248},${gL===2?0:200},${(0.12+0.22*gL)*focusAmt})`;
+      ctx.fillText(text, jitter*(gL-1), (gL-1)*jitter);
+    }
+    ctx.fillStyle = '#e6ecff';
+    ctx.fillText(text,0,0);
+    ctx.restore();
+  } else {
+    ctx.fillStyle='#e6ecff'; ctx.fillText(label, bx, roadY-130 - sh/2);
+  }
 
     // interact hint if near
     const near = Math.abs(state.player.x - b.x) < 60;
@@ -715,31 +814,33 @@ function drawRoad(){
   });
 
   // Lightning update & draw (overlay after signs)
-  const L = state.lightning; const now = performance.now();
+  const now = performance.now();
   if(!L.active && now >= L.next){ triggerLightning(); }
   if(L.active){
     L.t += state.dt*1000; // ms
-    // flicker rebuild path for dynamic effect
-    if(Math.random()<0.25){
+    // path flicker slower, ensure visible
+    if(Math.random()<0.15){
       L.points = buildLightningPath(L.strikeX, -140 + state.camera.x, L.strikeX, L.strikeY - 40);
     }
-    // screen flash
-    const flashA = Math.max(0, 1 - L.t/ L.duration);
+    // phased brightness: ramp up then down
+    const ph = L.t / L.duration;
+    let flashA = ph < 0.55 ? (ph/0.55) : (1 - (ph-0.55)/0.45);
+    flashA = Math.max(0, flashA);
     ctx.save();
     ctx.globalCompositeOperation='lighter';
-    ctx.strokeStyle = `rgba(124,248,200,${0.8*flashA})`; ctx.lineWidth=4;
+    ctx.strokeStyle = `rgba(124,248,200,${0.95*flashA})`; ctx.lineWidth=4.5;
     ctx.beginPath();
     L.points.forEach((pt,i)=>{ const sx = pt.x - state.camera.x; const sy = pt.y; if(i===0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy); });
     ctx.stroke();
     // inner core
-    ctx.strokeStyle = `rgba(255,255,255,${flashA})`; ctx.lineWidth=2;
+    ctx.strokeStyle = `rgba(255,255,255,${flashA})`; ctx.lineWidth=2.2;
     ctx.beginPath();
     L.points.forEach((pt,i)=>{ const sx = pt.x - state.camera.x; const sy = pt.y; if(i===0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy); });
     ctx.stroke();
     // radial flash near impact
     if(state.phase1Sign){
       const ix = L.strikeX - state.camera.x; const iy = L.strikeY;
-      const radG = ctx.createRadialGradient(ix,iy,0,ix,iy,160);
+      const radG = ctx.createRadialGradient(ix,iy,0,ix,iy,220);
       radG.addColorStop(0,`rgba(124,248,200,${0.35*flashA})`);
       radG.addColorStop(1,'rgba(124,248,200,0)');
       ctx.fillStyle = radG; ctx.beginPath(); ctx.arc(ix,iy,160,0,Math.PI*2); ctx.fill();
@@ -759,11 +860,114 @@ function drawRoad(){
       ctx.stroke(); ctx.restore();
     }});
     L.arcs = L.arcs.filter(a=>a.life>0);
+    // update sparks
+    L.sparks.forEach(s=>{
+      s.life -= state.dt*1000; if(s.life>0){
+        s.vy += 140*state.dt; // gravity-ish
+        s.x += s.vx*state.dt; s.y += s.vy*state.dt;
+      }
+    });
+    L.sparks = L.sparks.filter(s=>s.life>0);
+    // update rings
+    L.rings.forEach(r=>{ r.r += r.v*state.dt; r.alpha -= state.dt*0.4; });
+    L.rings = L.rings.filter(r=>r.alpha>0);
+    // update electric leaks (grow length toward target, then slowly fade)
+    if(L.leaks){
+      L.leaks.forEach(le=>{
+        // ease length towards target
+        const d = (le.lenTarget - le.len) * Math.min(1, state.dt*2.8);
+        le.len += d;
+        // reduce life
+        le.life -= state.dt*1000;
+        // alpha easing near end
+        if(le.life < 800) le.alpha = Math.max(0, le.life / 800);
+      });
+      L.leaks = L.leaks.filter(le=>le.life>80 && le.alpha>0.02);
+    }
     if(L.t >= L.duration){
-      L.active=false; L.afterglow = 3600; scheduleLightningStrike(6500 + Math.random()*4000);
+      L.active=false; L.afterglow = 4200; scheduleLightningStrike(7500 + Math.random()*4500);
     }
   } else if(L.afterglow>0){
-    L.afterglow -= state.dt*1000; if(L.afterglow<0) L.afterglow=0;
+    // eased afterglow: decay with smoother curve
+    const dec = state.dt*1000;
+    L.afterglow -= dec * 1.0; if(L.afterglow<0) L.afterglow=0;
+    // gentle decay of focus with ease-out
+    L.focus = Math.max(0, L.focus - state.dt*0.75);
+    // update lingering sparks & rings
+    L.sparks.forEach(s=>{
+      s.life -= state.dt*1000; if(s.life>0){
+        s.vy += 120*state.dt; s.x += s.vx*state.dt; s.y += s.vy*state.dt;
+      }
+    });
+    L.sparks = L.sparks.filter(s=>s.life>0);
+    L.rings.forEach(r=>{ r.r += r.v*state.dt; r.alpha -= state.dt*0.22; });
+    L.rings = L.rings.filter(r=>r.alpha>0);
+    // leaks continue to gracefully shorten and fade
+    if(L.leaks){
+      L.leaks.forEach(le=>{
+        // shrink a bit towards zero with smooth easing
+        le.len += (0 - le.len) * Math.min(1, state.dt*0.9);
+        le.life -= state.dt*1000;
+        if(le.life < 700) le.alpha = Math.max(0, le.life / 700);
+      });
+      L.leaks = L.leaks.filter(le=>le.alpha>0.02 && le.len>4);
+    }
+  }
+  // draw sparks & rings (additive) AFTER main lightning and sign
+  if((L.active || L.afterglow>0) && state.phase1Sign){
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const sx = L.strikeX - state.camera.x; const sy = L.strikeY;
+    L.rings.forEach(r=>{
+      ctx.strokeStyle = `rgba(124,248,200,${(0.25*r.alpha).toFixed(3)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(sx, sy, r.r, 0, Math.PI*2); ctx.stroke();
+      ctx.strokeStyle = `rgba(235,185,0,${(0.18*r.alpha).toFixed(3)})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(sx, sy, r.r*0.6, 0, Math.PI*2); ctx.stroke();
+    });
+    L.sparks.forEach(s=>{
+      const a = Math.max(0, s.life / 400) * s.fade;
+      if(a<=0) return;
+      ctx.fillStyle = `rgba(${a>0.4?255:124},${a>0.4?255:248},${a>0.4?210:200},${a.toFixed(3)})`;
+      ctx.fillRect(s.x - state.camera.x, s.y, 2, 2);
+    });
+    // draw electric leaks crawling out of sign (Flash movie cyborg leak style)
+    if(L.leaks && L.leaks.length){
+      L.leaks.forEach(le=>{
+        const nodes = le.nodes;
+        let prevX = sx; let prevY = sy - 6;
+        for(let n=1;n<=nodes;n++){
+          const t = n / nodes;
+          const ang = le.ang + Math.sin((performance.now()*0.002) + n*0.6 + le.len*0.01) * 0.6;
+          const segLen = (le.len / nodes) * (0.85 + Math.sin(n*0.9 + performance.now()*0.001)*0.15);
+          const nx = prevX + Math.cos(ang) * segLen;
+          const ny = prevY + Math.sin(ang) * segLen * 0.8;
+          // alpha eases along the leak from bright near sign to dim at tip
+          const segAlpha = (le.alpha) * (1 - t*0.85);
+          ctx.strokeStyle = `rgba(200,250,220,${(0.9*segAlpha).toFixed(3)})`;
+          ctx.lineWidth = 2.2 * (1 - t*0.7);
+          ctx.beginPath(); ctx.moveTo(prevX - state.camera.x, prevY); ctx.lineTo(nx - state.camera.x, ny); ctx.stroke();
+          // inner bright core
+          ctx.strokeStyle = `rgba(255,255,255,${(0.65*segAlpha).toFixed(3)})`;
+          ctx.lineWidth = 1.0 * (1 - t*0.6);
+          ctx.beginPath(); ctx.moveTo(prevX - state.camera.x, prevY); ctx.lineTo(nx - state.camera.x, ny); ctx.stroke();
+          prevX = nx; prevY = ny;
+        }
+      });
+    }
+    ctx.restore();
+  }
+
+  // focus vignette to draw attention to sign
+  if(L.focus>0 && state.phase1Sign){
+    ctx.save();
+    const sx = state.phase1Sign.x - state.camera.x; const sy = state.phase1Sign.y;
+    const vign = ctx.createRadialGradient(sx, sy, 60, sx, sy, Math.max(W,H));
+    vign.addColorStop(0,'rgba(0,0,0,0)');
+    vign.addColorStop(0.35,'rgba(0,0,0,'+(0.2*L.focus).toFixed(3)+')');
+    vign.addColorStop(1,'rgba(0,0,0,'+(0.78*L.focus).toFixed(3)+')');
+    ctx.fillStyle = vign; ctx.fillRect(-20,-20,W+40,H+40);
+    ctx.restore();
   }
 
   // obstacles removed
@@ -785,6 +989,7 @@ function drawRoad(){
       ctx.fillText('Phase 1 Gate', gx, roadY-148);
     }
   }
+  ctx.restore(); // shake restore
 }
 
 /* ===== Timeline Vertical Mode ===== */
@@ -855,6 +1060,17 @@ function drawTimeline(){
     if(yScreen < -140 || yScreen > H+140) return;
     const active = Math.abs(p.y - m.y) < 70;
     if(active){ state.near = { label:m.title, type:'timeline:'+m.key, _timeline:m }; }
+    // if near a workshop milestone, prepare robot transform/visuals and spawn themed particles
+    if(active && /^workshop/.test(m.key)){
+      applyRobotWorkshopVariant(m.key);
+      // award small XP only on first passive approach
+      if(!state.timeline.visited.has(m.key)){
+        state.timeline.visited.add(m.key);
+        addXP(12);
+        // spawn a short burst of themed particles
+        spawnTimelineParticles(m.key, trackX, m.y);
+      }
+    }
     // compute attenuation based on torch distance (bot position)
     let atten = 1;
     try{
@@ -864,19 +1080,34 @@ function drawTimeline(){
       const dy = Math.abs(by - yScreen);
       atten = Math.max(0.15, 1 - dy/520);
     }catch{}
-    ctx.fillStyle = active? `rgba(124,248,200,${0.6+0.3*atten})` : `rgba(138,164,255,${0.25+0.35*atten})`;
+  // color per type for stronger theme clarity
+  const colActive = m.key==='workshop1' ? `rgba(180,120,255,${0.6+0.3*atten})` :
+            m.key==='workshop2' ? `rgba(124,248,200,${0.6+0.3*atten})` :
+            m.key==='workshop3' ? `rgba(120,200,255,${0.6+0.3*atten})` : `rgba(124,248,200,${0.6+0.3*atten})`;
+  const colIdle   = m.key==='workshop1' ? `rgba(180,120,255,${0.25+0.35*atten})` :
+            m.key==='workshop2' ? `rgba(138,164,255,${0.25+0.35*atten})` :
+            m.key==='workshop3' ? `rgba(120,200,255,${0.25+0.35*atten})` : `rgba(138,164,255,${0.25+0.35*atten})`;
+  ctx.fillStyle = active ? colActive : colIdle;
     ctx.beginPath(); ctx.ellipse(trackX, yScreen, 22, 22, 0, 0, Math.PI*2); ctx.fill();
     // outline
     ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.lineWidth=2; ctx.beginPath(); ctx.ellipse(trackX, yScreen, 30, 30, 0, 0, Math.PI*2); ctx.stroke();
     // label
-    ctx.font='600 16px ui-sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillStyle='#e6ecff';
-    ctx.fillText(m.title, trackX + 48, yScreen);
+  ctx.font='600 16px ui-sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillStyle='#e6ecff';
+  ctx.fillText(m.title, trackX + 48, yScreen);
+  // draw small icon glyph per workshop
+  drawTimelineIcon(m.key, trackX + 36, yScreen);
     // progress bar
     ctx.fillStyle='rgba(255,255,255,.1)'; ctx.fillRect(trackX+48, yScreen+16, 180, 5);
     if(state.timeline.visited.has(m.key)){
       ctx.fillStyle='rgba(124,248,200,.85)'; ctx.fillRect(trackX+48, yScreen+16, 180, 5);
     }
   });
+  // clear workshop variant if no current active workshop milestone proximity
+  if(!(state.near && /workshop/.test(state.near.type||''))){
+    if(state.currentWorkshopVariant){
+      clearRobotWorkshopVariant();
+    }
+  }
   ctx.font='12px ui-sans-serif'; ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.6)';
   if(p.y < 240) ctx.fillText('Spark Flash ↓ / S descend • Up / W exit', trackX, 54); else ctx.fillText('Spark Flash: E open • Up climb • Up @ top exit', trackX, 54);
   // torch spotlight (simulate from bot head relative to pointer; fallback center)
@@ -885,15 +1116,91 @@ function drawTimeline(){
     const r = bot?.getBoundingClientRect();
     const bx = r ? r.left + r.width/2 : W/2;
     const by = r ? r.top + r.height/2 : H/2;
+    // intensify spotlight when near a milestone
+    const nearFactor = state.near && state.near.type && state.near.type.startsWith('timeline:') ? 0.55 : 0.35;
     const grad = ctx.createRadialGradient(bx,by,20,bx,by,320);
-    grad.addColorStop(0,'rgba(255,255,210,0.55)');
-    grad.addColorStop(0.25,'rgba(255,255,180,0.25)');
+    grad.addColorStop(0,'rgba(255,255,210,'+nearFactor.toFixed(3)+')');
+    grad.addColorStop(0.25,'rgba(255,255,180,'+(nearFactor*0.55).toFixed(3)+')');
     grad.addColorStop(1,'rgba(0,0,0,0.88)');
     ctx.fillStyle = grad;
     ctx.globalCompositeOperation = 'multiply';
     ctx.fillRect(0,0,W,H);
     ctx.globalCompositeOperation = 'source-over';
   }catch{}
+}
+
+// Draw simple icon glyphs for timeline milestones
+function drawTimelineIcon(key, x, y){
+  ctx.save(); ctx.translate(x,y);
+  ctx.globalAlpha = 0.95;
+  if(key==='workshop1'){
+    // Gamepad/joystick
+    ctx.fillStyle='rgba(220,180,255,0.95)'; ctx.beginPath(); ctx.roundRect(-10,-10,20,20,4); ctx.fill();
+    ctx.fillStyle='#2b1036'; ctx.beginPath(); ctx.arc(0, -2, 3.6, 0, Math.PI*2); ctx.fill();
+  } else if(key==='workshop2'){
+    // Lock/terminal glyph for CTF
+    ctx.fillStyle='rgba(120,240,200,0.95)'; ctx.beginPath(); ctx.roundRect(-10,-8,20,16,3); ctx.fill();
+    ctx.fillStyle='#022'; ctx.fillRect(-4,-2,8,3); ctx.fillStyle='#0f0'; ctx.fillRect(-5,3,10,2);
+  } else if(key==='workshop3'){
+    // Code bracket
+    ctx.fillStyle='rgba(140,200,255,0.95)'; ctx.font='14px ui-sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('{ }', 0, 0);
+  }
+  ctx.restore();
+}
+
+// Spawn timeline-themed particles at a milestone
+function spawnTimelineParticles(key, x, y){
+  const s = state.timeline.particles || (state.timeline.particles = []);
+  const worldX = x; const worldY = y;
+  if(key==='workshop1'){
+    for(let i=0;i<18;i++) s.push({type:'pixel', x:worldX + (Math.random()*120-60), y:worldY + (Math.random()*40-20), vx:(Math.random()*2-1)*30, vy:(Math.random()*-1-1)*30, life:900+Math.random()*900});
+  } else if(key==='workshop2'){
+    for(let i=0;i<26;i++) s.push({type:'ctf', x:worldX + (Math.random()*120-60), y:worldY + (Math.random()*40-20), vx:(Math.random()*2-1)*60, vy:(Math.random()*-1-1)*40, life:1200+Math.random()*1200});
+  } else if(key==='workshop3'){
+    for(let i=0;i<14;i++) s.push({type:'code', x:worldX + (Math.random()*120-60), y:worldY + (Math.random()*40-20), vx:(Math.random()*2-1)*40, vy:(Math.random()*-1-1)*20, life:1000+Math.random()*800});
+  }
+}
+
+// Render timeline particles
+function drawTimelineParticles(){
+  const s = state.timeline.particles || [];
+  for(let i=s.length-1;i>=0;i--){
+    const p = s[i]; p.life -= state.dt*1000; if(p.life<=0) s.splice(i,1); else {
+      p.x += p.vx * state.dt; p.y += p.vy * state.dt; p.vy += 30 * state.dt;
+      if(p.type==='pixel'){ ctx.fillStyle = 'rgba(220,180,255,'+(Math.min(1,p.life/900)).toFixed(3)+')'; ctx.fillRect(p.x, p.y - state.camera.y, 3,3); }
+      if(p.type==='ctf'){ ctx.fillStyle = 'rgba(124,248,200,'+(Math.min(1,p.life/1200)).toFixed(3)+')'; ctx.fillRect(p.x, p.y - state.camera.y, 2,8); }
+      if(p.type==='code'){ ctx.fillStyle = 'rgba(200,240,255,'+(Math.min(1,p.life/1000)).toFixed(3)+')'; ctx.fillText(';</', p.x, p.y - state.camera.y); }
+    }
+  }
+}
+
+// Apply a small accessory/transform to the robot cursor for each workshop
+function applyRobotWorkshopVariant(key){
+  const bot = document.getElementById('cursor-bot'); if(!bot) return;
+  let gear = bot.querySelector('.bot-gear');
+  if(!gear){ gear = document.createElement('div'); gear.className='bot-gear'; gear.style.position='absolute'; gear.style.left='0'; gear.style.top='0'; gear.style.pointerEvents='none'; bot.appendChild(gear); }
+  gear.style.transform = 'translate(-14px,-18px) scale(1)';
+  if(state.currentWorkshopVariant !== key){
+    bot.classList.add('variant-transition');
+    setTimeout(()=> bot.classList.remove('variant-transition'), 480);
+  }
+  bot.classList.remove('workshop-game','workshop-ctf','workshop-code');
+  if(key==='workshop1'){
+    bot.classList.add('workshop-game'); gear.innerHTML = '<svg width="28" height="18" viewBox="0 0 28 18" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="24" height="14" rx="3" fill="#b488ff"/><circle cx="8" cy="9" r="2" fill="#2b1036"/><rect x="18" y="7" width="6" height="4" rx="1" fill="#2b1036"/></svg>';
+  } else if(key==='workshop2'){
+    bot.classList.add('workshop-ctf'); gear.innerHTML = '<svg width="28" height="18" viewBox="0 0 28 18" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="24" height="14" rx="3" fill="#7cf8c8"/><path d="M8 11h12v1H8z" fill="#022"/><rect x="12" y="5" width="4" height="2" fill="#0f0"/></svg>';
+  } else if(key==='workshop3'){
+    bot.classList.add('workshop-code'); gear.innerHTML = '<div style="font:700 12px/12px ui-sans-serif; color:#dff; text-shadow:0 1px 0 rgba(0,0,0,.35)">{ }</div>';
+  } else { gear.innerHTML=''; }
+  state.currentWorkshopVariant = key;
+}
+
+function clearRobotWorkshopVariant(){
+  const bot = document.getElementById('cursor-bot'); if(!bot) return;
+  bot.classList.remove('workshop-game','workshop-ctf','workshop-code');
+  const gear = bot.querySelector('.bot-gear'); if(gear){ gear.innerHTML=''; }
+  state.currentWorkshopVariant = null;
 }
 
 /* ======= Car drawing ======= */
