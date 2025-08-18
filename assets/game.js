@@ -462,28 +462,32 @@ class Billboard {
 }
 
 function initBillboards() {
-  // remove old container if exists
   let container = document.getElementById("logo-container");
   if (container) container.remove();
 
-  // create a container for logos
   container = document.createElement("div");
   container.id = "logo-container";
-  container.style.position = "fixed";      // stay in place
-  container.style.top = "10px";            // little space from top
-  container.style.left = "50%";            // start at center
-  container.style.transform = "translateX(-50%)"; // center align
-  container.style.display = "flex";        // arrange in a row
-  container.style.alignItems = "center";   // vertically center logos
-  container.style.gap = "20px";            // spacing between logos
-  container.style.height = "100px";        // container height
-  container.style.zIndex = "9999";
+  container.style.position = "fixed";
+  container.style.top = "10px";
+  container.style.left = "50%";
+  container.style.transform = "translateX(-50%)";
+  container.style.display = "flex";
+  container.style.flexDirection = "column";
+  container.style.alignItems = "center";
+  container.style.gap = "5px";
+  container.style.zIndex = "5";
+
+  const logoRow = document.createElement("div");
+  logoRow.style.display = "flex";
+  logoRow.style.alignItems = "center";
+  logoRow.style.gap = "20px";
+  logoRow.style.height = "100px";
 
   const imgs = [
-    { src: 'assets/rc1.png', width: 70, height: 100},
-    { src: 'assets/kghs1.png', width: 80, height: 80 },
-    { src: 'assets/rc2.png', width: 100, height: 50 },
-    { src: 'assets/kghs2.png', width: 120, height: 120 }
+    { src: 'assets/rc1.png', width: 45, height: 65 },
+    { src: 'assets/kghs1.png', width: 52, height: 52 },
+    { src: 'assets/rc2.png', width: 65, height: 33 },
+    { src: 'assets/kghs2.png', width: 100, height: 100 }
   ];
 
   imgs.forEach(({src, width, height}) => {
@@ -491,9 +495,28 @@ function initBillboards() {
     img.src = src;
     img.style.width = width + "px";
     img.style.height = height + "px";
-    container.appendChild(img);
+    logoRow.appendChild(img);
   });
 
+  container.appendChild(logoRow);
+  const extraImg = document.createElement("img");
+  extraImg.src = "assets/Logo-SparkIt.png";
+  extraImg.style.width = "150px";
+  container.appendChild(extraImg);
+  const tagline = document.createElement("div");
+  tagline.innerText = "TRAIN. CONNECT. TRANSFORM.\nSPARK THE SIMULATION.";
+  tagline.style.fontSize = "12px";
+  tagline.style.fontWeight = "100";
+  tagline.style.textAlign = "center";
+  tagline.style.whiteSpace = "pre-line";
+  tagline.style.marginTop = "8px";
+  tagline.style.fontFamily = "Arial, Helvetica, sans-serif";
+  tagline.style.letterSpacing = "1px";
+  tagline.style.background = "linear-gradient(90deg, #03fb93, #ebb900)";
+  tagline.style.webkitBackgroundClip = "text";
+  tagline.style.color = "transparent";
+  container.appendChild(tagline);
+  container.appendChild(tagline);
   document.body.appendChild(container);
 }
 
@@ -661,21 +684,32 @@ function drawRoad(){
 }
 
 /* ===== Timeline Vertical Mode ===== */
-function enterTimeline(){
+function enterTimeline() {
   if(state.timeline.active) return;
-  state.timeline.active = true; state.mode='timeline';
+  state.timeline.active = true; 
+  state.mode='timeline';
   state.timeline.roadReturnY = state.player.y;
-  // reposition player at entry node near top (represent start of vertical track)
-  state.player.vx=0; state.player.ax=0; state.player.vy=0; state.player.ay=0; state.player.y = 160;
+  state.player.vx=0; state.player.ax=0; 
+  state.player.vy=0; state.player.ay=0; 
+  state.player.y = 160;
   toast('Entered Spark Flash');
+
+  const logos = document.getElementById("logo-container");
+  if(logos) logos.style.display = "none"; // hide logos
 }
+
 function exitTimeline(){
   if(!state.timeline.active) return;
-  state.timeline.active=false; state.mode='road';
-  state.player.vy=0; state.player.ay=0;
+  state.timeline.active = false; 
+  state.mode = 'road';
+  state.player.vy = 0; 
+  state.player.ay = 0;
   positionPlayerOnRoad();
   state.camera.y = 0;
   toast('Returned to Highway');
+
+  const logos = document.getElementById("logo-container");
+  if(logos) logos.style.display = "flex";
 }
 function drawTimeline(){
   // dark base
