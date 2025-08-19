@@ -1256,7 +1256,7 @@ function spawnTimelineParticles(key, x, y){
   if(key==='workshop1'){
     for(let i=0;i<18;i++) s.push({type:'pixel', x:worldX + (Math.random()*120-60), y:worldY + (Math.random()*40-20), vx:(Math.random()*2-1)*30, vy:(Math.random()*-1-1)*30, life:900+Math.random()*900});
   } else if(key==='workshop2'){
-    for(let i=0;i<26;i++) s.push({type:'ctf', x:worldX + (Math.random()*120-60), y:worldY + (Math.random()*40-20), vx:(Math.random()*2-1)*60, vy:(Math.random()*-1-1)*40, life:1200+Math.random()*1200});
+  for(let i=0;i<26;i++) s.push({type:'ctf', x:worldX + (Math.random()*120-60), y:worldY + (Math.random()*40-20), vx:(Math.random()*2-1)*60, vy:(Math.random()*-1-1)*40, life:1200+Math.random()*1200});
   } else if(key==='workshop3'){
     for(let i=0;i<14;i++) s.push({type:'code', x:worldX + (Math.random()*120-60), y:worldY + (Math.random()*40-20), vx:(Math.random()*2-1)*40, vy:(Math.random()*-1-1)*20, life:1000+Math.random()*800});
   }
@@ -2192,3 +2192,67 @@ closePanel = function(){
   }catch{}
   _closePanelOrig();
 };
+
+/* ================= Mobile / Responsive Enhancements (Added) ================= */
+(function mobileEnhancements(){
+  const orientationOverlay = document.getElementById('orientation-overlay');
+  const continueBtn = document.getElementById('oo-continue');
+  let orientationBypassed = false;
+  function shouldShowOrientation(){
+    if(orientationBypassed) return false;
+    const w = window.innerWidth; const h = window.innerHeight;
+    const portrait = h > w; const small = Math.min(w,h) < 640;
+    return portrait && small;
+  }
+  function updateOrientationOverlay(){
+    if(!orientationOverlay) return;
+    const show = shouldShowOrientation();
+    orientationOverlay.setAttribute('aria-hidden', String(!show));
+    if(show) orientationOverlay.classList.add('active'); else orientationOverlay.classList.remove('active');
+  }
+  if(continueBtn){ continueBtn.addEventListener('click', ()=>{ orientationBypassed = true; updateOrientationOverlay(); }); }
+  window.addEventListener('resize', updateOrientationOverlay);
+  window.addEventListener('orientationchange', updateOrientationOverlay);
+  setTimeout(updateOrientationOverlay, 400);
+
+  // Adaptive DPR & low-power heuristic
+  let dprDrop=false; let perfSamples=[]; let lastPerfT=performance.now();
+  function perfProbe(){
+    const now=performance.now(); const ft=now-lastPerfT; lastPerfT=now; perfSamples.push(ft);
+    if(perfSamples.length>=120){
+      const avg=perfSamples.reduce((a,b)=>a+b,0)/perfSamples.length;
+      if(!dprDrop && avg>22){ document.body.classList.add('low-power'); dprDrop=true; resizeCanvasAdaptive(1.25); }
+      else if(dprDrop && avg<17){ document.body.classList.remove('low-power'); dprDrop=false; resizeCanvasAdaptive(2); }
+      perfSamples=[];
+    }
+    requestAnimationFrame(perfProbe);
+  }
+  requestAnimationFrame(perfProbe);
+  function resizeCanvasAdaptive(maxDpr){
+    const vw=window.visualViewport?.width||window.innerWidth; const vh=window.visualViewport?.height||window.innerHeight;
+    canvas.style.width=vw+'px'; canvas.style.height=vh+'px';
+    const dpr=Math.max(1, Math.min(maxDpr, window.devicePixelRatio||1));
+    canvas.width=Math.round(vw*dpr); canvas.height=Math.round(vh*dpr);
+    ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr); W=vw; H=vh; positionPlayerOnRoad();
+  }
+
+  // Gesture swipe
+  let tSX=0,tSY=0,swiping=false; 
+  window.addEventListener('touchstart',e=>{ if(e.touches.length===1){ tSX=e.touches[0].clientX; tSY=e.touches[0].clientY; swiping=true; } },{passive:true});
+  window.addEventListener('touchmove',e=>{ if(!swiping) return; const dx=e.touches[0].clientX-tSX; const dy=e.touches[0].clientY-tSY; if(state.mode==='road'){ if(Math.abs(dx)>40 && Math.abs(dx)>Math.abs(dy)){ state.player.vx += (dx>0?80:-80); swiping=false; } } else if(state.mode==='timeline'){ if(Math.abs(dy)>40 && Math.abs(dy)>Math.abs(dx)){ state.player.vy += (dy>0?80:-80); swiping=false; } } }, {passive:true});
+  window.addEventListener('touchend',()=>{ swiping=false; }, {passive:true});
+
+  // Inactivity fade for touch controls
+  const touchWrap=document.getElementById('touch'); let lastAct=performance.now();
+  ['pointerdown','touchstart','keydown'].forEach(ev=> window.addEventListener(ev,()=> lastAct=performance.now()));
+  function fadeLoop(){ const now=performance.now(); if(touchWrap){ touchWrap.style.transition='opacity .4s ease'; touchWrap.style.opacity = (now-lastAct>6000)?'0.15':'1'; } requestAnimationFrame(fadeLoop);} requestAnimationFrame(fadeLoop);
+
+  // Debounced resize (replace original listeners)
+  const origResize=resize; let rT=null; function deb(){ if(rT) clearTimeout(rT); rT=setTimeout(()=> origResize(),140);} 
+  window.removeEventListener('resize', resize); window.addEventListener('resize', deb);
+  if('visualViewport' in window){ window.visualViewport.removeEventListener('resize', resize); window.visualViewport.addEventListener('resize', deb); }
+
+  // Lightning throttle in low-power
+  const _origLightning=triggerLightning; triggerLightning=function(){ if(document.body.classList.contains('low-power') && Math.random()<0.5){ scheduleLightningStrike(9000+Math.random()*6000); return;} _origLightning(); };
+})();
+// ================= End Mobile Enhancements =================

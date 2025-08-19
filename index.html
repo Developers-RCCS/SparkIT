@@ -43,6 +43,18 @@
   <canvas id="game" width="1280" height="720" aria-label="Game canvas"></canvas>
 </div>
 
+<!-- Orientation / portrait helper overlay (mobile only) -->
+<div id="orientation-overlay" aria-live="polite" aria-hidden="true">
+  <div class="oo-inner">
+    <div class="oo-icon" role="presentation">📱↻</div>
+    <h2>Rotate for Wider View</h2>
+    <p>This experience plays best in landscape. You can still continue in portrait if you prefer.</p>
+    <div class="row" style="justify-content:center; margin-top:12px">
+      <button id="oo-continue" class="btn small secondary">Play in Portrait</button>
+    </div>
+  </div>
+</div>
+
 <!-- Overlay for interactive panels -->
 <div class="overlay" id="overlay" aria-modal="true" role="dialog" aria-labelledby="panel-title">
   <div class="panel" tabindex="-1">

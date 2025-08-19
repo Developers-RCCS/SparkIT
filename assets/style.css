@@ -551,6 +551,39 @@ input, textarea{
 }
 .padbtn{width:64px; height:64px; border-radius:999px; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.06)}
 @media (min-width:900px){ #touch{display:none} }
+@media (max-width:699px){
+  .padbtn{width:56px; height:56px; font-size:22px; backdrop-filter:blur(6px);}
+  #touch{gap:8px;}
+}
+@media (max-width:480px){
+  .padbtn{width:52px; height:52px; font-size:20px;}
+}
+
+/* Mobile portrait: allow scrolling panel & reduce padding */
+@media (max-width:760px) and (orientation:portrait){
+  .panel{width:96vw; max-height:calc(100dvh - 40px); padding:18px 16px 12px;}
+  body{overflow:hidden;}
+}
+
+/* Orientation overlay */
+#orientation-overlay{position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(5,10,20,.86); backdrop-filter:blur(14px) saturate(140%); z-index:12000; padding: env(safe-area-inset-top) 24px calc(24px + env(safe-area-inset-bottom)); text-align:center;}
+#orientation-overlay.active{display:flex; animation:ooFade .4s ease;}
+@keyframes ooFade{from{opacity:0; transform:scale(.96);} to{opacity:1; transform:none;}}
+#orientation-overlay .oo-inner{max-width:420px; color:var(--fg); font-family:inherit;}
+#orientation-overlay .oo-icon{font-size:56px; line-height:1; margin-bottom:8px; filter:drop-shadow(0 4px 12px rgba(0,0,0,.45));}
+#orientation-overlay h2{margin:0 0 6px; font-size:24px; background:linear-gradient(90deg,var(--accent2),var(--accent)); -webkit-background-clip:text; background-clip:text; color:transparent;}
+#orientation-overlay p{margin:0; font-size:14px; color:var(--muted); line-height:1.5;}
+
+/* Improve tap targets on very small devices */
+@media (max-width:420px){
+  .btn.small{padding:10px 14px; font-size:13px;}
+}
+
+/* Safe-area utility for iOS */
+body::after{content:""; position:fixed; left:0; right:0; bottom:0; height:env(safe-area-inset-bottom); background:rgba(0,0,0,.4); pointer-events:none;}
+
+/* High DPI clamp for low-power mode: will add a body class when engaged */
+body.low-power canvas{image-rendering:pixelated;}
 
 /* Fallback content for accessibility */
 noscript {
