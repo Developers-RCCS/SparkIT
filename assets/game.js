@@ -71,7 +71,6 @@ const state = {
   // enhancements
   orbs:[],            // collectible energy orbs
   ambient:[],         // ambient floating particles / motes
-  badges: JSON.parse(localStorage.getItem('badges')||'[]'), // earned badges
   hack:{ active:false, progress:0, target:'', timer:0, completed:false },
   confetti:[],        // celebration particles for competitions
   camY:0,             // inertial camera y (smoothed)
@@ -80,8 +79,7 @@ const state = {
   },
   keys:{}, paused:false, near:null,
   world:{ length: 3000 },
-  xp: Number(localStorage.getItem('xp')||0),
-  level: Number(localStorage.getItem('level')||1),
+  // XP/level system removed
   submissions: JSON.parse(localStorage.getItem('submissions')||'[]'),
   phase1Complete: localStorage.getItem('phase1Complete')==='1',
   lastBranchLabel: '',
@@ -111,6 +109,84 @@ const state = {
   // photo mode
   photo: { pending:false }
 };
+
+/* ===== Branded Preloader Logic ===== */
+(function initPreloader(){
+  const loader = document.getElementById('loader');
+  if(!loader){ return; }
+  document.body.classList.add('pre-init');
+  const bar = document.getElementById('load-bar');
+  const msgEl = document.getElementById('load-msg');
+  const hintEl = document.getElementById('loader-hint');
+  const dynamicHints = [
+    'Compiling shaders',
+    'Streaming assets',
+    'Charging lightning array',
+    'Linking workshops',
+    'Spawning timeline milestones',
+    'Optimizing parallax layers'
+  ];
+  let hintIndex = 0; let fakeProgress = 0; let assetsReady = false; let lastUpdate = performance.now();
+  const swapHint = ()=>{ hintEl.textContent = dynamicHints[hintIndex % dynamicHints.length]; hintIndex++; };
+  swapHint(); const hintTimer = setInterval(swapHint, 2200);
+  // Basic asset list (images from billboards + logo + content.json)
+  const assetUrls = [
+    'assets/Logo-SparkIt.png','assets/rc1.png','assets/rc2.png','assets/kghs1.png','assets/kghs2.png','assets/content.json'
+  ];
+  let loaded = 0;
+  function mark(){ loaded++; }
+  assetUrls.forEach(u=>{
+    if(u.endsWith('.json')){
+      fetch(u).then(r=>{ if(r.ok) r.json().catch(()=>{}); }).finally(()=>mark());
+    } else {
+      const i = new Image(); i.onload = mark; i.onerror = mark; i.src = u + '?v=' + Date.now();
+    }
+  });
+  function step(){
+    const now = performance.now(); const dt = (now - lastUpdate)/1000; lastUpdate = now;
+    // target progress: weighted combination of real load and time easing
+    const real = loaded / assetUrls.length;
+    const target = real * 0.85 + 0.15; // never stall at 0
+    // ease fakeProgress toward target
+    fakeProgress += (target - fakeProgress) * Math.min(1, dt*2.8);
+    // slight autonomous progression if network slow
+    if(real < 0.5) fakeProgress += dt*0.04;
+    if(bar) bar.style.width = (Math.min(1,fakeProgress)*100).toFixed(2)+'%';
+    if(msgEl){
+      if(fakeProgress < 0.25) msgEl.textContent = 'Initializing…';
+      else if(fakeProgress < 0.55) msgEl.textContent = 'Loading world…';
+      else if(fakeProgress < 0.8) msgEl.textContent = 'Booting Spark Flash core…';
+      else msgEl.textContent = 'Finalizing';
+    }
+    if(!assetsReady && real >= 0.99){ assetsReady = true; }
+    if(assetsReady && fakeProgress > 0.985){ complete(); return; }
+    requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+  function complete(){
+    clearInterval(hintTimer);
+    if(msgEl) msgEl.textContent = 'Ready';
+    // world reveal: shrink loader with circular mask & hand off robot
+    loader.classList.add('world-zoom');
+    setTimeout(()=>{
+      loader.classList.add('fade-out');
+      document.body.classList.remove('pre-init');
+      document.body.classList.add('loader-transition');
+    }, 150);
+    setTimeout(()=>{
+      loader.remove();
+      document.body.classList.remove('loader-transition');
+    }, 1600);
+  }
+})();
+
+// Clean up legacy badges left in localStorage after removing the achievement system
+try{
+  if(localStorage.getItem('badges') !== null){
+    localStorage.removeItem('badges');
+    console.info('Legacy badges entry removed from localStorage');
+  }
+}catch(e){ /* ignore storage errors */ }
 
 // Lightning (SparkIT Flash energizer)
 state.lightning = {
@@ -170,8 +246,7 @@ function triggerLightning(){
     const len = 80 + Math.random()*240;
     L.leaks.push({ang, lenTarget: len, len: 8 + Math.random()*18, v: 120 + Math.random()*240, life: 1200 + Math.random()*2600, alpha:1, nodes:6 + Math.floor(Math.random()*6)});
   }
-  // slight XP reward easter egg (throttled: only if not within afterglow previously)
-  addXP(5);
+  // XP system removed: reward disabled
 }
 
 // throttle state for analog touch input
@@ -184,18 +259,31 @@ if(state.submissions.length && !state.phase1Complete){
 
 function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
 function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.getElementById('toasts').appendChild(t);setTimeout(()=>t.remove(),3000)}
+// Extended toast to ping robot cursor to wave / deliver
+const _origToast = toast; // preserve original for fallback (already assigned above)
+toast = function(msg){
+  _origToast(msg);
+  try{
+    const bot = document.getElementById('cursor-bot');
+    if(bot){
+      bot.classList.add('wave');
+      // brief delivery expression unless already in thrilled
+      if(bot.getAttribute('data-mode')!=='thrilled'){
+        bot.setAttribute('data-mode','impact');
+        setTimeout(()=>{
+          // only clear if still impact
+          if(bot.getAttribute('data-mode')==='impact') bot.removeAttribute('data-mode');
+        },1200);
+      }
+      setTimeout(()=> bot.classList.remove('wave'), 900);
+    }
+  }catch{}
+};
 function addXP(amount=50){
-  state.xp+=amount;
-  if(state.xp>=state.level*200){ state.level++; toast(`Level up! You reached Level ${state.level} ✨`)}
-  localStorage.setItem('xp',state.xp); localStorage.setItem('level',state.level);
-  updateHUD();
+  // XP/leveling removed — kept as no-op for compatibility with existing callers.
 }
 function updateHUD(){
-  // Header/HUD removed; keep no-op for compatibility. If elements exist, update them.
-  const xpEl = document.getElementById('xp'); if(xpEl) xpEl.textContent = state.xp;
-  const lvlEl = document.getElementById('level'); if(lvlEl) lvlEl.textContent = state.level;
-  const bar = document.getElementById('xpbar');
-  if(bar){ const pct = Math.min(99, (state.xp % (state.level*200)) / (state.level*200) * 100); bar.style.width = pct + '%'; }
+  // XP/leveling removed — only update Phase 1 status badge if present.
   const sEl = document.getElementById('phase1-status'); if(sEl){ const s = state.phase1Complete ? 'Completed' : (GAME_DATA.phases[0].open ? 'Open' : 'Closed'); sEl.textContent = s; }
 }
 updateHUD();
@@ -273,9 +361,9 @@ function showHelp(){
   <p><b>Keyboard:</b> ←/A and →/D to move. <b>E</b> to interact at a branch. <b>Shift/X</b> to boost. <b>F</b> Photo Mode. <b>Esc</b> to close. <b>P</b> to pause.</p>
         <p><b>Mobile:</b> Use the on-screen buttons.</p>
       </div>
-      <div class="card">
-        <p>Collect XP by discovering branches and completing Phase 1 registration. Your progress saves in this browser.</p>
-      </div>
+          <div class="card">
+            <p>Discover branches and complete Phase 1 registration. Your progress saves in this browser.</p>
+          </div>
     </div>`
   );
 }
@@ -405,9 +493,9 @@ function bindForm(){
     // basic validation
     if(!data.fullName || !data.email){ msg('Please fill required fields.', true); return; }
     state.submissions.push(data);
-    localStorage.setItem('submissions', JSON.stringify(state.submissions));
-    msg('✅ Registered! +100 XP awarded.', false);
-    addXP(100);
+  localStorage.setItem('submissions', JSON.stringify(state.submissions));
+  msg('✅ Registered! Thank you for registering.', false);
+  // XP disabled: no XP awarded on registration
   state.phase1Complete = true; localStorage.setItem('phase1Complete','1');
     localStorage.removeItem('phase1Draft');
     try{ if(navigator.vibrate) navigator.vibrate([20,30,20]); }catch{}
@@ -439,7 +527,7 @@ function openBranch(branch){
   const html = branchHTML(branch.type);
   showOverlay(branch.label, html);
   bindForm();
-  addXP(20);
+  // XP disabled: branch-visit reward removed
   state.lastBranchLabel = branch.label;
   // Removed share stamp button usage
   // Initialize liquid interaction & panel car only for overview
@@ -1071,10 +1159,11 @@ function drawTimeline(){
     // if near a workshop milestone, prepare robot transform/visuals and spawn themed particles
     if(active && /^workshop/.test(m.key)){
       applyRobotWorkshopVariant(m.key);
-      // award small XP only on first passive approach
+  // award small visit reward only on first passive approach
       if(!state.timeline.visited.has(m.key)){
         state.timeline.visited.add(m.key);
-        addXP(12);
+        // XP disabled: preserve visit tracking and show a small toast
+        toast('Visited: ' + m.title);
         // spawn a short burst of themed particles
         spawnTimelineParticles(m.key, trackX, m.y);
       }
@@ -1112,7 +1201,7 @@ function drawTimeline(){
   });
   // collectibles & ambient & hack progress updates
   updateAmbient(); updateOrbs(); updateHackMiniGame(); updateConfetti(); checkCompetitionCelebration();
-  drawAmbient(); drawOrbs(); drawTimelineParticles(); drawTether(); drawHackMiniGame(); drawMilestoneTooltip(); drawConfetti(); drawTimelineMinimap(); drawBadgesHUD();
+  drawAmbient(); drawOrbs(); drawTimelineParticles(); drawTether(); drawHackMiniGame(); drawMilestoneTooltip(); drawConfetti(); drawTimelineMinimap();
   // clear workshop variant if no current active workshop milestone proximity
   if(!(state.near && /workshop/.test(state.near.type||''))){
     if(state.currentWorkshopVariant){
@@ -1186,7 +1275,7 @@ function drawTimelineParticles(){
   }
 }
 
-/* ===== Timeline Enhancements (collectibles, ambient, minimap, tether, hack, badges) ===== */
+/* ===== Timeline Enhancements (collectibles, ambient, minimap, tether, hack) ===== */
 function ensureTimelineEnhancementsInit(){
   const tl = state.timeline;
   // seed ambient motes lazily
@@ -1236,7 +1325,7 @@ function updateOrbs(){
   tl.orbs.forEach(o=>{
     o.wobble += state.dt*2.2; o.wx = o.x + Math.sin(o.wobble)*14; o.sy = o.y + Math.sin(o.wobble*0.7)*10;
     if(!o.collected && Math.abs(p.y - o.y) < 38){
-      o.collected = true; addXP(25); awardBadge('orb-collector');
+      o.collected = true;
       // small burst confetti inside timeline
       for(let i=0;i<14;i++) state.timeline.confetti.push({x:W/2,y:o.y, vx:(Math.random()*2-1)*60, vy:(Math.random()*-1-0.2)*80, life:1100+Math.random()*600, col:i%3});
     }
@@ -1304,7 +1393,7 @@ function updateHackMiniGame(){
     // auto progress slowly; accelerate if Down key held
     const fast = state.keys['ArrowDown']||state.keys['KeyS'];
     hack.progress += state.dt * (fast? 28: 8);
-    if(hack.progress >= 100){ hack.completed=true; hack.active=false; addXP(120); awardBadge('ctf-hack'); toast('Hack solved! +120 XP'); }
+  if(hack.progress >= 100){ hack.completed=true; hack.active=false; toast('Hack solved!'); }
   }
 }
 function drawHackMiniGame(){
@@ -1338,20 +1427,7 @@ function drawMilestoneTooltip(){
   ctx.restore();
 }
 
-function awardBadge(name){
-  const tl = state.timeline; if(tl.badges.includes(name)) return;
-  tl.badges.push(name); localStorage.setItem('badges', JSON.stringify(tl.badges));
-  toast('Badge earned: '+name);
-}
-function drawBadgesHUD(){
-  const tl = state.timeline; if(!tl.badges.length) return;
-  ctx.save(); ctx.font='11px ui-sans-serif'; ctx.textAlign='left'; ctx.textBaseline='top';
-  ctx.fillStyle='rgba(0,0,0,0.45)'; const x=12,y=12; const h=18+tl.badges.length*14; const w=140; ctx.fillRect(x,y,w,h);
-  ctx.strokeStyle='rgba(255,255,255,.2)'; ctx.strokeRect(x,y,w,h);
-  ctx.fillStyle='#7cf8c8'; ctx.fillText('Badges', x+10,y+6);
-  tl.badges.forEach((b,i)=> ctx.fillText('• '+b, x+10, y+22+i*14));
-  ctx.restore();
-}
+// Badges/achievement system removed
 
 function updateConfetti(){
   const list = state.timeline.confetti; if(!list.length) return;
@@ -1378,7 +1454,7 @@ function drawConfetti(){
 function checkCompetitionCelebration(){
   const tl = state.timeline; const comp = tl.milestones.find(m=>m.key==='competitions'); if(!comp) return;
   if(!tl._compCelebrated && Math.abs(state.player.y - comp.y) < 60){
-    tl._compCelebrated = true; awardBadge('competitor');
+    tl._compCelebrated = true;
     for(let i=0;i<120;i++) tl.confetti.push({x:(Math.random()*120-60)+W/2, y:comp.y + (Math.random()*40-20), vx:(Math.random()*2-1)*100, vy:(Math.random()*-1-0.2)*160, life:1000+Math.random()*1200, col:i%3});
   }
 }
@@ -1482,6 +1558,19 @@ function step(){
   state.dt = Math.min(0.05, (now - state.lastT) / 1000); // clamp to 50ms
   state.lastT = now;
 
+  // Robot cursor expression dynamics
+  if(!state._botExpr){
+    state._botExpr = {
+      lastMoveX: state.player.x,
+      lastMoveVCheckT: now,
+      idleAccum: 0,
+      boredTriggered:false,
+      sleepyTriggered:false,
+      lastThrillT:0
+    };
+  }
+  const botExpr = state._botExpr;
+
   if(!state.paused){
     const leftKey = state.keys['ArrowLeft']||state.keys['KeyA'];
     const rightKey = state.keys['ArrowRight']||state.keys['KeyD'];
@@ -1543,6 +1632,51 @@ function step(){
 
   // draw
   ctx.clearRect(0,0,W,H);
+
+  // Evaluate bot expression triggers (after updating physics & player speed)
+  try{
+    const bot = document.getElementById('cursor-bot');
+    if(bot){
+      const p = state.player;
+      const speed = Math.abs(p.vx);
+      const max = p.maxSpeed;
+      const tNow = performance.now();
+      // Track idle (no horizontal movement in road, no vertical in timeline)
+      let moving = false;
+      if(state.mode==='road') moving = speed > 2; else moving = Math.abs(p.vy) > 2;
+      if(moving){
+        botExpr.idleAccum = 0;
+        botExpr.boredTriggered = false;
+        botExpr.sleepyTriggered = false;
+      } else {
+        botExpr.idleAccum += state.dt;
+      }
+      // Thrilled: near max speed sustained for >0.6s
+      if(state.mode==='road' && speed > max*0.9){
+        if(tNow - botExpr.lastThrillT > 200){
+          bot.setAttribute('data-mode','thrilled');
+          botExpr.lastThrillT = tNow;
+        }
+      } else if(bot.getAttribute('data-mode')==='thrilled' && speed < max*0.5){
+        // release thrilled if slowing down and not overlapped by other forced states
+        bot.removeAttribute('data-mode');
+      }
+      // Idle boredom stages
+      if(bot.getAttribute('data-mode')!=='thrilled'){ // don't override thrill
+        if(!botExpr.sleepyTriggered && botExpr.idleAccum > 35){
+          bot.setAttribute('data-mode','sleepy');
+          botExpr.sleepyTriggered = true;
+        } else if(!botExpr.boredTriggered && botExpr.idleAccum > 12){
+          bot.setAttribute('data-mode','bored');
+          botExpr.boredTriggered = true;
+        }
+      }
+      // If user interacts (keys) clear bored/sleepy quickly
+      if(moving && (bot.getAttribute('data-mode')==='bored' || bot.getAttribute('data-mode')==='sleepy')){
+        bot.removeAttribute('data-mode');
+      }
+    }
+  }catch{}
   if(state.mode==='road'){
     drawRoad();
     drawCar();
@@ -1611,7 +1745,35 @@ canvas.addEventListener('pointerdown', (e)=>{
 });
 
 /* ======= Initial friendly toast ======= */
-setTimeout(()=>toast('Drive → and stop at signs. Press E to interact.'), 400);
+// Guided start overlay shown only for first-time visitors
+(function guidedStart(){
+  try{
+    const seen = localStorage.getItem('sparkit_guided_start_v1');
+    const overlay = document.getElementById('guide-overlay');
+    if(!overlay) return;
+    if(seen){ // Already seen: skip overlay and show shorter toast after a delay
+      setTimeout(()=>toast('Drive → stop at signs. E to interact.'), 700);
+      return;
+    }
+    // Activate overlay
+    overlay.classList.add('active');
+    let dismissed = false;
+    function dismiss(reason){
+      if(dismissed) return; dismissed = true;
+      overlay.classList.add('fading');
+      setTimeout(()=>{ overlay.remove(); }, 650);
+      localStorage.setItem('sparkit_guided_start_v1','1');
+      if(reason==='timeout'){ toast('Drive → Explore the highway'); }
+    }
+    // Dismiss on movement input
+    const movementKeys = new Set(['ArrowRight','ArrowLeft','KeyA','KeyD']);
+    addEventListener('keydown', e=>{ if(movementKeys.has(e.code)){ dismiss('move'); } }, {once:false});
+    // Dismiss on touch button press
+    ['leftBtn','rightBtn'].forEach(id=>{ const b=document.getElementById(id); if(b) b.addEventListener('pointerdown', ()=>dismiss('move'), {once:true}); });
+    // Auto dismiss after 9s if user does nothing
+    setTimeout(()=>dismiss('timeout'), 9000);
+  }catch{}
+})();
 
 /* ======= Collisions, Ghost, Fireworks, Photo Mode ======= */
 function handleCollisions(){

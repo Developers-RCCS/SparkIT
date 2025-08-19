@@ -7,7 +7,37 @@
 <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body class="bot-cursor">
+<!-- Branded Preloader -->
+<div id="loader" role="status" aria-live="polite">
+  <div class="loader-inner">
+    <div class="brand-block">
+      <img src="assets/Logo-SparkIt.png" alt="SparkIT Logo" class="brand-logo"/>
+      <div class="tag">TRAIN • CONNECT • TRANSFORM</div>
+    </div>
+    <div class="progress-area">
+      <div class="pulse-line"><span></span></div>
+      <div class="status-text"><span id="load-msg">Initializing…</span></div>
+      <div class="bar"><div id="load-bar"></div></div>
+    </div>
+  </div>
+  <div class="loader-hint" id="loader-hint">Compiling shaders</div>
+</div>
 <!-- Header/HUD removed for cleaner in-world UI -->
+
+<!-- Guided Start Overlay -->
+<div id="guide-overlay" aria-hidden="true">
+  <div class="guide-content">
+    <div class="guide-prompt" id="guide-prompt-desktop">
+      <span class="keys"><kbd>A</kbd>/<kbd>D</kbd> <span class="or">or</span> ← / →</span>
+      <span class="msg">to begin your journey</span>
+    </div>
+    <div class="guide-prompt" id="guide-prompt-touch">
+      <div class="touch-hint">Tap ▶ to drive</div>
+    </div>
+  </div>
+  <div class="highlight-ring" id="ring-left" aria-hidden="true"></div>
+  <div class="highlight-ring" id="ring-right" aria-hidden="true"></div>
+</div>
 
 <div id="game-wrap" role="application" aria-label="Side-scrolling SparkIT journey game">
   <canvas id="game" width="1280" height="720" aria-label="Game canvas"></canvas>
