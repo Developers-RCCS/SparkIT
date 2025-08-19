@@ -1,15 +1,21 @@
 {
-  "project": { "name": "Axis 25", "tagline": "A project highway to explore, build, and showcase.", "location": "Colombo", "date": "2025-10-10" },
+  "project": { 
+    "name": "SparkIT — ICT Literacy Initiative", 
+    "tagline": "Igniting ICT literacy across Sri Lanka, one district at a time.", 
+    "about": "SparkIT explores Sri Lanka's digital economy through hands-on learning and maker energy. Start in Phase 1 to register and pitch your idea; build in Phase 2; showcase in Phase 3.",
+    "location": "Sri Lanka", 
+    "date": "2024-2025" 
+  },
   "phases": [
-    {"id":1,"title":"Exploration","summary":"Register to join Phase 1.","open":true},
-    {"id":2,"title":"Development","summary":"Prototype with mentors.","open":false},
-    {"id":3,"title":"Showcase","summary":"Present your outcomes.","open":false}
+    {"id":1,"title":"Phase 1 & 2 — Bridging the Gap","summary":"For schools already exposed to ICT, SparkIT strengthens their foundation with advanced programming, robotics, and cybersecurity.","open":true,"formFields":[{"name":"fullName","label":"Full Name","type":"text","required":true},{"name":"email","label":"Email","type":"email","required":true},{"name":"phone","label":"Phone","type":"tel","required":true},{"name":"bio","label":"Short Bio / Motivation","type":"textarea","required":true}]},
+    {"id":2,"title":"Phase 2 — Advanced Foundation","summary":"Students dive into advanced topics like programming, robotics, and cybersecurity to match real industry needs.","open":false},
+    {"id":3,"title":"Phase 3 — The Big Leap","summary":"Monthly district workshops with sci-fi themed immersive learning, establishing ICT societies and continuous mentorship.","open":false}
   ],
   "branches": [
-    {"x":300,"label":"About","type":"about"},
-  {"x":700,"label":"Register","type":"phase1"},
-    {"x":1150,"label":"Phase 2","type":"phase2"},
-    {"x":1600,"label":"Phase 3","type":"phase3"},
+    {"x":300,"label":"Overview","type":"about"},
+    {"x":700,"label":"Phase 1 — Register","type":"phase1"},
+    {"x":1150,"label":"Phase 2 — Details","type":"phase2"},
+    {"x":1600,"label":"Phase 3 — Details","type":"phase3"},
     {"x":2000,"label":"FAQ","type":"faq"},
     {"x":2400,"label":"Contact","type":"contact"}
   ]

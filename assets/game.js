@@ -80,8 +80,8 @@ const state = {
   keys:{}, paused:false, near:null,
   world:{ length: 3000 },
   // XP/level system removed
-  submissions: JSON.parse(localStorage.getItem('submissions')||'[]'),
-  phase1Complete: localStorage.getItem('phase1Complete')==='1',
+  submissions: [],
+  phase1Complete: false,
   lastBranchLabel: '',
   // timing
   lastT: performance.now(), dt: 0,
@@ -180,10 +180,41 @@ const state = {
   }
 })();
 
+// Safe localStorage operations with error handling
+function safeLocalStorageGet(key, defaultValue = null) {
+  try {
+    const value = localStorage.getItem(key);
+    return value !== null ? value : defaultValue;
+  } catch (e) {
+    console.warn('localStorage get failed:', key, e);
+    return defaultValue;
+  }
+}
+
+function safeLocalStorageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e) {
+    console.warn('localStorage set failed:', key, e);
+    return false;
+  }
+}
+
+function safeLocalStorageRemove(key) {
+  try {
+    localStorage.removeItem(key);
+    return true;
+  } catch (e) {
+    console.warn('localStorage remove failed:', key, e);
+    return false;
+  }
+}
+
 // Clean up legacy badges left in localStorage after removing the achievement system
 try{
   if(localStorage.getItem('badges') !== null){
-    localStorage.removeItem('badges');
+    safeLocalStorageRemove('badges');
     console.info('Legacy badges entry removed from localStorage');
   }
 }catch(e){ /* ignore storage errors */ }
@@ -252,19 +283,91 @@ function triggerLightning(){
 // throttle state for analog touch input
 state.throttle = { left:0, right:0 };
 
-// initialize derived flags from existing data
+// initialize derived flags from existing data with safe localStorage
+const storedSubmissions = safeLocalStorageGet('submissions', '[]');
+const storedPhase1Complete = safeLocalStorageGet('phase1Complete');
+
+try {
+  state.submissions = JSON.parse(storedSubmissions);
+} catch (e) {
+  console.warn('Failed to parse stored submissions:', e);
+  state.submissions = [];
+}
+
+state.phase1Complete = storedPhase1Complete === '1';
+
 if(state.submissions.length && !state.phase1Complete){
-  state.phase1Complete = true; localStorage.setItem('phase1Complete','1');
+  state.phase1Complete = true; 
+  safeLocalStorageSet('phase1Complete','1');
+}
+
+// Canvas state optimization - minimize save/restore calls
+const canvasStateManager = {
+  stateStack: 0,
+  maxStack: 10, // Warn if we exceed reasonable nesting
+  
+  save() {
+    if (this.stateStack < this.maxStack) {
+      ctx.save();
+      this.stateStack++;
+    } else {
+      console.warn('Canvas state stack too deep, skipping save()');
+    }
+  },
+  
+  restore() {
+    if (this.stateStack > 0) {
+      ctx.restore();
+      this.stateStack--;
+    } else {
+      console.warn('Attempting to restore canvas state without save()');
+    }
+  },
+  
+  reset() {
+    while (this.stateStack > 0) {
+      ctx.restore();
+      this.stateStack--;
+    }
+  }
+};
+
+// Cache frequently accessed DOM elements
+const domCache = {
+  cursorBot: null,
+  toastsContainer: null,
+  
+  getCursorBot() {
+    if (!this.cursorBot || !document.contains(this.cursorBot)) {
+      this.cursorBot = document.getElementById('cursor-bot');
+    }
+    return this.cursorBot;
+  },
+  
+  getToastsContainer() {
+    if (!this.toastsContainer || !document.contains(this.toastsContainer)) {
+      this.toastsContainer = document.getElementById('toasts');
+    }
+    return this.toastsContainer;
+  }
+};
+
+// Safe HTML setter - basic sanitization for innerHTML usage
+function safeSetHTML(element, html) {
+  // Since all HTML is internally generated, we mainly protect against potential script injection
+  // This is a basic sanitization - for production consider using DOMPurify
+  const sanitized = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  element.innerHTML = sanitized;
 }
 
 function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
-function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.getElementById('toasts').appendChild(t);setTimeout(()=>t.remove(),3000)}
+function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;const toastsEl = domCache.getToastsContainer(); if(toastsEl) toastsEl.appendChild(t);setTimeout(()=>t.remove(),3000)}
 // Extended toast to ping robot cursor to wave / deliver
 const _origToast = toast; // preserve original for fallback (already assigned above)
 toast = function(msg){
   _origToast(msg);
   try{
-    const bot = document.getElementById('cursor-bot');
+    const bot = domCache.getCursorBot();
     if(bot){
       bot.classList.add('wave');
       // brief delivery expression unless already in thrilled
@@ -280,7 +383,7 @@ toast = function(msg){
   }catch{}
 };
 function addXP(amount=50){
-  // XP/leveling removed — kept as no-op for compatibility with existing callers.
+  // XP/leveling system removed - function kept for compatibility but does nothing
 }
 function updateHUD(){
   // XP/leveling removed — only update Phase 1 status badge if present.
@@ -347,7 +450,7 @@ document.getElementById('closePanel').onclick = closePanel;
 
 function showOverlay(title, html){
   panelTitle.textContent = title;
-  panelContent.innerHTML = html;
+  safeSetHTML(panelContent, html);
   overlay.style.display='grid';
   overlay.querySelector('.panel').focus();
   state.paused = true;
@@ -477,14 +580,14 @@ function bindForm(){
   if(!f) return;
   // restore partial data
   try{
-    const saved = JSON.parse(localStorage.getItem('phase1Draft')||'{}');
+    const saved = JSON.parse(safeLocalStorageGet('phase1Draft', '{}'));
     Object.entries(saved).forEach(([k,v])=>{ const el=f.querySelector(`[name="${k}"]`); if(el) el.value=v; });
-  }catch{}
+  }catch(e){ console.warn('Failed to restore draft:', e); }
   // auto-save while typing
   f.querySelectorAll('input,textarea').forEach(el=>{
     el.addEventListener('input', ()=>{
       const draft = Object.fromEntries(new FormData(f).entries());
-      localStorage.setItem('phase1Draft', JSON.stringify(draft));
+      safeLocalStorageSet('phase1Draft', JSON.stringify(draft));
     });
   });
   f.addEventListener('submit', e=>{
@@ -493,11 +596,14 @@ function bindForm(){
     // basic validation
     if(!data.fullName || !data.email){ msg('Please fill required fields.', true); return; }
     state.submissions.push(data);
-  localStorage.setItem('submissions', JSON.stringify(state.submissions));
-  msg('✅ Registered! Thank you for registering.', false);
-  // XP disabled: no XP awarded on registration
-  state.phase1Complete = true; localStorage.setItem('phase1Complete','1');
-    localStorage.removeItem('phase1Draft');
+    if (!safeLocalStorageSet('submissions', JSON.stringify(state.submissions))) {
+      msg('⚠️ Registration saved locally but storage may be full', false);
+    }
+    msg('✅ Registered! Thank you for registering.', false);
+    // XP disabled: no XP awarded on registration
+    state.phase1Complete = true; 
+    safeLocalStorageSet('phase1Complete','1');
+    safeLocalStorageRemove('phase1Draft');
     try{ if(navigator.vibrate) navigator.vibrate([20,30,20]); }catch{}
     // rerender submissions
     document.getElementById('panel-content').insertAdjacentHTML('beforeend','');
@@ -686,12 +792,9 @@ function computeDayNight(){
     const hour = Number(hourStr);
     state.dayNight.hour = isNaN(hour)?12:hour;
   }catch{ state.dayNight.hour = new Date().getHours(); }
-  if(state.settings.forceDark){
-    state.dayNight.isNight = true;
-  } else {
-    const h = state.dayNight.hour;
-    state.dayNight.isNight = (h >= 18 || h < 6);
-  }
+  
+  // Force dark mode for SparkIT theme consistency
+  state.dayNight.isNight = true;
 }
 
 function drawBackground(){
@@ -1262,15 +1365,51 @@ function spawnTimelineParticles(key, x, y){
   }
 }
 
-// Render timeline particles
+// Render timeline particles with bounds checking
 function drawTimelineParticles(){
   const s = state.timeline.particles || [];
+  const camY = state.camera.y;
+  const screenTop = camY - 100; // Extra margin for smooth transitions
+  const screenBottom = camY + H + 100;
+  
   for(let i=s.length-1;i>=0;i--){
-    const p = s[i]; p.life -= state.dt*1000; if(p.life<=0) s.splice(i,1); else {
-      p.x += p.vx * state.dt; p.y += p.vy * state.dt; p.vy += 30 * state.dt;
-      if(p.type==='pixel'){ ctx.fillStyle = 'rgba(220,180,255,'+(Math.min(1,p.life/900)).toFixed(3)+')'; ctx.fillRect(p.x, p.y - state.camera.y, 3,3); }
-      if(p.type==='ctf'){ ctx.fillStyle = 'rgba(124,248,200,'+(Math.min(1,p.life/1200)).toFixed(3)+')'; ctx.fillRect(p.x, p.y - state.camera.y, 2,8); }
-      if(p.type==='code'){ ctx.fillStyle = 'rgba(200,240,255,'+(Math.min(1,p.life/1000)).toFixed(3)+')'; ctx.fillText(';</', p.x, p.y - state.camera.y); }
+    const p = s[i]; 
+    p.life -= state.dt*1000; 
+    if(p.life<=0) { 
+      s.splice(i,1); 
+      continue; 
+    }
+    
+    p.x += p.vx * state.dt; 
+    p.y += p.vy * state.dt; 
+    p.vy += 30 * state.dt;
+    
+    // Bounds checking - remove particles that are off-screen for too long
+    if(p.y < screenTop || p.y > screenBottom) {
+      if(!p.offScreenTime) p.offScreenTime = 0;
+      p.offScreenTime += state.dt * 1000;
+      if(p.offScreenTime > 2000) { // Remove after 2 seconds off-screen
+        s.splice(i,1);
+        continue;
+      }
+    } else {
+      p.offScreenTime = 0;
+    }
+    
+    const yScreen = p.y - camY;
+    if(yScreen >= -50 && yScreen <= H + 50) { // Only render if on screen
+      if(p.type==='pixel'){ 
+        ctx.fillStyle = 'rgba(220,180,255,'+(Math.min(1,p.life/900)).toFixed(3)+')'; 
+        ctx.fillRect(p.x, yScreen, 3,3); 
+      }
+      if(p.type==='ctf'){ 
+        ctx.fillStyle = 'rgba(124,248,200,'+(Math.min(1,p.life/1200)).toFixed(3)+')'; 
+        ctx.fillRect(p.x, yScreen, 2,8); 
+      }
+      if(p.type==='code'){ 
+        ctx.fillStyle = 'rgba(200,240,255,'+(Math.min(1,p.life/1000)).toFixed(3)+')'; 
+        ctx.fillText(';</', p.x, yScreen); 
+      }
     }
   }
 }
@@ -1635,7 +1774,7 @@ function step(){
 
   // Evaluate bot expression triggers (after updating physics & player speed)
   try{
-    const bot = document.getElementById('cursor-bot');
+    const bot = domCache.getCursorBot();
     if(bot){
       const p = state.player;
       const speed = Math.abs(p.vx);
@@ -2058,12 +2197,21 @@ function handleHash(){
 }
 handleHash();
 
-/* ======= Content loading ======= */
+/* ======= Content loading with proper error handling ======= */
 async function loadContent(){
   try{
     const res = await fetch('assets/content.json');
-    if(res.ok){ const data = await res.json(); GAME_DATA = data; }
-  }catch{}
+    if(!res.ok) {
+      throw new Error(`Failed to load content: ${res.status} ${res.statusText}`);
+    }
+    const data = await res.json();
+    GAME_DATA = data;
+    console.info('Content loaded successfully');
+  }catch(e){
+    console.warn('Failed to load content.json:', e);
+    // Fallback to default data already in GAME_DATA
+    toast('⚠️ Using offline content');
+  }
   // Rebuild text route and re-handle deep links with new content
   buildTextRoute();
   handleHash();
@@ -2093,15 +2241,25 @@ function enhanceOverviewLiquidEffects(){
   const panel = document.querySelector('#panel-content .grid.overview');
   if(!panel) return;
   panel.classList.add('liquid-enabled');
-  // Clean any previous FX
+  
+  // Clean any previous FX and event listeners
   if(state.liquidFX){
     cancelAnimationFrame(state.liquidFX.raf);
     if(state.liquidFX.interval) clearInterval(state.liquidFX.interval);
+    // Remove previous event listeners
+    if(state.liquidFX.listeners) {
+      state.liquidFX.listeners.forEach(({element, event, handler}) => {
+        element.removeEventListener(event, handler);
+      });
+    }
   }
+  
   const cards = [...panel.querySelectorAll('.card')];
   const physics = cards.map(el=>({el, x:0,y:0,vx:0,vy:0, tx:0,ty:0}));
+  const listeners = []; // Track event listeners for cleanup
   let lastT = performance.now();
   let lastMX = null, lastMY = null;
+  
   function frame(now){
     const dt = Math.min(.05,(now-lastT)/1000); lastT = now;
     physics.forEach(p=>{
@@ -2121,13 +2279,17 @@ function enhanceOverviewLiquidEffects(){
       p.el.style.setProperty('--rotX', (p.y*-0.4).toFixed(2)+'deg');
       p.el.style.setProperty('--rotY', (p.x*0.4).toFixed(2)+'deg');
     });
-    state.liquidFX.raf = requestAnimationFrame(frame);
+    if(state.liquidFX && state.liquidFX.raf) {
+      state.liquidFX.raf = requestAnimationFrame(frame);
+    }
   }
-  state.liquidFX = {physics, raf: requestAnimationFrame(frame), interval:0};
+  
+  state.liquidFX = {physics, raf: requestAnimationFrame(frame), interval:0, listeners};
   const panelEl = document.querySelector('.panel');
   if(!panelEl) return;
+  
   // Pointer influence
-  panel.addEventListener('pointermove', e=>{
+  const pointerMoveHandler = (e) => {
     const rect = panel.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
@@ -2148,11 +2310,13 @@ function enhanceOverviewLiquidEffects(){
       p.vx += vx*0.04*influence;
       p.vy += vy*0.04*influence;
     });
-  }, {passive:true});
-  panel.addEventListener('pointerleave', ()=>{
+  };
+  
+  const pointerLeaveHandler = () => {
     physics.forEach(p=>{ p.tx = 0; p.ty = 0; });
-  });
-  panel.addEventListener('pointerdown', e=>{
+  };
+  
+  const pointerDownHandler = (e) => {
     // ripple impulse
     const rect = panel.getBoundingClientRect();
     const mx = e.clientX - rect.left;
@@ -2167,15 +2331,31 @@ function enhanceOverviewLiquidEffects(){
       p.vx += (dx/dist||0)*-4*fall;
       p.vy += (dy/dist||0)*-4*fall;
     });
-  });
+  };
+  
   // Scroll influence
   let lastScroll = panelEl.scrollTop;
-  panelEl.addEventListener('scroll', ()=>{
+  const scrollHandler = () => {
     const s = panelEl.scrollTop; const delta = s - lastScroll; lastScroll = s;
     physics.forEach(p=>{ p.vy += delta*0.11; p.vx += (Math.random()*2-1)*0.3; });
-  }, {passive:true});
+  };
+  
+  // Add event listeners and track them
+  panel.addEventListener('pointermove', pointerMoveHandler, {passive:true});
+  panel.addEventListener('pointerleave', pointerLeaveHandler);
+  panel.addEventListener('pointerdown', pointerDownHandler);
+  panelEl.addEventListener('scroll', scrollHandler, {passive:true});
+  
+  listeners.push(
+    {element: panel, event: 'pointermove', handler: pointerMoveHandler},
+    {element: panel, event: 'pointerleave', handler: pointerLeaveHandler},
+    {element: panel, event: 'pointerdown', handler: pointerDownHandler},
+    {element: panelEl, event: 'scroll', handler: scrollHandler}
+  );
+  
   // Random drifting impulses
   state.liquidFX.interval = setInterval(()=>{
+    if(!state.liquidFX) return; // Safety check
     physics.forEach(p=>{ if(Math.random()<0.18){ p.vx += (Math.random()*2-1)*2.4; p.vy += (Math.random()*2-1)*2.4; }});
   }, 2400);
 }
@@ -2187,9 +2367,15 @@ closePanel = function(){
     if(state.liquidFX){
       cancelAnimationFrame(state.liquidFX.raf);
       if(state.liquidFX.interval) clearInterval(state.liquidFX.interval);
+      // Clean up event listeners
+      if(state.liquidFX.listeners) {
+        state.liquidFX.listeners.forEach(({element, event, handler}) => {
+          element.removeEventListener(event, handler);
+        });
+      }
       delete state.liquidFX;
     }
-  }catch{}
+  }catch(e){ console.warn('Error cleaning up liquid FX:', e); }
   _closePanelOrig();
 };
 
