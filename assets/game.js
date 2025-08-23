@@ -141,6 +141,18 @@ const state = {
     radius: 250,
     dustMotes: []
   },
+  // world transformation drilling sequence
+  worldTransition: {
+    active: false,
+    phase: 'none', // 'none' | 'cracking' | 'transforming' | 'descending'
+    progress: 0,   // Progress within the current phase (0 to 1)
+    startTime: 0,
+    cameraShake: 0,
+    roadCrackParticles: [],
+    drillSparks: [],
+    thrusterFlames: [],
+    soundEffects: { drilling: false, transformation: false }
+  },
   // photo mode
   photo: { pending:false }
 };
@@ -380,6 +392,382 @@ function updateRainParticles() {
   }
 }
 
+// World Transformation Drilling Sequence
+function startWorldTransition() {
+  const wt = state.worldTransition;
+  if (wt.active) return; // Prevent re-triggering
+
+  wt.active = true;
+  wt.phase = 'cracking';
+  wt.startTime = performance.now();
+  wt.progress = 0;
+  wt.cameraShake = 18; // Intense initial shake
+  wt.roadCrackParticles = [];
+  wt.drillSparks = [];
+  wt.thrusterFlames = [];
+  
+  state.paused = true; // Take control from the player
+  
+  // Audio feedback
+  toast('🚗💥 World fracturing...');
+}
+
+function updateWorldTransition() {
+  const wt = state.worldTransition;
+  if (!wt.active) return;
+  
+  const elapsed = performance.now() - wt.startTime;
+  const dt = state.dt;
+  
+  // Phase 1: The road cracks apart (lasts 1.5 seconds)
+  if (wt.phase === 'cracking') {
+    wt.progress = Math.min(1, elapsed / 1500);
+    wt.cameraShake = Math.max(0, 18 * (1 - wt.progress * 0.7)); // Gradual reduction
+    
+    // Spawn crack particles and debris
+    if (Math.random() > 0.3) {
+      wt.roadCrackParticles.push({
+        x: state.player.x + (Math.random() * 300 - 150),
+        y: H - 120 + Math.random() * 20,
+        vy: -Math.random() * 200 - 50,
+        vx: (Math.random() - 0.5) * 100,
+        life: 1.5 + Math.random() * 0.8,
+        size: 3 + Math.random() * 6,
+        spin: (Math.random() - 0.5) * 10
+      });
+    }
+    
+    // Energy eruption particles
+    if (wt.progress > 0.4 && Math.random() > 0.7) {
+      wt.drillSparks.push({
+        x: state.player.x + (Math.random() * 100 - 50),
+        y: H - 100,
+        vy: -Math.random() * 300 - 100,
+        vx: (Math.random() - 0.5) * 150,
+        life: 0.8 + Math.random() * 0.5,
+        brightness: 0.8 + Math.random() * 0.2
+      });
+    }
+    
+    if (wt.progress >= 1) {
+      wt.phase = 'transforming';
+      wt.startTime = performance.now();
+      wt.progress = 0;
+      wt.cameraShake = 12; // Medium shake for transformation
+      toast('🤖⚡ Vehicle transforming...');
+    }
+  }
+  
+  // Phase 2: The vehicle transforms (lasts 2 seconds)
+  else if (wt.phase === 'transforming') {
+    wt.progress = Math.min(1, elapsed / 2000);
+    wt.cameraShake = Math.max(0, 12 * (1 - wt.progress * 0.8));
+    
+    // Transformation sparks around the vehicle
+    if (Math.random() > 0.6) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 40 + Math.random() * 30;
+      wt.drillSparks.push({
+        x: state.player.x + Math.cos(angle) * radius,
+        y: state.player.y + Math.sin(angle) * radius,
+        vy: -Math.random() * 80 - 20,
+        vx: (Math.random() - 0.5) * 60,
+        life: 0.6 + Math.random() * 0.4,
+        brightness: 0.9 + Math.random() * 0.1
+      });
+    }
+    
+    if (wt.progress >= 1) {
+      wt.phase = 'descending';
+      wt.startTime = performance.now();
+      wt.progress = 0;
+      wt.cameraShake = 8; // Light shake for descent
+      state.timeline.roadReturnY = state.player.y; // Save for later
+      toast('🚀⬇️ Initiating descent...');
+    }
+  }
+  
+  // Phase 3: The vehicle descends into the timeline (lasts 2.5 seconds)
+  else if (wt.phase === 'descending') {
+    wt.progress = Math.min(1, elapsed / 2500);
+    wt.cameraShake = Math.max(0, 8 * (1 - wt.progress));
+    
+    // Move the player object itself with easing
+    const startY = state.timeline.roadReturnY;
+    const endY = H + 200; // Descend off-screen
+    const easedProgress = 1 - Math.pow(1 - wt.progress, 3); // Ease-out cubic
+    state.player.y = startY + (endY - startY) * easedProgress;
+    
+    // Thruster flames and debris
+    if (Math.random() > 0.4) {
+      wt.thrusterFlames.push({
+        x: state.player.x + (Math.random() * 60 - 30),
+        y: state.player.y + 50,
+        vy: Math.random() * 100 + 50,
+        vx: (Math.random() - 0.5) * 40,
+        life: 0.4 + Math.random() * 0.3,
+        size: 4 + Math.random() * 8
+      });
+    }
+    
+    // Rock debris falling past
+    if (Math.random() > 0.8) {
+      wt.roadCrackParticles.push({
+        x: Math.random() * W,
+        y: -20,
+        vy: Math.random() * 200 + 100,
+        vx: (Math.random() - 0.5) * 50,
+        life: 3.0,
+        size: 2 + Math.random() * 4,
+        spin: (Math.random() - 0.5) * 8
+      });
+    }
+    
+    if (wt.progress >= 1) {
+      // Transition is complete!
+      wt.active = false;
+      wt.phase = 'none';
+      wt.cameraShake = 0;
+      state.paused = false;
+      // Clear all particle arrays
+      wt.roadCrackParticles = [];
+      wt.drillSparks = [];
+      wt.thrusterFlames = [];
+      // Now call the original function to set up the timeline state
+      enterTimeline(); 
+    }
+  }
+
+  // Update all particle systems
+  wt.roadCrackParticles.forEach(p => {
+    p.life -= dt;
+    p.vy += 350 * dt; // Gravity
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.spin += p.spin * dt;
+  });
+  wt.roadCrackParticles = wt.roadCrackParticles.filter(p => p.life > 0 && p.y < H + 100);
+
+  wt.drillSparks.forEach(p => {
+    p.life -= dt;
+    p.vy += 180 * dt; // Light gravity
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+  });
+  wt.drillSparks = wt.drillSparks.filter(p => p.life > 0);
+
+  wt.thrusterFlames.forEach(p => {
+    p.life -= dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.size *= 0.95; // Shrink over time
+  });
+  wt.thrusterFlames = wt.thrusterFlames.filter(p => p.life > 0);
+}
+
+function drawWorldTransition() {
+  const wt = state.worldTransition;
+  if (!wt.active) return;
+
+  const p = state.player;
+  const playerScreenX = p.x - state.camera.x;
+  const roadY = H - 120;
+
+  ctx.save();
+
+  // Draw the cracking road and chasm
+  if (wt.phase === 'cracking' || wt.phase === 'transforming' || wt.phase === 'descending') {
+    const maxCrackWidth = 400;
+    const crackWidth = maxCrackWidth * Math.pow(wt.progress, 0.8); // Ease-out
+    
+    // Left side of the road (intact)
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(-state.camera.x, roadY, playerScreenX - crackWidth / 2 + state.camera.x, 80);
+    ctx.clip();
+    
+    // Draw road normally in this region
+    const rg = ctx.createLinearGradient(0,roadY,0,roadY+80);
+    rg.addColorStop(0,'#1a233b'); rg.addColorStop(1,'#0d1427');
+    ctx.fillStyle = rg;
+    ctx.fillRect(-state.camera.x, roadY, state.world.length+W, 80);
+    
+    ctx.restore();
+    
+    // Right side of the road (intact)
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(playerScreenX + crackWidth / 2, roadY, state.world.length + W, 80);
+    ctx.clip();
+    
+    // Draw road normally in this region
+    ctx.fillStyle = rg;
+    ctx.fillRect(-state.camera.x, roadY, state.world.length+W, 80);
+    
+    ctx.restore();
+    
+    // The glowing chasm
+    if(wt.progress > 0) {
+      const chasmGrad = ctx.createLinearGradient(playerScreenX, roadY, playerScreenX, roadY + 80);
+      chasmGrad.addColorStop(0, `rgba(124, 248, 200, ${0.9 * wt.progress})`);
+      chasmGrad.addColorStop(0.5, `rgba(138, 164, 255, ${0.7 * wt.progress})`);
+      chasmGrad.addColorStop(1, `rgba(235, 185, 0, ${0.5 * wt.progress})`);
+      
+      ctx.fillStyle = chasmGrad;
+      ctx.fillRect(playerScreenX - crackWidth / 2, roadY, crackWidth, 80);
+      
+      // Energy wisps rising from chasm
+      if (wt.phase === 'cracking' && wt.progress > 0.3) {
+        for (let i = 0; i < 5; i++) {
+          const wispX = playerScreenX + (Math.random() - 0.5) * crackWidth * 0.8;
+          const wispY = roadY + 80 - Math.sin(performance.now() * 0.005 + i) * 60;
+          const wispAlpha = (Math.sin(performance.now() * 0.003 + i * 0.5) + 1) * 0.3 * wt.progress;
+          
+          ctx.fillStyle = `rgba(124, 248, 200, ${wispAlpha})`;
+          ctx.beginPath();
+          ctx.arc(wispX, wispY, 3 + Math.sin(performance.now() * 0.01 + i) * 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+  }
+  
+  // Draw crack particles (debris)
+  wt.roadCrackParticles.forEach(part => {
+    const alpha = Math.min(1, part.life / 1.5);
+    ctx.save();
+    ctx.translate(part.x - state.camera.x, part.y);
+    ctx.rotate(part.spin * part.life);
+    ctx.fillStyle = `rgba(60, 70, 80, ${alpha})`;
+    ctx.fillRect(-part.size/2, -part.size/2, part.size, part.size);
+    ctx.restore();
+  });
+  
+  // Draw energy sparks
+  wt.drillSparks.forEach(spark => {
+    const alpha = Math.min(1, spark.life / 0.8) * spark.brightness;
+    ctx.fillStyle = `rgba(124, 248, 200, ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(spark.x - state.camera.x, spark.y, 2 + alpha * 2, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Spark trail
+    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.6})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(spark.x - state.camera.x, spark.y);
+    ctx.lineTo(spark.x - state.camera.x - spark.vx * 0.02, spark.y - spark.vy * 0.02);
+    ctx.stroke();
+  });
+  
+  // Draw thruster flames
+  wt.thrusterFlames.forEach(flame => {
+    const alpha = Math.min(1, flame.life / 0.4);
+    const gradient = ctx.createRadialGradient(
+      flame.x - state.camera.x, flame.y, 0,
+      flame.x - state.camera.x, flame.y, flame.size
+    );
+    gradient.addColorStop(0, `rgba(255, 200, 80, ${alpha})`);
+    gradient.addColorStop(0.7, `rgba(255, 100, 50, ${alpha * 0.7})`);
+    gradient.addColorStop(1, `rgba(255, 50, 20, 0)`);
+    
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(flame.x - state.camera.x, flame.y, flame.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  
+  // Draw the transforming car
+  const carScreenY = (wt.phase === 'descending') ? (p.y - state.camera.y) : (p.y);
+  
+  ctx.save();
+  ctx.translate(playerScreenX, carScreenY);
+  
+  let transformProgress = 0;
+  if (wt.phase === 'transforming') transformProgress = wt.progress;
+  if (wt.phase === 'descending') transformProgress = 1;
+
+  // Draw base car with transformation overlay
+  const grad = ctx.createLinearGradient(-p.w/2,-20,p.w/2,20);
+  grad.addColorStop(0,'#8aa4ff'); grad.addColorStop(1,'#7cf8c8');
+  ctx.fillStyle = grad; ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=1.2;
+  
+  // Car body - slightly modified during transformation
+  const bodyScale = 1 + transformProgress * 0.1;
+  ctx.save();
+  ctx.scale(bodyScale, 1);
+  ctx.beginPath(); 
+  ctx.roundRect(-p.w/2, -p.h/2, p.w, p.h, 8); 
+  ctx.fill(); 
+  ctx.stroke();
+  ctx.restore();
+
+  // Windows with energy glow during transformation
+  ctx.fillStyle = transformProgress > 0 ? `rgba(124, 248, 200, ${0.3 + 0.7*transformProgress})` : 'rgba(255,255,255,.25)';
+  ctx.fillRect(-p.w/2+10, -p.h/2+6, 24, p.h-12);
+  ctx.fillRect(p.w/2-34, -p.h/2+6, 24, p.h-12);
+  
+  // Wheels - retract during transformation
+  const wheelOffset = -15 * transformProgress;
+  ctx.fillStyle='#0c1226';
+  ctx.beginPath(); 
+  ctx.arc(-p.w/3, p.h/2 + wheelOffset, 12 * (1 - transformProgress * 0.3), 0, Math.PI*2); 
+  ctx.arc(p.w/3, p.h/2 + wheelOffset, 12 * (1 - transformProgress * 0.3), 0, Math.PI*2); 
+  ctx.fill();
+
+  // Drill emerging from front
+  if (transformProgress > 0) {
+    const drillLength = 60 * transformProgress;
+    const drillGlow = Math.sin(performance.now() * 0.01) * 0.2 + 0.8;
+    
+    ctx.save();
+    ctx.shadowColor = '#7cf8c8';
+    ctx.shadowBlur = 10 * transformProgress;
+    
+    // Drill cone
+    ctx.fillStyle = `rgba(238, 243, 255, ${drillGlow})`;
+    ctx.beginPath();
+    ctx.moveTo(p.w/2, -p.h/3);
+    ctx.lineTo(p.w/2 + drillLength, 0);
+    ctx.lineTo(p.w/2, p.h/3);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Drill tip energy
+    ctx.fillStyle = `rgba(124, 248, 200, ${drillGlow})`;
+    ctx.beginPath();
+    ctx.arc(p.w/2 + drillLength, 0, 4 * transformProgress, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.restore();
+  }
+
+  // Side thrusters during descent
+  if (wt.phase === 'descending') {
+    const thrusterGlow = Math.sin(performance.now() * 0.02) * 0.3 + 0.7;
+    
+    // Left thruster
+    ctx.fillStyle = `rgba(255, 100, 50, ${thrusterGlow})`;
+    ctx.beginPath();
+    ctx.ellipse(-p.w/2 - 10, 0, 8, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Right thruster
+    ctx.beginPath();
+    ctx.ellipse(p.w/2 + 10, 0, 8, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Main thruster beneath
+    ctx.fillStyle = `rgba(255, 150, 80, ${thrusterGlow})`;
+    ctx.beginPath();
+    ctx.ellipse(0, p.h/2 + 15, 12, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  
+  ctx.restore();
+  ctx.restore();
+}
+
 // throttle state for analog touch input
 state.throttle = { left:0, right:0 };
 
@@ -509,7 +897,8 @@ addEventListener('keydown', e=>{
     if(state.near && /phase 1/i.test(state.near.label||'')){
       // Allow either Down/S or E/Enter to enter timeline (no popup anymore)
       if(e.code==='ArrowDown' || e.code==='KeyS' || e.code==='KeyE' || e.code==='Enter'){
-        enterTimeline();
+  // Launch cinematic drilling transition instead of instant switch
+  startWorldTransition();
         return; // prevent branch popup
       }
     }
@@ -749,9 +1138,9 @@ function openBranch(branch){
     const m = branch._timeline;
     if(m){ state.timeline.visited.add(m.key); showOverlay(m.title, `<div class="card"><h3>${m.title}</h3><p>${m.text}</p><p class="help">Timeline milestone (demo)</p></div>`); return; }
   }
-  // Intercept Phase 1 branch to enter underground timeline instead of popup
+  // Intercept Phase 1 branch to start drilling sequence instead of direct timeline entry
   if(branch && branch.type==='phase1'){
-    enterTimeline();
+    startWorldTransition();
     return;
   }
   const html = branchHTML(branch.type);
@@ -2099,6 +2488,10 @@ function step(){
   }
   const botExpr = state._botExpr;
 
+  // Always update the world transition so the cinematic can play while paused
+  if(state.worldTransition && state.worldTransition.active){
+    updateWorldTransition();
+  }
   if(!state.paused){
     const leftKey = state.keys['ArrowLeft']||state.keys['KeyA'];
     const rightKey = state.keys['ArrowRight']||state.keys['KeyD'];
@@ -2130,12 +2523,19 @@ function step(){
         if(state.skids.length>120) state.skids.shift();
       }
       state.camera.x = clamp(p.x - W*0.5, 0, state.world.length - W + 0);
+      
+      // Apply camera shake from world transition
+      if (state.worldTransition.active && state.worldTransition.cameraShake > 0) {
+        state.camera.x += (Math.random() - 0.5) * state.worldTransition.cameraShake;
+        state.camera.y += (Math.random() - 0.5) * state.worldTransition.cameraShake * 0.5; // Vertical shake too
+      }
       state.near = null;
       handleCollisions();
       updateGhost();
       updateFireworks();
       updatePlayerTrail(); // Update dynamic energy trail
       updateWeather(); // Update weather system
+  // updateWorldTransition runs above even if paused
       state.skids.forEach(s=> s.alpha = Math.max(0, s.alpha - 0.3*dt));
       while(state.skids.length && state.skids[0].alpha<=0.01) state.skids.shift();
     } else if(state.mode==='timeline'){
@@ -2224,6 +2624,7 @@ function step(){
     // Screen-space effects last
     drawSpotlight();
     drawRain();
+    drawWorldTransition();
   } else if(state.mode==='timeline'){
     drawTimeline();
     const trackX = W/2; // center alignment
@@ -2282,7 +2683,7 @@ canvas.addEventListener('pointerdown', (e)=>{
     if(Math.abs(wx - b.x) < 80){ found = b; break; }
   }
   if(found){
-    if(found.type==='phase1'){ enterTimeline(); } else { openBranch(found); }
+  if(found.type==='phase1'){ startWorldTransition(); } else { openBranch(found); }
   }
 });
 
