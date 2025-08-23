@@ -51,7 +51,8 @@ const state = {
     vy:0, ay:0,
     accel: 600,          // px/s^2
     friction: 380,       // px/s^2
-  maxSpeed: 420        // px/s
+    maxSpeed: 420,       // px/s
+    trailParticles: []   // adaptive energy trail particles
   },/* ======= end content ======= */
 
   camera:{x:0, y:0},
@@ -1691,6 +1692,73 @@ function drawCar(){
   });
 }
 
+/* ======= Player Trail Functions ======= */
+function updatePlayerTrail() {
+  const p = state.player;
+  const dt = state.dt;
+
+  // 1. Update existing particles and fade them out
+  for (let i = p.trailParticles.length - 1; i >= 0; i--) {
+    const particle = p.trailParticles[i];
+    particle.life -= dt; // Decrease life over time (1 second life)
+    particle.x += particle.vx * dt; // Particles can have their own slight movement
+    particle.y += particle.vy * dt;
+    if (particle.life <= 0) {
+      p.trailParticles.splice(i, 1); // Remove dead particles
+    }
+  }
+
+  // 2. Generate new particles if the car is moving fast
+  const speed = Math.abs(p.vx);
+  const speedThreshold = p.maxSpeed * 0.5; // Start showing trail at 50% max speed
+
+  if (speed > speedThreshold) {
+    // Make particle generation more frequent at higher speeds
+    if (Math.random() > 0.8 - (speed / p.maxSpeed) * 0.5) {
+      const particle = {
+        x: p.x - Math.sign(p.vx) * (p.w / 2), // Start at the back of the car
+        y: p.y + (Math.random() * p.h * 0.6 - p.h * 0.3), // Randomize y position slightly
+        life: 0.5 + Math.random() * 0.5, // Particle lives for 0.5 to 1.0 seconds
+        size: 2 + (speed / p.maxSpeed) * 4, // Bigger particles at higher speed
+        // Give particles a slight velocity opposite to the car's movement
+        vx: -p.vx * 0.1,
+        vy: (Math.random() - 0.5) * 30
+      };
+      p.trailParticles.push(particle);
+    }
+  }
+}
+
+function drawPlayerTrail() {
+  const particles = state.player.trailParticles;
+  if (!particles.length) return;
+
+  ctx.save();
+  // Using 'lighter' creates a beautiful additive blending effect for glows
+  ctx.globalCompositeOperation = 'lighter';
+
+  particles.forEach(p => {
+    const alpha = p.life / 1.0; // Fade out as life decreases
+    if (alpha <= 0) return;
+
+    const size = p.size * alpha; // Shrink as it fades
+    const screenX = p.x - state.camera.x;
+
+    // Create a radial gradient for a soft glow effect
+    const grad = ctx.createRadialGradient(screenX, p.y, 0, screenX, p.y, size);
+    grad.addColorStop(0, `rgba(124, 248, 200, ${alpha * 0.9})`);   // Inner color (matches your theme)
+    grad.addColorStop(0.7, `rgba(138, 164, 255, ${alpha * 0.6})`); // Outer color
+    grad.addColorStop(1, `rgba(138, 164, 255, 0)`);               // Fully transparent edge
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(screenX, p.y, size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.restore();
+}
+
 /* ======= Game loop ======= */
 function step(){
   const now = performance.now();
@@ -1745,6 +1813,7 @@ function step(){
       handleCollisions();
       updateGhost();
       updateFireworks();
+      updatePlayerTrail(); // Update dynamic energy trail
       state.skids.forEach(s=> s.alpha = Math.max(0, s.alpha - 0.3*dt));
       while(state.skids.length && state.skids[0].alpha<=0.01) state.skids.shift();
     } else if(state.mode==='timeline'){
@@ -1818,6 +1887,7 @@ function step(){
   }catch{}
   if(state.mode==='road'){
     drawRoad();
+    drawPlayerTrail(); // Draw energy trail behind the car
     drawCar();
     drawGhost();
     drawFireworks();
