@@ -107,6 +107,15 @@ const state = {
   // decorative world billboards (to be initialized after world length known)
   billboards: [],
   // removed fuel/boost systems
+  // weather system
+  weather: {
+    type: 'clear', // 'clear' | 'raining'
+    intensity: 0,  // Current intensity from 0 (clear) to 1 (heavy rain)
+    transitionSpeed: 0.3, // Rate of intensity change per second
+    rainParticles: [],
+    nextChange: performance.now() + 15000, // Schedule first potential change in 15s
+    puddles: [] // For extra visual flair
+  },
   // photo mode
   photo: { pending:false }
 };
@@ -279,6 +288,71 @@ function triggerLightning(){
     L.leaks.push({ang, lenTarget: len, len: 8 + Math.random()*18, v: 120 + Math.random()*240, life: 1200 + Math.random()*2600, alpha:1, nodes:6 + Math.floor(Math.random()*6)});
   }
   // XP system removed: reward disabled
+}
+
+// Weather System Functions
+function updateWeather() {
+  const w = state.weather;
+  const dt = state.dt;
+
+  // 1. Check if it's time to change the weather
+  if (performance.now() > w.nextChange) {
+    const oldType = w.type;
+    w.type = (w.type === 'clear') ? 'raining' : 'clear';
+    // Schedule the next change for 20-40 seconds from now
+    w.nextChange = performance.now() + 20000 + Math.random() * 20000;
+    
+    // Add atmospheric toast notification
+    if (w.type === 'raining') {
+      toast('🌧️ Rain begins to fall...');
+    } else {
+      toast('☀️ Skies are clearing');
+    }
+  }
+
+  // 2. Smoothly transition the intensity
+  const targetIntensity = (w.type === 'raining') ? 1 : 0;
+  if (w.intensity !== targetIntensity) {
+    const change = w.transitionSpeed * dt;
+    w.intensity = (targetIntensity > w.intensity)
+      ? Math.min(targetIntensity, w.intensity + change)
+      : Math.max(targetIntensity, w.intensity - change);
+  }
+
+  // 3. Update the rain particle system if it's raining
+  if (w.intensity > 0) {
+    updateRainParticles();
+  } else {
+    w.rainParticles = []; // Clear particles when not raining
+  }
+}
+
+function updateRainParticles() {
+  const w = state.weather;
+  const dt = state.dt;
+
+  // Update existing particles
+  for (let i = w.rainParticles.length - 1; i >= 0; i--) {
+    const p = w.rainParticles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    if (p.y > H + 20) {
+      w.rainParticles.splice(i, 1);
+    }
+  }
+
+  // Spawn new particles based on intensity
+  const spawnCount = Math.floor(250 * w.intensity * dt);
+  for (let i = 0; i < spawnCount; i++) {
+    w.rainParticles.push({
+      x: Math.random() * W,
+      y: -20,
+      l: 10 + Math.random() * 15, // length of streak
+      vx: -150, // Angled rain for a sense of speed/wind
+      vy: 600 + Math.random() * 100,
+      alpha: 0.2 + Math.random() * 0.4
+    });
+  }
 }
 
 // throttle state for analog touch input
@@ -859,8 +933,126 @@ function drawBackground(){
   }
 }
 
+function drawRain() {
+  const w = state.weather;
+  if (w.intensity <= 0) return;
+
+  ctx.save();
+  
+  // Draw different layers of rain for depth
+  w.rainParticles.forEach(p => {
+    ctx.globalAlpha = p.alpha * w.intensity;
+    
+    // Main rain streak
+    ctx.strokeStyle = `rgba(170, 200, 255, ${ctx.globalAlpha})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    // Use vx and vy to determine the angle of the streak
+    ctx.lineTo(p.x + (p.vx / 40), p.y + (p.l));
+    ctx.stroke();
+    
+    // Add a subtle highlight for more realistic look
+    ctx.strokeStyle = `rgba(255, 255, 255, ${ctx.globalAlpha * 0.3})`;
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(p.x + (p.vx / 45), p.y + (p.l * 0.7));
+    ctx.stroke();
+  });
+
+  // Add some atmospheric mist effect during heavy rain
+  if (w.intensity > 0.7) {
+    ctx.globalAlpha = (w.intensity - 0.7) * 0.3;
+    ctx.fillStyle = 'rgba(200, 220, 240, 1)';
+    for (let i = 0; i < 20; i++) {
+      const x = Math.random() * W;
+      const y = Math.random() * H;
+      const size = 1 + Math.random() * 2;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawReflections() {
+  const intensity = state.weather.intensity;
+  if (intensity <= 0) return;
+
+  const roadSurfaceY = H - 120; // Must match your drawRoad() value
+  
+  // Apply the same camera shake as the main scene for consistency
+  const L = state.lightning;
+  let shakeX=0, shakeY=0;
+  if(L.cameraShake>0){
+    shakeX = (Math.random()*2-1)*L.cameraShake;
+    shakeY = (Math.random()*2-1)*L.cameraShake*0.6;
+  }
+
+  ctx.save();
+  ctx.translate(shakeX, shakeY);
+  
+  // We flip the entire canvas vertically, pivoting on the road surface
+  ctx.translate(0, roadSurfaceY);
+  ctx.scale(1, -1);
+  ctx.translate(0, -roadSurfaceY);
+
+  // Set a clipping region so reflections don't draw over the sky
+  ctx.beginPath();
+  ctx.rect(0, roadSurfaceY, W, H);
+  ctx.clip();
+
+  // Now, redraw the elements you want to be reflected with reduced opacity
+  // IMPORTANT: The drawing order is reversed. Car first, then trail, then background.
+  ctx.globalAlpha = intensity * 0.5;
+  drawCar();
+
+  ctx.globalAlpha = intensity * 0.6;
+  drawPlayerTrail();
+
+  // Reflect the billboards and skyline with less clarity
+  ctx.globalAlpha = intensity * 0.3;
+  drawBackground(); // This will reflect glowing buildings etc.
+
+  // Reflect the Hologram UI if it's active
+  /*if (state.projection && state.projection.active) {
+    ctx.globalAlpha = intensity * 0.4;
+    drawHologramUI();
+  }*/
+  
+  ctx.restore(); // This removes the flip, scale, and clipping mask
+
+  // Finally, draw a "wet sheen" layer over the road to sell the effect
+  ctx.save();
+  ctx.translate(shakeX, shakeY); // Apply shake to sheen layer too
+  
+  // Base wet surface
+  ctx.fillStyle = `rgba(10, 15, 25, ${0.4 * intensity})`;
+  ctx.fillRect(-state.camera.x, roadSurfaceY, state.world.length + W, 80);
+  
+  // Add subtle shimmer effect
+  if (intensity > 0.3) {
+    const shimmerTime = performance.now() * 0.001;
+    ctx.globalAlpha = intensity * 0.15;
+    for (let i = 0; i < 8; i++) {
+      const x = (-state.camera.x) + (i * W / 8) + Math.sin(shimmerTime + i) * 30;
+      const gradient = ctx.createLinearGradient(x, roadSurfaceY, x + 40, roadSurfaceY + 80);
+      gradient.addColorStop(0, 'rgba(170, 200, 255, 0)');
+      gradient.addColorStop(0.5, 'rgba(170, 200, 255, 0.3)');
+      gradient.addColorStop(1, 'rgba(170, 200, 255, 0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(x, roadSurfaceY, 40, 80);
+    }
+  }
+  
+  ctx.restore();
+}
+
 function drawRoad(){
-  // background including sky + parallax
+  // lightning effects and road rendering (background now drawn separately)
   const L = state.lightning;
   // camera shake while focused
   let shakeX=0, shakeY=0;
@@ -871,7 +1063,6 @@ function drawRoad(){
   }
   ctx.save();
   ctx.translate(shakeX, shakeY);
-  drawBackground();
 
   // horizon glow
   ctx.fillStyle = 'rgba(124,248,200,.08)';
@@ -1814,6 +2005,7 @@ function step(){
       updateGhost();
       updateFireworks();
       updatePlayerTrail(); // Update dynamic energy trail
+      updateWeather(); // Update weather system
       state.skids.forEach(s=> s.alpha = Math.max(0, s.alpha - 0.3*dt));
       while(state.skids.length && state.skids[0].alpha<=0.01) state.skids.shift();
     } else if(state.mode==='timeline'){
@@ -1886,11 +2078,18 @@ function step(){
     }
   }catch{}
   if(state.mode==='road'){
+    drawBackground(); // Draw background first for reflections to use
     drawRoad();
+    
+    // -- Start Reflection Drawing --
+    drawReflections(); 
+    
+    // -- Draw the actual scene on top --
     drawPlayerTrail(); // Draw energy trail behind the car
     drawCar();
     drawGhost();
     drawFireworks();
+    drawRain(); // Draw rain last so it's on top of everything
   } else if(state.mode==='timeline'){
     drawTimeline();
     const trackX = W/2; // center alignment
