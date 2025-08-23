@@ -752,6 +752,22 @@ body.underground-mode #cursor-bot .hard-hat{display:block;}
 #cursor-bot.mobile .face { border-radius:22px; }
 #cursor-bot.mobile .mouth { top:8px; }
 
+/* Spotlight scanning mode visuals */
+#cursor-bot.scanning .face {
+  background: linear-gradient(150deg, #6be3f5 0%, #7cf8c8 55%, #ffffff 100%);
+  box-shadow: 0 0 0 2px rgba(11,16,32,.55) inset, 0 0 28px -2px rgba(124,248,200,.85);
+}
+#cursor-bot.scanning .eye {
+  height: 4px;
+  width: 14px;
+  margin-top: 10px;
+  border-radius: 2px;
+}
+#cursor-bot.scanning .antenna span::after {
+  animation: antenna-pulse 0.5s ease-in-out infinite;
+  box-shadow: 0 0 12px 6px rgba(124, 248, 200, .8);
+}
+
 /* Close button synergy */
 button#closePanel:hover, button#closePanel:focus-visible { outline:2px solid var(--accent); outline-offset:2px; box-shadow:0 0 12px -2px rgba(124,248,200,.6); }
 

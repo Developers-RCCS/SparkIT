@@ -80,6 +80,23 @@ const state = {
   },
   keys:{}, paused:false, near:null,
   world:{ length: 3000 },
+  // Hidden data layer for spotlight reveal
+  // Note: y values refer to canvas coordinates; keep near ground/background
+  // H is dynamic; we'll compute default using a function at runtime if needed
+  // but we seed with approximate positions; they'll be adjusted on resize
+  // These will be used only in road mode
+  // Screen-space y will be used directly; x is world-space
+  // You can tweak these to place secrets where you like
+  // If H changes, they still render okay since we don't lock to absolute bottom
+  // Types: 'glyph' | 'dataStream' | 'circuit'
+  // targetBranch is informational for future interactions
+  hiddenData: [
+    { x: 300,  y: H - 200, type: 'glyph',     text: '0x53' },
+    { x: 650,  y: H - 120, type: 'dataStream', width: 200 },
+    { x: 1150, y: H - 180, type: 'circuit',   targetBranch: 'phase2' },
+    { x: 1550, y: H - 125, type: 'dataStream', width: 300 },
+    { x: 2000, y: H - 190, type: 'glyph',     text: 'init()' }
+  ],
   // XP/level system removed
   submissions: [],
   phase1Complete: false,
@@ -115,6 +132,14 @@ const state = {
     rainParticles: [],
     nextChange: performance.now() + 15000, // Schedule first potential change in 15s
     puddles: [] // For extra visual flair
+  },
+  // robot spotlight system
+  spotlight: {
+    active: false,
+    x: 0,
+    y: 0,
+    radius: 250,
+    dustMotes: []
   },
   // photo mode
   photo: { pending:false }
@@ -466,6 +491,16 @@ function updateHUD(){
 }
 updateHUD();
 
+// Seed volumetric dust for spotlight (one-time)
+for (let i = 0; i < 150; i++) {
+  state.spotlight.dustMotes.push({
+    x: Math.random() * W,
+    y: Math.random() * H,
+    z: Math.random(),
+    size: 1 + Math.random() * 1.5
+  });
+}
+
 /* ======= Input ======= */
 addEventListener('keydown', e=>{
   if(['ArrowLeft','ArrowRight','KeyA','KeyD','KeyE','Enter','Escape','KeyP','KeyH','KeyF','KeyT'].includes(e.code)) e.preventDefault();
@@ -486,10 +521,24 @@ addEventListener('keydown', e=>{
   if(e.code==='Escape'){ closePanel() }
   if(e.code==='KeyP'){ togglePause() }
   if(e.code==='KeyH'){ showHelp() }
-  if(e.code==='KeyF'){ triggerPhoto() }
+  // KeyF toggles spotlight (hold-to-scan); photo mode moved to Shift+F
+  if(e.code==='KeyF'){ state.spotlight.active = true; }
+  if(e.code==='ShiftLeft' && state.keys['KeyF']){ triggerPhoto(); }
   if(e.code==='KeyT'){ toggleTheme() }
 });
-addEventListener('keyup', e=>state.keys[e.code]=false);
+addEventListener('keyup', e=>{
+  state.keys[e.code]=false;
+  if(e.code==='KeyF'){ state.spotlight.active = false; }
+});
+
+// Spotlight pointer controls
+addEventListener('pointermove', e => {
+  state.spotlight.x = e.clientX;
+  state.spotlight.y = e.clientY;
+});
+addEventListener('contextmenu', e => e.preventDefault());
+addEventListener('mousedown', e => { if (e.button === 2) state.spotlight.active = true; });
+addEventListener('mouseup',   e => { if (e.button === 2) state.spotlight.active = false; });
 
 /* Touch */
 const leftBtn = document.getElementById('leftBtn');
@@ -931,6 +980,87 @@ function drawBackground(){
     ctx.fillText('Sponsor', px, sbY-25);
     ctx.fillStyle = 'rgba(255,255,255,.08)';
   }
+}
+
+// Robot Spotlight — Volumetric beam and dust
+function drawSpotlight(){
+  const s = state.spotlight;
+  const bot = document.getElementById('cursor-bot');
+  if (!s.active) { if(bot) bot.classList.remove('scanning'); return; }
+  if(bot) bot.classList.add('scanning');
+
+  ctx.save();
+  // Volumetric beam gradient (screen-space)
+  const beamGrad = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.radius);
+  beamGrad.addColorStop(0, 'rgba(124, 248, 200, 0.25)');
+  beamGrad.addColorStop(0.3, 'rgba(124, 248, 200, 0.10)');
+  beamGrad.addColorStop(1, 'rgba(124, 248, 200, 0)');
+  ctx.fillStyle = beamGrad;
+  ctx.beginPath(); ctx.arc(s.x, s.y, s.radius, 0, Math.PI*2); ctx.fill();
+
+  // Atmospheric dust motes inside the beam
+  const camX = state.camera.x;
+  s.dustMotes.forEach(m => {
+    const dx = (m.x - camX * m.z * 0.1) - s.x;
+    const dy = m.y - s.y;
+    const dist = Math.hypot(dx, dy);
+    if(dist < s.radius){
+      const a = (1 - dist / s.radius);
+      ctx.fillStyle = `rgba(200,255,230,${(a*0.7).toFixed(3)})`;
+      ctx.beginPath(); ctx.arc(m.x - camX * m.z * 0.1, m.y, m.size * (0.6 + 0.4*m.z), 0, Math.PI*2); ctx.fill();
+    }
+  });
+  ctx.restore();
+}
+
+// Hidden data layer reveal within spotlight
+function drawRevealedData(){
+  const s = state.spotlight; if(!s.active || state.mode!=='road') return;
+  const camX = state.camera.x;
+  const spotWorldX = s.x + camX;
+
+  (state.world.hiddenData||[]).forEach(d => {
+    const dx = d.x - spotWorldX;
+    const dy = d.y - s.y;
+    const dist = Math.hypot(dx, dy);
+    if(dist >= s.radius) return;
+    const alpha = Math.pow(1 - dist / s.radius, 2);
+    if(alpha <= 0.01) return;
+    const sx = d.x - camX; const sy = d.y;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#7cf8c8';
+    ctx.strokeStyle = '#7cf8c8';
+    ctx.shadowColor = '#7cf8c8';
+    ctx.shadowBlur = 15;
+
+    if(d.type==='glyph'){
+      ctx.font = '600 20px "Courier New", ui-monospace, monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(d.text || '', sx, sy);
+    } else if(d.type==='dataStream'){
+      ctx.beginPath();
+      for(let i=0;i<=d.width;i+=5){
+        const wave = Math.sin((i + performance.now()/5) * 0.1) * 5;
+        const x = sx + i; const y = sy + wave;
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.lineWidth = 2; ctx.stroke();
+    } else if(d.type==='circuit'){
+      // Simple circuit glyph: grid of nodes with linking lines
+      const w = 120, h = 60, cols=6, rows=3;
+      for(let r=0;r<rows;r++){
+        for(let c=0;c<cols;c++){
+          const px = sx - w/2 + (c/(cols-1))*w;
+          const py = sy - h/2 + (r/(rows-1))*h;
+          ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI*2); ctx.fill();
+          if(c<cols-1){ ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px + w/(cols-1), py); ctx.stroke(); }
+          if(r<rows-1){ ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px, py + h/(rows-1)); ctx.stroke(); }
+        }
+      }
+    }
+    ctx.restore();
+  });
 }
 
 function drawRain() {
@@ -2078,18 +2208,22 @@ function step(){
     }
   }catch{}
   if(state.mode==='road'){
-    drawBackground(); // Draw background first for reflections to use
+    drawBackground(); // background for reflections
     drawRoad();
-    
-    // -- Start Reflection Drawing --
-    drawReflections(); 
-    
-    // -- Draw the actual scene on top --
-    drawPlayerTrail(); // Draw energy trail behind the car
+
+    // Reflections on wet road
+    drawReflections();
+
+    // World scene
+    drawRevealedData(); // hidden layer first so car overlays if needed
+    drawPlayerTrail();
     drawCar();
     drawGhost();
     drawFireworks();
-    drawRain(); // Draw rain last so it's on top of everything
+
+    // Screen-space effects last
+    drawSpotlight();
+    drawRain();
   } else if(state.mode==='timeline'){
     drawTimeline();
     const trackX = W/2; // center alignment
