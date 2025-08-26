@@ -339,12 +339,7 @@ function updateWeather() {
     // Schedule the next change for 20-40 seconds from now
     w.nextChange = performance.now() + 20000 + Math.random() * 20000;
     
-    // Add atmospheric toast notification
-    if (w.type === 'raining') {
-      toast('🌧️ Rain begins to fall...');
-    } else {
-      toast('☀️ Skies are clearing');
-    }
+    // Environmental messages removed for cleaner experience
   }
 
   // 2. Smoothly transition the intensity
@@ -408,8 +403,7 @@ function startWorldTransition() {
   
   state.paused = true; // Take control from the player
   
-  // Audio feedback
-  toast('🚗💥 World fracturing...');
+  // Removed intrusive toast for cleaner experience
 }
 
 function updateWorldTransition() {
@@ -454,7 +448,7 @@ function updateWorldTransition() {
       wt.startTime = performance.now();
       wt.progress = 0;
       wt.cameraShake = 12; // Medium shake for transformation
-      toast('🤖⚡ Vehicle transforming...');
+      // Removed intrusive toast for cleaner experience
     }
   }
   
@@ -483,7 +477,7 @@ function updateWorldTransition() {
       wt.progress = 0;
       wt.cameraShake = 8; // Light shake for descent
       state.timeline.roadReturnY = state.player.y; // Save for later
-      toast('🚀⬇️ Initiating descent...');
+      // Removed intrusive toast for cleaner experience
     }
   }
   
@@ -969,7 +963,7 @@ function showOverlay(title, html){
   state.paused = true;
 }
 function closePanel(){ overlay.style.display='none'; state.paused=false }
-function togglePause(){ state.paused=!state.paused; toast(state.paused?'Paused ⏸':'Resumed ▶') }
+function togglePause(){ state.paused=!state.paused; /* Removed toast for cleaner experience */ }
 function showHelp(){
   showOverlay('Controls',
     `<div class="grid">
@@ -1969,7 +1963,29 @@ function drawTimeline(){
     const yScreen = m.y - state.camera.y;
     if(yScreen < -140 || yScreen > H+140) return;
     const active = Math.abs(p.y - m.y) < 70;
-    if(active){ state.near = { label:m.title, type:'timeline:'+m.key, _timeline:m }; }
+    
+    // Enhanced mobile milestone interaction
+    const isMobile = window.innerWidth < 760 && ('ontouchstart' in window);
+    const interactionRange = isMobile ? 85 : 70; // Larger interaction area on mobile
+    const isNearMobile = Math.abs(p.y - m.y) < interactionRange;
+    
+    if(active || (isMobile && isNearMobile)){ 
+      state.near = { label:m.title, type:'timeline:'+m.key, _timeline:m }; 
+      
+      // Mobile-specific visual feedback
+      if(isMobile && isNearMobile) {
+        // Add subtle pulsing effect for mobile users
+        const pulseIntensity = Math.max(0, 1 - Math.abs(p.y - m.y) / interactionRange);
+        ctx.save();
+        ctx.globalAlpha = 0.3 * pulseIntensity;
+        ctx.strokeStyle = 'rgba(124,248,200,0.8)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.ellipse(trackX, yScreen, 35 + Math.sin(performance.now() * 0.01) * 5, 35 + Math.sin(performance.now() * 0.01) * 5, 0, 0, Math.PI*2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
     // if near a workshop milestone, prepare robot transform/visuals and spawn themed particles
     if(active && /^workshop/.test(m.key)){
       applyRobotWorkshopVariant(m.key);
@@ -2540,7 +2556,16 @@ function step(){
       while(state.skids.length && state.skids[0].alpha<=0.01) state.skids.shift();
     } else if(state.mode==='timeline'){
       const dirY = (downKey?1:0) - (upKey?1:0);
-      p.ay = dirY * p.accel;
+      
+      // Enhanced mobile timeline navigation
+      const isMobile = window.innerWidth < 760 && ('ontouchstart' in window);
+      if(isMobile) {
+        // More responsive controls for mobile
+        p.ay = dirY * p.accel * 1.2; // 20% faster acceleration on mobile
+      } else {
+        p.ay = dirY * p.accel;
+      }
+      
       p.vy += p.ay * dt;
       if(dirY===0){
         const sign = Math.sign(p.vy);
@@ -2550,10 +2575,36 @@ function step(){
       p.vy = clamp(p.vy, -p.maxSpeed*0.75, p.maxSpeed*0.75);
       p.y += p.vy * dt;
       p.y = clamp(p.y, 140, state.timeline.length);
+      
+      // Enhanced mobile feedback for timeline milestones
+      if(isMobile && state.near && state.near.type && state.near.type.startsWith('timeline:')) {
+        // Gentle haptic feedback when approaching milestones
+        try {
+          if(navigator.vibrate) {
+            const milestone = state.near._timeline;
+            const distance = Math.abs(p.y - milestone.y);
+            if(distance < 50 && !milestone._hapticTriggered) {
+              navigator.vibrate(20);
+              milestone._hapticTriggered = true;
+              
+              // Reset haptic trigger after moving away
+              setTimeout(() => {
+                if(Math.abs(p.y - milestone.y) > 80) {
+                  milestone._hapticTriggered = false;
+                }
+              }, 1000);
+            }
+          }
+        } catch(e) {}
+      }
+      
   // inertial smoothing for camera (ease toward target)
   const targetCam = clamp(p.y - H*0.45, 0, state.timeline.length - H*0.5 + 200);
   if(!state.timeline.camY) state.timeline.camY = targetCam;
-  state.timeline.camY += (targetCam - state.timeline.camY) * Math.min(1, dt*3.5);
+  
+  // Enhanced camera smoothing for mobile
+  const smoothingFactor = isMobile ? 4.2 : 3.5; // Slightly more responsive on mobile
+  state.timeline.camY += (targetCam - state.timeline.camY) * Math.min(1, dt*smoothingFactor);
   state.camera.y = state.timeline.camY;
     }
 
@@ -2923,17 +2974,208 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
     if(on){
       bot.classList.add('mobile');
       bot.style.width='64px'; bot.style.height='64px';
-      // Park helper at bottom-right as an assist bubble until user touches screen
-      tx = window.innerWidth - 70; ty = window.innerHeight - 80;
-      x = tx; y = ty; bot.style.transform=`translate(${x}px,${y}px)`;
+      
+      // Companion Mode: Robot sits as a gentle observer, not interfering with touch
+      // Park in bottom-right corner by default, watching the action
+      const cornerX = window.innerWidth - 80;
+      const cornerY = window.innerHeight - 90;
+      tx = cornerX; ty = cornerY;
+      x = tx; y = ty; 
+      bot.style.transform=`translate(${x}px,${y}px)`;
       bot.setAttribute('data-mode','hero');
-      // Tap to toggle follow
-      let following = false;
-      bot.addEventListener('pointerdown', ()=>{
-        following = !following;
-        if(following){ waveCooldown = 0; lastMoveT = performance.now(); bot.classList.add('active'); }
+      
+      // Create micro-story: Robot is curious but respectful companion
+      let companionMode = 'watching'; // 'watching', 'following', 'celebrating', 'curious'
+      let lastInteractionTime = 0;
+      let celebrationTimeout = null;
+      let storyPhase = 'introduction'; // 'introduction', 'bonding', 'companion'
+      
+      // Introduction phase: Robot appears and settles into watching position
+      setTimeout(() => {
+        if(mobileMode && companionMode === 'watching') {
+          // Small introduction animation
+          const originalTy = ty;
+          ty -= 20;
+          setTimeout(() => {
+            ty = originalTy;
+            bot.classList.add('wave');
+            setTimeout(() => bot.classList.remove('wave'), 800);
+            storyPhase = 'bonding';
+          }, 500);
+        }
+      }, 1500);
+      
+      // Gentle attraction when user touches near game elements
+      window.addEventListener('pointermove', e => {
+        lastInteractionTime = performance.now();
+        
+        if(companionMode === 'watching') {
+          // Progressive bonding: robot becomes more responsive over time
+          const bondingFactor = storyPhase === 'introduction' ? 0.05 : 
+                                storyPhase === 'bonding' ? 0.1 : 0.15;
+          
+          const targetX = cornerX + (e.clientX - cornerX) * bondingFactor;
+          const targetY = cornerY + (e.clientY - cornerY) * bondingFactor;
+          
+          // Keep within companion zone but allow more movement as bond grows
+          const zoneSize = storyPhase === 'companion' ? 180 : 150;
+          tx = Math.max(window.innerWidth - zoneSize, Math.min(window.innerWidth - 40, targetX));
+          ty = Math.max(window.innerHeight - zoneSize, Math.min(window.innerHeight - 40, targetY));
+          
+          // Transition to companion phase after sustained interaction
+          if(storyPhase === 'bonding' && performance.now() - lastInteractionTime < 500) {
+            if(!bot._bondingStartTime) bot._bondingStartTime = performance.now();
+            if(performance.now() - bot._bondingStartTime > 8000) {
+              storyPhase = 'companion';
+              bot.setAttribute('data-mode', 'solution');
+              setTimeout(() => bot.setAttribute('data-mode', 'hero'), 1200);
+            }
+          }
+        }
+      }, {passive: true});
+      
+      // Enhanced reactions to different types of interactions
+      const touchButtons = ['leftBtn', 'rightBtn', 'interactBtn'];
+      touchButtons.forEach(btnId => {
+        const btn = document.getElementById(btnId);
+        if(btn) {
+          btn.addEventListener('pointerdown', () => {
+            bot.classList.add('active');
+            
+            // Different reactions based on button and story phase
+            if(btnId === 'interactBtn') {
+              companionMode = 'celebrating';
+              bot.setAttribute('data-mode', 'solution');
+              bot.classList.add('wave');
+              
+              // More enthusiastic celebration as bond grows
+              const bounceDistance = storyPhase === 'companion' ? 15 : 8;
+              ty -= bounceDistance;
+              
+              // Special celebration for companion phase
+              if(storyPhase === 'companion') {
+                // Create small particle effect around robot
+                const particles = [];
+                for(let i = 0; i < 6; i++) {
+                  const particle = document.createElement('div');
+                  particle.style.cssText = `
+                    position: fixed;
+                    left: ${tx}px;
+                    top: ${ty}px;
+                    width: 4px;
+                    height: 4px;
+                    background: #7cf8c8;
+                    border-radius: 50%;
+                    pointer-events: none;
+                    z-index: 10001;
+                    animation: celebrationParticle 1.2s ease-out forwards;
+                  `;
+                  document.body.appendChild(particle);
+                  
+                  // Random direction for each particle
+                  particle.style.setProperty('--dx', `${(Math.random() - 0.5) * 80}px`);
+                  particle.style.setProperty('--dy', `${-30 - Math.random() * 40}px`);
+                  
+                  setTimeout(() => particle.remove(), 1200);
+                }
+              }
+              
+              setTimeout(() => {
+                ty += bounceDistance;
+                bot.classList.remove('wave');
+                setTimeout(() => {
+                  bot.setAttribute('data-mode', 'hero');
+                  companionMode = 'watching';
+                }, 800);
+              }, 300);
+              
+            } else {
+              // Subtle acknowledgment for movement buttons
+              bot.setAttribute('data-mode', 'curious');
+              const tiltDirection = btnId === 'leftBtn' ? -3 : 3;
+              bot.style.transform += ` rotate(${tiltDirection}deg)`;
+              
+              setTimeout(() => {
+                bot.style.transform = bot.style.transform.replace(/ rotate\([^)]+\)/, '');
+                bot.setAttribute('data-mode', 'hero');
+              }, 400);
+            }
+          });
+          
+          btn.addEventListener('pointerup', () => {
+            setTimeout(() => bot.classList.remove('active'), 200);
+          });
+        }
       });
-      window.addEventListener('pointermove', e=>{ if(following){ tx = e.clientX; ty = e.clientY; lastMoveT = performance.now(); } }, {passive:true});
+      
+      // Enhanced idle animations with story progression
+      setInterval(() => {
+        if(performance.now() - lastInteractionTime > 5000 && companionMode === 'watching') {
+          // Different idle behaviors based on story phase
+          if(storyPhase === 'introduction') {
+            // Shy, small movements
+            const originalTx = tx, originalTy = ty;
+            tx += (Math.random() - 0.5) * 8;
+            ty += (Math.random() - 0.5) * 6;
+            setTimeout(() => { tx = originalTx; ty = originalTy; }, 800);
+            
+          } else if(storyPhase === 'bonding') {
+            // More confident, exploring movements
+            const originalTx = tx, originalTy = ty;
+            tx += (Math.random() - 0.5) * 20;
+            ty += (Math.random() - 0.5) * 16;
+            setTimeout(() => { tx = originalTx; ty = originalTy; }, 1000);
+            
+          } else if(storyPhase === 'companion') {
+            // Playful, comfortable movements
+            const originalTx = tx, originalTy = ty;
+            tx += (Math.random() - 0.5) * 30;
+            ty += (Math.random() - 0.5) * 25;
+            
+            // Occasionally do a little dance
+            if(Math.random() < 0.3) {
+              bot.classList.add('wave');
+              setTimeout(() => bot.classList.remove('wave'), 600);
+            }
+            
+            setTimeout(() => { tx = originalTx; ty = originalTy; }, 1400);
+          }
+        }
+      }, 6000);
+      
+      // Optional tap-to-follow mode (user can enable if they want)
+      let followingEnabled = false;
+      bot.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        followingEnabled = !followingEnabled;
+        
+        if(followingEnabled) {
+          companionMode = 'following';
+          bot.setAttribute('data-mode', 'impact');
+          toast('🤖 Robot companion is now following you');
+          waveCooldown = 0; 
+          lastMoveT = performance.now(); 
+          bot.classList.add('active');
+        } else {
+          companionMode = 'watching';
+          bot.setAttribute('data-mode', 'hero');
+          toast('🤖 Robot companion is watching nearby');
+          // Return to corner
+          tx = cornerX; ty = cornerY;
+        }
+      });
+      
+      // Only follow if user explicitly enabled it
+      const originalPointerMoveHandler = window.addEventListener;
+      window.addEventListener('pointermove', e => { 
+        if(followingEnabled && companionMode === 'following') { 
+          // Even in following mode, add some offset to avoid interference
+          tx = e.clientX + 40; // Offset to avoid blocking touch
+          ty = e.clientY - 40; 
+          lastMoveT = performance.now(); 
+        } 
+      }, {passive: true});
+      
     } else {
       bot.classList.remove('mobile');
       bot.style.width='54px'; bot.style.height='54px';
@@ -2989,7 +3231,7 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
 // Fuel/Boost HUD removed
 
 /* ======= Theme toggle ======= */
-function toggleTheme(){ state.theme = state.theme==='neon'?'sunset':'neon'; toast(state.theme==='neon'?'Neon Colombo Night':'Galle Face Sunset'); }
+function toggleTheme(){ state.theme = state.theme==='neon'?'sunset':'neon'; toast('Theme: ' + (state.theme==='neon'?'Neon':'Sunset')); }
 
 /* ======= Deep links ======= */
 window.addEventListener('hashchange', handleHash);
@@ -3226,16 +3468,215 @@ closePanel = function(){
     ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr); W=vw; H=vh; positionPlayerOnRoad();
   }
 
-  // Gesture swipe
-  let tSX=0,tSY=0,swiping=false; 
-  window.addEventListener('touchstart',e=>{ if(e.touches.length===1){ tSX=e.touches[0].clientX; tSY=e.touches[0].clientY; swiping=true; } },{passive:true});
-  window.addEventListener('touchmove',e=>{ if(!swiping) return; const dx=e.touches[0].clientX-tSX; const dy=e.touches[0].clientY-tSY; if(state.mode==='road'){ if(Math.abs(dx)>40 && Math.abs(dx)>Math.abs(dy)){ state.player.vx += (dx>0?80:-80); swiping=false; } } else if(state.mode==='timeline'){ if(Math.abs(dy)>40 && Math.abs(dy)>Math.abs(dx)){ state.player.vy += (dy>0?80:-80); swiping=false; } } }, {passive:true});
+  // Enhanced gesture swipe with micro-interactions
+  let tSX=0,tSY=0,swiping=false,swipeStartTime=0; 
+  let lastSwipeEffect = 0; // For throttling visual effects
+  
+  window.addEventListener('touchstart',e=>{ 
+    if(e.touches.length===1){ 
+      tSX=e.touches[0].clientX; 
+      tSY=e.touches[0].clientY; 
+      swiping=true; 
+      swipeStartTime = performance.now();
+    } 
+  },{passive:true});
+  
+  window.addEventListener('touchmove',e=>{ 
+    if(!swiping) return; 
+    const dx=e.touches[0].clientX-tSX; 
+    const dy=e.touches[0].clientY-tSY;
+    const swipeTime = performance.now() - swipeStartTime;
+    const velocity = Math.hypot(dx, dy) / Math.max(swipeTime, 1);
+    
+    if(state.mode==='road'){ 
+      if(Math.abs(dx)>30 && Math.abs(dx)>Math.abs(dy)){ 
+        // Enhanced road swipe with velocity-based boost
+        const boost = Math.min(150, 60 + velocity * 0.5);
+        state.player.vx += (dx>0?boost:-boost); 
+        
+        // Micro-interaction: Brief visual feedback
+        if(performance.now() - lastSwipeEffect > 200) {
+          const direction = dx > 0 ? 'right' : 'left';
+          toast(`🚗 ${direction === 'right' ? '→' : '←'}`);
+          lastSwipeEffect = performance.now();
+        }
+        swiping=false; 
+      } 
+    } else if(state.mode==='timeline'){ 
+      if(Math.abs(dy)>25 && Math.abs(dy)>Math.abs(dx)){ 
+        // Enhanced timeline navigation with improved responsiveness
+        const boost = Math.min(120, 50 + velocity * 0.4);
+        state.player.vy += (dy>0?boost:-boost);
+        
+        // Micro-interaction: Gentle haptic feedback (if available)
+        try {
+          if(navigator.vibrate) navigator.vibrate(15);
+        } catch(e) {}
+        
+        // Visual feedback for timeline navigation
+        if(performance.now() - lastSwipeEffect > 150) {
+          const direction = dy > 0 ? 'down' : 'up';
+          // Show subtle directional indicator without intrusive toast
+          const indicator = document.createElement('div');
+          indicator.style.cssText = `
+            position: fixed; 
+            top: 50%; left: 50%; 
+            transform: translate(-50%, -50%);
+            font-size: 24px; 
+            pointer-events: none; 
+            z-index: 1000;
+            color: rgba(124, 248, 200, 0.8);
+            text-shadow: 0 0 10px rgba(124, 248, 200, 0.5);
+            animation: fadeInOut 0.6s ease-out forwards;
+          `;
+          indicator.textContent = direction === 'down' ? '↓' : '↑';
+          document.body.appendChild(indicator);
+          
+          // Add CSS animation dynamically
+          if(!document.getElementById('swipe-animation-style')) {
+            const style = document.createElement('style');
+            style.id = 'swipe-animation-style';
+            style.textContent = `
+              @keyframes fadeInOut {
+                0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+                30% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+                100% { opacity: 0; transform: translate(-50%, -50%) scale(1) translateY(${direction === 'down' ? '20px' : '-20px'}); }
+              }
+            `;
+            document.head.appendChild(style);
+          }
+          
+          setTimeout(() => indicator.remove(), 600);
+          lastSwipeEffect = performance.now();
+        }
+        swiping=false; 
+      } 
+    } 
+  }, {passive:true});
+  
   window.addEventListener('touchend',()=>{ swiping=false; }, {passive:true});
 
-  // Inactivity fade for touch controls
-  const touchWrap=document.getElementById('touch'); let lastAct=performance.now();
-  ['pointerdown','touchstart','keydown'].forEach(ev=> window.addEventListener(ev,()=> lastAct=performance.now()));
-  function fadeLoop(){ const now=performance.now(); if(touchWrap){ touchWrap.style.transition='opacity .4s ease'; touchWrap.style.opacity = (now-lastAct>6000)?'0.15':'1'; } requestAnimationFrame(fadeLoop);} requestAnimationFrame(fadeLoop);
+  // Inactivity fade for touch controls with enhanced micro-interactions
+  const touchWrap=document.getElementById('touch'); 
+  let lastAct=performance.now();
+  let touchControlsVisible = true;
+  
+  // Enhanced activity tracking
+  ['pointerdown','touchstart','keydown','pointermove'].forEach(ev=> {
+    window.addEventListener(ev,()=> {
+      lastAct=performance.now();
+      if(!touchControlsVisible) {
+        touchControlsVisible = true;
+        if(touchWrap) {
+          touchWrap.style.transition='opacity .3s ease, transform .3s ease';
+          touchWrap.style.opacity = '1';
+          touchWrap.style.transform = 'translateY(0)';
+        }
+      }
+    })
+  });
+  
+  // Enhanced touch button interactions
+  const enhanceTouchButton = (buttonId, icon, description) => {
+    const btn = document.getElementById(buttonId);
+    if(!btn) return;
+    
+    // Add ripple effect container
+    if(!btn.querySelector('.ripple-container')) {
+      const rippleContainer = document.createElement('div');
+      rippleContainer.className = 'ripple-container';
+      rippleContainer.style.cssText = `
+        position: absolute; inset: 0; border-radius: inherit; 
+        overflow: hidden; pointer-events: none;
+      `;
+      btn.appendChild(rippleContainer);
+    }
+    
+    // Enhanced interaction feedback
+    btn.addEventListener('pointerdown', (e) => {
+      // Ripple effect
+      const rippleContainer = btn.querySelector('.ripple-container');
+      const ripple = document.createElement('div');
+      const rect = btn.getBoundingClientRect();
+      const size = Math.max(rect.width, rect.height);
+      const x = e.clientX - rect.left - size / 2;
+      const y = e.clientY - rect.top - size / 2;
+      
+      ripple.style.cssText = `
+        position: absolute; border-radius: 50%; background: rgba(124, 248, 200, 0.4);
+        width: ${size}px; height: ${size}px; left: ${x}px; top: ${y}px;
+        transform: scale(0); animation: ripple 0.6s ease-out forwards;
+      `;
+      
+      rippleContainer.appendChild(ripple);
+      setTimeout(() => ripple.remove(), 600);
+      
+      // Haptic feedback
+      try {
+        if(navigator.vibrate) navigator.vibrate(25);
+      } catch(e) {}
+      
+      // Button press animation
+      btn.style.transform = 'scale(0.95)';
+      
+      // Show contextual micro-tooltip
+      if(description) {
+        const tooltip = document.createElement('div');
+        tooltip.style.cssText = `
+          position: fixed; 
+          bottom: ${rect.top - 10}px; 
+          left: 50%; 
+          transform: translateX(-50%);
+          background: rgba(11, 16, 32, 0.9); 
+          color: #7cf8c8; 
+          padding: 6px 12px; 
+          border-radius: 8px;
+          font-size: 12px; 
+          font-weight: 600;
+          pointer-events: none; 
+          z-index: 10000;
+          border: 1px solid rgba(124, 248, 200, 0.3);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+          animation: tooltipAppear 0.3s ease-out forwards;
+        `;
+        tooltip.textContent = description;
+        document.body.appendChild(tooltip);
+        
+        setTimeout(() => {
+          tooltip.style.animation = 'tooltipDisappear 0.2s ease-in forwards';
+          setTimeout(() => tooltip.remove(), 200);
+        }, 1000);
+      }
+    });
+    
+    btn.addEventListener('pointerup', () => {
+      btn.style.transform = '';
+    });
+    
+    btn.addEventListener('pointerleave', () => {
+      btn.style.transform = '';
+    });
+  };
+  
+  // Enhance each touch control
+  enhanceTouchButton('leftBtn', '◀', 'Move Left');
+  enhanceTouchButton('rightBtn', '▶', 'Move Right');  
+  enhanceTouchButton('interactBtn', '⩔', 'Interact');
+  
+  function fadeLoop(){ 
+    const now=performance.now(); 
+    if(touchWrap){ 
+      const inactive = now-lastAct > 8000; // Increased threshold
+      if(inactive && touchControlsVisible) {
+        touchControlsVisible = false;
+        touchWrap.style.transition='opacity .6s ease, transform .6s ease';
+        touchWrap.style.opacity = '0.08'; // Slight visibility instead of completely hidden
+        touchWrap.style.transform = 'translateY(10px)';
+      }
+    } 
+    requestAnimationFrame(fadeLoop);
+  } 
+  requestAnimationFrame(fadeLoop);
 
   // Debounced resize (replace original listeners)
   const origResize=resize; let rT=null; function deb(){ if(rT) clearTimeout(rT); rT=setTimeout(()=> origResize(),140);} 
