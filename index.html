@@ -43,7 +43,8 @@
   <canvas id="game" width="1280" height="720" aria-label="Game canvas"></canvas>
 </div>
 
-<!-- Orientation overlay removed: portrait-first mobile experience -->
+<!-- Orientation / portrait helper overlay (mobile only) -->
+<div id="orientation-overlay" aria-live="polite" aria-hidden="true" style="display:none"></div>
 
 <!-- Overlay for interactive panels -->
 <div class="overlay" id="overlay" aria-modal="true" role="dialog" aria-labelledby="panel-title">
@@ -62,10 +63,19 @@
 <div id="toasts" aria-live="polite"></div>
 
 <!-- Touch controls -->
-<div id="touch">
-  <button class="padbtn" id="leftBtn" aria-label="Move left">◀</button>
-  <button class="padbtn" id="interactBtn" aria-label="Interact">⩔</button>
-  <button class="padbtn" id="rightBtn" aria-label="Move right">▶</button>
+<div id="touch" style="-webkit-user-select:none; user-select:none;">
+  <button class="padbtn" id="leftBtn" aria-label="Move left" draggable="false">◀</button>
+  <button class="padbtn" id="interactBtn" aria-label="Interact" draggable="false">⩔</button>
+  <button class="padbtn" id="rightBtn" aria-label="Move right" draggable="false">▶</button>
+  
+</div>
+
+<!-- Timeline vertical controls (mobile) -->
+<div id="touch-vertical" aria-hidden="true" style="-webkit-user-select:none; user-select:none;">
+  <button class="padbtn" id="upBtn" aria-label="Move up" draggable="false">▲</button>
+  <button class="padbtn" id="downBtn" aria-label="Move down" draggable="false">▼</button>
+  <button class="padbtn" id="interactBtn2" aria-label="Interact" title="Interact" draggable="false">⩔</button>
+  
 </div>
 
 <!-- Screen-reader route: populated by JS to mirror the journey in text -->

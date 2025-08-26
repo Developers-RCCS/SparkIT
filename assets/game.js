@@ -340,7 +340,11 @@ function updateWeather() {
     w.nextChange = performance.now() + 20000 + Math.random() * 20000;
     
     // Add atmospheric toast notification
-  // no UI toasts
+    if (w.type === 'raining') {
+      toast('🌧️ Rain begins to fall...');
+    } else {
+      toast('☀️ Skies are clearing');
+    }
   }
 
   // 2. Smoothly transition the intensity
@@ -404,7 +408,8 @@ function startWorldTransition() {
   
   state.paused = true; // Take control from the player
   
-  // cinematic only (no toast)
+  // Audio feedback
+  toast('🚗💥 World fracturing...');
 }
 
 function updateWorldTransition() {
@@ -449,7 +454,7 @@ function updateWorldTransition() {
       wt.startTime = performance.now();
       wt.progress = 0;
       wt.cameraShake = 12; // Medium shake for transformation
-  // no toast
+      toast('🤖⚡ Vehicle transforming...');
     }
   }
   
@@ -478,7 +483,7 @@ function updateWorldTransition() {
       wt.progress = 0;
       wt.cameraShake = 8; // Light shake for descent
       state.timeline.roadReturnY = state.player.y; // Save for later
-  // no toast
+      toast('🚀⬇️ Initiating descent...');
     }
   }
   
@@ -844,8 +849,36 @@ function safeSetHTML(element, html) {
 }
 
 function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
-// Toasts disabled: keep function for compatibility but do nothing (no DOM, no bot wave)
-function toast(){ /* notifications disabled as requested */ }
+function isMobileDevice(){ return (('ontouchstart' in window) || navigator.maxTouchPoints>0) && Math.min(window.innerWidth, window.innerHeight) < 900; }
+function toast(msg){
+  // Suppress random/informational toasts on mobile for cleaner UX
+  if(isMobileDevice()){
+    // Allow only explicit form success/error messages (contain ✅ or ⚠️) or critical events
+    const allow = /✅|⚠️|error|saved|registered|access/i.test(String(msg||''));
+    if(!allow) return;
+  }
+  const t=document.createElement('div');t.className='toast';t.textContent=msg;const toastsEl = domCache.getToastsContainer(); if(toastsEl) toastsEl.appendChild(t);setTimeout(()=>t.remove(),2600)
+}
+// Extended toast to ping robot cursor to wave / deliver
+const _origToast = toast; // preserve original for fallback (already assigned above)
+toast = function(msg){
+  _origToast(msg);
+  try{
+    const bot = domCache.getCursorBot();
+    if(bot){
+      bot.classList.add('wave');
+      // brief delivery expression unless already in thrilled
+      if(bot.getAttribute('data-mode')!=='thrilled'){
+        bot.setAttribute('data-mode','impact');
+        setTimeout(()=>{
+          // only clear if still impact
+          if(bot.getAttribute('data-mode')==='impact') bot.removeAttribute('data-mode');
+        },1200);
+      }
+      setTimeout(()=> bot.classList.remove('wave'), 900);
+    }
+  }catch{}
+};
 function addXP(amount=50){
   // XP/leveling system removed - function kept for compatibility but does nothing
 }
@@ -909,43 +942,18 @@ addEventListener('mouseup',   e => { if (e.button === 2) state.spotlight.active 
 const leftBtn = document.getElementById('leftBtn');
 const rightBtn = document.getElementById('rightBtn');
 const interactBtn = document.getElementById('interactBtn');
+const upBtn = document.getElementById('upBtn');
+const downBtn = document.getElementById('downBtn');
+const interactBtn2 = document.getElementById('interactBtn2');
 let leftHeld=false, rightHeld=false;
 ['pointerdown','pointerup','pointerleave','pointercancel'].forEach(ev=>{
-  leftBtn.addEventListener(ev, e=>{
-    const down = ev==='pointerdown';
-    if(state.mode==='timeline'){
-      // Map left button to UP in timeline
-      state.keys['ArrowUp'] = down;
-      state.keys['KeyW'] = down;
-    } else {
-      leftHeld = down;
-    }
-  });
-  rightBtn.addEventListener(ev, e=>{
-    const down = ev==='pointerdown';
-    if(state.mode==='timeline'){
-      // Map right button to DOWN in timeline
-      state.keys['ArrowDown'] = down;
-      state.keys['KeyS'] = down;
-    } else {
-      rightHeld = down;
-    }
-  });
+  leftBtn.addEventListener(ev, e=>{ leftHeld = ev==='pointerdown'; });
+  rightBtn.addEventListener(ev, e=>{ rightHeld = ev==='pointerdown'; });
   interactBtn.addEventListener(ev, e=>{ if(ev==='pointerdown' && state.near) openBranch(state.near) });
+  if(upBtn) upBtn.addEventListener(ev, e=>{ if(ev==='pointerdown') state.keys['ArrowUp']=true; else state.keys['ArrowUp']=false; });
+  if(downBtn) downBtn.addEventListener(ev, e=>{ if(ev==='pointerdown') state.keys['ArrowDown']=true; else state.keys['ArrowDown']=false; });
+  if(interactBtn2) interactBtn2.addEventListener(ev, e=>{ if(ev==='pointerdown' && state.near) openBranch(state.near) });
 });
-// Update touch button icons/labels per mode for clarity
-function updateTouchUIForMode(){
-  if(!leftBtn||!rightBtn) return;
-  if(state.mode==='timeline'){
-    leftBtn.textContent = '▲'; leftBtn.setAttribute('aria-label','Move up');
-    rightBtn.textContent = '▼'; rightBtn.setAttribute('aria-label','Move down');
-  } else {
-    leftBtn.textContent = '◀'; leftBtn.setAttribute('aria-label','Move left');
-    rightBtn.textContent = '▶'; rightBtn.setAttribute('aria-label','Move right');
-  }
-}
-// Initialize touch UI for starting mode
-try{ updateTouchUIForMode(); }catch{}
 // analog throttle ramp for touch
 let lastAnalogT = performance.now();
 function updateAnalogThrottle(){
@@ -976,7 +984,7 @@ function showOverlay(title, html){
   state.paused = true;
 }
 function closePanel(){ overlay.style.display='none'; state.paused=false }
-function togglePause(){ state.paused=!state.paused; /* no toast */ }
+function togglePause(){ state.paused=!state.paused; toast(state.paused?'Paused ⏸':'Resumed ▶') }
 function showHelp(){
   showOverlay('Controls',
     `<div class="grid">
@@ -1407,6 +1415,32 @@ function drawSpotlight(){
     }
   });
   ctx.restore();
+}
+
+// Memorable robot aura — screen-space subtle glow and pulse
+function drawBotAura(){
+  try{
+    const bot = domCache.getCursorBot(); if(!bot) return;
+    const r = bot.getBoundingClientRect();
+    const cx = r.left + r.width/2; const cy = r.top + r.height/2;
+    const t = performance.now()*0.001;
+    const base = 38 + Math.sin(t*2.1)*4;
+    // Stronger pulse shortly after a bump
+    const since = (performance.now() - (window._botLastBump||0));
+    const pulse = since < 600 ? (1 - since/600) : 0;
+    ctx.save();
+    const g1 = ctx.createRadialGradient(cx, cy, 0, cx, cy, base + 26*pulse);
+    g1.addColorStop(0, `rgba(124,248,200,${(0.22 + 0.25*pulse).toFixed(3)})`);
+    g1.addColorStop(1, 'rgba(124,248,200,0)');
+    ctx.fillStyle = g1;
+    ctx.beginPath(); ctx.arc(cx, cy, base + 26*pulse, 0, Math.PI*2); ctx.fill();
+    // outer soft ring
+    const g2 = ctx.createRadialGradient(cx, cy, base, cx, cy, base*1.6 + 30*pulse);
+    g2.addColorStop(0, 'rgba(138,164,255,0.12)');
+    g2.addColorStop(1, 'rgba(138,164,255,0)');
+    ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(cx, cy, base*1.6 + 30*pulse, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }catch{}
 }
 
 // Hidden data layer reveal within spotlight
@@ -1917,11 +1951,29 @@ function enterTimeline() {
   state.player.vx=0; state.player.ax=0; 
   state.player.vy=0; state.player.ay=0; 
   state.player.y = 160;
-  // no toast
+  state.camera.x = 0; // ensure screen-space drawing in timeline
+  toast('Entered Spark Flash');
+
+  // Switch UI/robot to underground styling
+  try{ 
+    document.body.classList.add('underground-mode'); 
+    const bot = document.getElementById('cursor-bot');
+    if(bot){ bot.classList.add('enter-underground'); setTimeout(()=> bot.classList.remove('enter-underground'), 700); }
+  }catch{}
+
+  // Show vertical controls on mobile, hide horizontal ones
+  try{
+    const tv = document.getElementById('touch-vertical');
+    const th = document.getElementById('touch');
+    if(isMobileDevice()){ if(tv) tv.style.display='flex'; if(th) th.style.display='none'; }
+  // refresh bot avoidance rectangles now that controls changed
+  try{ window._refreshBotAvoidRects && window._refreshBotAvoidRects(); }catch{}
+  }catch{}
 
   const logos = document.getElementById("logo-container");
   if(logos) logos.style.display = "none"; // hide logos
-  try{ updateTouchUIForMode(); }catch{}
+  // enable timeline tap interactions
+  try{ canvas.addEventListener('pointerdown', handleTimelineTap); }catch{}
 }
 
 function exitTimeline(){
@@ -1932,16 +1984,46 @@ function exitTimeline(){
   state.player.ay = 0;
   positionPlayerOnRoad();
   state.camera.y = 0;
-  // no toast
+  toast('Returned to Highway');
+
+  // Restore surface styling
+  try{ 
+    document.body.classList.remove('underground-mode');
+    const bot = document.getElementById('cursor-bot');
+    if(bot){ bot.classList.add('exit-underground'); setTimeout(()=> bot.classList.remove('exit-underground'), 700); }
+  }catch{}
+
+  // Restore horizontal controls on mobile
+  try{
+    const tv = document.getElementById('touch-vertical');
+    const th = document.getElementById('touch');
+    if(isMobileDevice()){ if(tv) tv.style.display='none'; if(th) th.style.display='flex'; }
+  // refresh bot avoidance rectangles now that controls changed
+  try{ window._refreshBotAvoidRects && window._refreshBotAvoidRects(); }catch{}
+  }catch{}
 
   const logos = document.getElementById("logo-container");
   if(logos) logos.style.display = "flex";
-  try{ updateTouchUIForMode(); }catch{}
+  // disable timeline tap interactions
+  try{ canvas.removeEventListener('pointerdown', handleTimelineTap); }catch{}
 }
 function drawTimeline(){
   // dark base
   ctx.fillStyle = '#04080f'; ctx.fillRect(0,0,W,H);
   ensureTimelineEnhancementsInit();
+  // light shafts
+  (function shafts(){
+    const shaftCount = 6; const now = performance.now();
+    for(let i=0;i<shaftCount;i++){
+      const x = (i+0.5) * (W/shaftCount) + Math.sin((now*0.0006)+(i*1.7))*20;
+      const g = ctx.createLinearGradient(x,0,x,H);
+      g.addColorStop(0,'rgba(124,248,200,0)');
+      g.addColorStop(0.35,'rgba(124,248,200,0.05)');
+      g.addColorStop(0.65,'rgba(138,164,255,0.06)');
+      g.addColorStop(1,'rgba(124,248,200,0)');
+      ctx.fillStyle=g; ctx.fillRect(x-18,0,36,H);
+    }
+  })();
   // parallax cave layers (simple sine contours)
   const t = performance.now()/1000;
   for(let layer=0; layer<4; layer++){
@@ -1967,10 +2049,31 @@ function drawTimeline(){
     ctx.lineTo(W,H); ctx.closePath();
     ctx.globalAlpha=0.12 + layer*0.05; ctx.fill(); ctx.globalAlpha=1;
   }
-  // vertical track
-  const trackX = W/2;
-  ctx.strokeStyle='rgba(124,248,200,.4)'; ctx.lineWidth=10; ctx.lineCap='round';
+  // vertical track (green path) with rails and animated pulse
+  const trackX = W/2; const _now = performance.now();
+  ctx.save();
+  ctx.strokeStyle='rgba(124,248,200,.44)'; ctx.lineWidth=10; ctx.lineCap='round';
   ctx.beginPath(); ctx.moveTo(trackX, -state.camera.y + 100); ctx.lineTo(trackX, -state.camera.y + state.timeline.length + 200); ctx.stroke();
+  // animated dash
+  ctx.strokeStyle='rgba(235,185,0,.42)'; ctx.lineWidth=3.5; ctx.setLineDash([18,14]);
+  ctx.lineDashOffset = -((_now*0.12)%100);
+  ctx.beginPath(); ctx.moveTo(trackX, -state.camera.y + 80); ctx.lineTo(trackX, -state.camera.y + state.timeline.length + 220); ctx.stroke();
+  ctx.setLineDash([]);
+  // side rails
+  ctx.strokeStyle='rgba(138,164,255,.22)'; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(trackX-28, -state.camera.y + 120); ctx.lineTo(trackX-28, -state.camera.y + state.timeline.length + 240); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(trackX+28, -state.camera.y + 120); ctx.lineTo(trackX+28, -state.camera.y + state.timeline.length + 240); ctx.stroke();
+  // rail flickers
+  for(let i=0;i<8;i++){
+    const ry = (((_now*0.12)+(i*220)) % (state.timeline.length+400)) - state.camera.y;
+    if(ry>-40 && ry<H+40){
+      const alpha = 0.2 + 0.2*Math.sin((_now*0.005)+i);
+      ctx.fillStyle = `rgba(124,248,200,${alpha.toFixed(3)})`;
+      ctx.fillRect(trackX-28, ry, 3, 8);
+      ctx.fillRect(trackX+25, ry+12, 3, 8);
+    }
+  }
+  ctx.restore();
   // milestones
   const p = state.player;
   state.near = null;
@@ -1986,7 +2089,7 @@ function drawTimeline(){
       if(!state.timeline.visited.has(m.key)){
         state.timeline.visited.add(m.key);
         // XP disabled: preserve visit tracking and show a small toast
-  // no toast
+        toast('Visited: ' + m.title);
         // spawn a short burst of themed particles
         spawnTimelineParticles(m.key, trackX, m.y);
       }
@@ -2022,9 +2125,9 @@ function drawTimeline(){
       ctx.fillStyle='rgba(124,248,200,.85)'; ctx.fillRect(trackX+48, yScreen+16, 180, 5);
     }
   });
-  // collectibles & ambient & hack progress updates
-  updateAmbient(); updateOrbs(); updateHackMiniGame(); updateConfetti(); checkCompetitionCelebration();
-  drawAmbient(); drawOrbs(); drawTimelineParticles(); drawTether(); drawHackMiniGame(); drawMilestoneTooltip(); drawConfetti(); drawTimelineMinimap();
+  // collectibles & ambient & hack progress updates + crystals + ripples
+  updateAmbient(); updateOrbs(); updateHackMiniGame(); updateConfetti(); checkCompetitionCelebration(); updateCrystals(); updateRipples();
+  drawAmbient(); drawCrystals(); drawOrbs(); drawTimelineParticles(); drawTether(); drawHackMiniGame(); drawMilestoneTooltip(); drawRipples(); drawConfetti(); drawTimelineMinimap();
   // clear workshop variant if no current active workshop milestone proximity
   if(!(state.near && /workshop/.test(state.near.type||''))){
     if(state.currentWorkshopVariant){
@@ -2032,7 +2135,7 @@ function drawTimeline(){
     }
   }
   ctx.font='12px ui-sans-serif'; ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.6)';
-  if(p.y < 240) ctx.fillText('Spark Flash — drag to scroll; tap to open', trackX, 54); else ctx.fillText('Drag to explore milestones', trackX, 54);
+  if(p.y < 240) ctx.fillText('Spark Flash ↓ / S descend • Up / W exit', trackX, 54); else ctx.fillText('Spark Flash: E open • Up climb • Up @ top exit', trackX, 54);
   // torch spotlight (simulate from bot head relative to pointer; fallback center)
   try{
     const bot = document.getElementById('cursor-bot');
@@ -2152,6 +2255,91 @@ function ensureTimelineEnhancementsInit(){
     }
     tl._orbsSeeded = true;
   }
+  // seed crystals on cave walls
+  if(!tl._crystalsSeeded){
+  const list = []; let count = 32;
+  if(Math.min(W,H) < 640) count = 20; // reduce on small mobile screens
+    for(let i=0;i<count;i++){
+      list.push({ y: Math.random()*tl.length, x: (Math.random()<0.5? (W/2 - 110 - Math.random()*120) : (W/2 + 110 + Math.random()*120)), size: 8+Math.random()*16, phase: Math.random()*Math.PI*2 });
+    }
+    tl.crystals = list; tl._crystalsSeeded = true;
+  }
+  if(!tl.ripples) tl.ripples = [];
+}
+
+function updateCrystals(){
+  const tl = state.timeline; const p = state.player;
+  (tl.crystals||[]).forEach(c=>{ c.phase += state.dt*1.4; c.bright = 0.3 + 0.7*Math.max(0, 1 - Math.abs((c.y - p.y))/220); });
+}
+function drawCrystals(){
+  const tl = state.timeline; const camY = state.camera.y;
+  (tl.crystals||[]).forEach(c=>{
+    const y = c.y - camY; if(y<-60||y>H+60) return;
+    const pul = (Math.sin(c.phase*2)+1)/2;
+    const a = Math.min(1, (0.25 + 0.55*pul) * (c.bright||0.6));
+    const g = ctx.createRadialGradient(c.x, y, 0, c.x, y, c.size*3);
+    g.addColorStop(0, `rgba(124,248,200,${(0.35*a).toFixed(3)})`);
+    g.addColorStop(1, 'rgba(124,248,200,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(c.x,y,c.size*3,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = `rgba(180, 236, 220, ${Math.min(0.9,0.45+0.35*a).toFixed(3)})`;
+    ctx.beginPath();
+    ctx.moveTo(c.x, y - c.size);
+    ctx.lineTo(c.x + c.size*0.7, y);
+    ctx.lineTo(c.x, y + c.size*1.1);
+    ctx.lineTo(c.x - c.size*0.7, y);
+    ctx.closePath(); ctx.fill();
+  });
+}
+
+function updateRipples(){
+  const tl = state.timeline; if(!tl.ripples) return; const dt = state.dt;
+  for(let i=tl.ripples.length-1;i>=0;i--){ const r=tl.ripples[i]; r.t+=dt; r.r+=120*dt; r.a = Math.max(0, 1 - r.t/1.2); if(r.a<=0) tl.ripples.splice(i,1); }
+}
+function drawRipples(){
+  const tl = state.timeline; if(!tl.ripples) return; const camY = state.camera.y;
+  tl.ripples.forEach(r=>{
+    const y = r.y - camY; if(y<-40||y>H+40) return;
+    const g = ctx.createRadialGradient(W/2, y, r.r*0.6, W/2, y, r.r);
+    g.addColorStop(0, `rgba(124,248,200,${(0.12*r.a).toFixed(3)})`);
+    g.addColorStop(1, 'rgba(124,248,200,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(W/2, y, r.r, 0, Math.PI*2); ctx.fill();
+  });
+}
+
+// Handle timeline tap interactions (crystals + path ripples)
+function handleTimelineTap(e){
+  try{
+    const rect = canvas.getBoundingClientRect();
+    const cx = (e.clientX - rect.left);
+    const cy = (e.clientY - rect.top);
+    const tl = state.timeline; const camY = state.camera.y;
+    let did=false;
+    // Tap crystals on cave walls for sparkle and ripple
+    (tl.crystals||[]).forEach(c=>{
+      const yScreen = c.y - camY;
+      if(Math.abs(cx - c.x) < 28 && Math.abs(cy - yScreen) < 28){
+        const now = performance.now();
+        if(!c._cool || now - c._cool > 650){
+          c._cool = now;
+          tl.ripples.push({ y:c.y, r:8, t:0, a:1 });
+          // shard sparkles as particles
+          for(let i=0;i<10;i++) tl.particles.push({type:'pixel', x:c.x + (Math.random()*20-10), y:c.y + (Math.random()*12-6), vx:(Math.random()*2-1)*40, vy:(Math.random()*-1-0.2)*60, life:800+Math.random()*600});
+          // ambient spark
+          tl.ambient.push({x:c.x, y:c.y, r:2, drift:0.2, pulse:0, spark:true, life:1000});
+          did = true;
+        }
+      }
+    });
+    // Tap near the center path to spawn a ripple at that y
+    if(!did && Math.abs(cx - W/2) < 50){
+      const yWorld = cy + camY;
+      tl.ripples.push({ y:yWorld, r:8, t:0, a:1 });
+      did = true;
+    }
+    // subtle haptics
+    if(did){ try{ if(navigator.vibrate) navigator.vibrate(12); }catch{}
+    }
+  }catch{}
 }
 
 function updateAmbient(){
@@ -2187,6 +2375,10 @@ function updateOrbs(){
       o.collected = true;
       // small burst confetti inside timeline
       for(let i=0;i<14;i++) state.timeline.confetti.push({x:W/2,y:o.y, vx:(Math.random()*2-1)*60, vy:(Math.random()*-1-0.2)*80, life:1100+Math.random()*600, col:i%3});
+  // spawn ripple on the path
+  state.timeline.ripples.push({ y:o.y, r:6, t:0, a:1 });
+  // subtle haptics on collect
+  try{ if(navigator.vibrate) navigator.vibrate(10); }catch{}
     }
   });
 }
@@ -2252,7 +2444,7 @@ function updateHackMiniGame(){
     // auto progress slowly; accelerate if Down key held
     const fast = state.keys['ArrowDown']||state.keys['KeyS'];
     hack.progress += state.dt * (fast? 28: 8);
-  if(hack.progress >= 100){ hack.completed=true; hack.active=false; /* no toast */ }
+  if(hack.progress >= 100){ hack.completed=true; hack.active=false; toast('Hack solved!'); }
   }
 }
 function drawHackMiniGame(){
@@ -2350,7 +2542,7 @@ function clearRobotWorkshopVariant(){
 /* ======= Car drawing ======= */
 function drawCar(){
   const p = state.player;
-  const y = p.y, x = p.x - state.camera.x;
+  const y = p.y, x = (state.mode==='timeline' ? p.x : (p.x - state.camera.x));
   // transformation progress
   let transP = 0;
   if(state.transition){
@@ -2362,25 +2554,51 @@ function drawCar(){
 
   // shadow
   if(state.mode==='timeline'){
-    // Rocket / drilling module hybrid
-    const baseW = p.w * (1 - 0.3*transP);
-    const bodyH = p.h + 50;
+    // Advanced drill/rocket morph with animated drill head and side lights
+    const baseW = p.w * 1.05;
+    const bodyH = p.h + 66;
+    const t = performance.now()*0.002;
     ctx.save();
     ctx.translate(x,y);
-    ctx.fillStyle = '#7cf8c8';
-    ctx.strokeStyle='rgba(255,255,255,.3)'; ctx.lineWidth=2;
+    // Body
+    const bodyGrad = ctx.createLinearGradient(-baseW/2,-bodyH/2,baseW/2,bodyH/2);
+    bodyGrad.addColorStop(0,'#6be3f5'); bodyGrad.addColorStop(0.5,'#7cf8c8'); bodyGrad.addColorStop(1,'#8aa4ff');
+    ctx.fillStyle = bodyGrad; ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=2;
     ctx.beginPath();
     ctx.moveTo(0,-bodyH/2);
-    ctx.lineTo(baseW/2, bodyH/2-14);
+    ctx.lineTo(baseW/2, bodyH/2-18);
     ctx.lineTo(0, bodyH/2);
-    ctx.lineTo(-baseW/2, bodyH/2-14);
+    ctx.lineTo(-baseW/2, bodyH/2-18);
     ctx.closePath(); ctx.fill(); ctx.stroke();
-    // window
-    ctx.fillStyle='rgba(0,0,0,.5)'; ctx.beginPath(); ctx.ellipse(0,-6, baseW*0.25, 14,0,0,Math.PI*2); ctx.fill();
-    // flame if moving down
+    // Window
+    ctx.fillStyle='rgba(4,10,20,.6)'; ctx.beginPath(); ctx.ellipse(0,-10, baseW*0.26, 15,0,0,Math.PI*2); ctx.fill();
+    // Side lights pulsating
+    const pul = (Math.sin(t*3)+1)/2;
+    ctx.fillStyle = `rgba(124,248,200,${(0.65+0.35*pul).toFixed(3)})`;
+    ctx.beginPath(); ctx.arc(-baseW/2+10, 4, 4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(baseW/2-10, 4, 4, 0, Math.PI*2); ctx.fill();
+    // Rotating drill head
+    const r = 20; const seg = 6; const ang = performance.now()*0.02 * Math.sign(state.player.vy||1);
+    ctx.save(); ctx.translate(0, -bodyH/2 + 6); ctx.rotate(ang);
+    for(let i=0;i<seg;i++){
+      const a = (i*(Math.PI*2/seg));
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
+      ctx.lineTo(Math.cos(a+0.2)*(r+10), Math.sin(a+0.2)*(r+10));
+      ctx.closePath();
+      ctx.fillStyle = i%2? 'rgba(230,240,255,.9)':'rgba(200,230,255,.8)';
+      ctx.fill();
+    }
+    // Drill glow
+    const dg = ctx.createRadialGradient(0,0,0,0,0,r+16);
+    dg.addColorStop(0,'rgba(124,248,200,.55)'); dg.addColorStop(1,'rgba(124,248,200,0)');
+    ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(0,0,r+16,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+    // Thruster flame if moving
     if(state.player.vy>20){
-      const f = ctx.createLinearGradient(0,0,0,60); f.addColorStop(0,'rgba(255,200,80,.9)'); f.addColorStop(1,'rgba(255,80,20,0)');
-      ctx.fillStyle=f; ctx.beginPath(); ctx.moveTo(0, bodyH/2); ctx.lineTo(10, bodyH/2+60); ctx.lineTo(-10, bodyH/2+60); ctx.closePath(); ctx.fill();
+      const f = ctx.createLinearGradient(0,0,0,66); f.addColorStop(0,'rgba(255,210,120,.95)'); f.addColorStop(1,'rgba(255,90,30,0)');
+      ctx.fillStyle=f; ctx.beginPath(); ctx.moveTo(0, bodyH/2); ctx.lineTo(12, bodyH/2+66); ctx.lineTo(-12, bodyH/2+66); ctx.closePath(); ctx.fill();
     }
     ctx.restore();
   } else {
@@ -2548,7 +2766,7 @@ function step(){
       state.skids.forEach(s=> s.alpha = Math.max(0, s.alpha - 0.3*dt));
       while(state.skids.length && state.skids[0].alpha<=0.01) state.skids.shift();
     } else if(state.mode==='timeline'){
-      const dirY = (downKey?1:0) - (upKey?1:0);
+    const dirY = (downKey?1:0) - (upKey?1:0);
       p.ay = dirY * p.accel;
       p.vy += p.ay * dt;
       if(dirY===0){
@@ -2557,12 +2775,21 @@ function step(){
         p.vy = mag*sign;
       }
       p.vy = clamp(p.vy, -p.maxSpeed*0.75, p.maxSpeed*0.75);
-      p.y += p.vy * dt;
+  // Lock horizontal position to track and constrain movement strictly on the green path
+  state.player.x = W/2; // hard lock to center path in CSS px space
+  p.y += p.vy * dt;
       p.y = clamp(p.y, 140, state.timeline.length);
+      // Auto-exit when pushing beyond the top while going up (mobile-friendly)
+      if(p.y <= 142 && (upKey || p.vy < -20)){
+        exitTimeline();
+        // prevent further timeline update this frame
+        return requestAnimationFrame(step);
+      }
   // inertial smoothing for camera (ease toward target)
   const targetCam = clamp(p.y - H*0.45, 0, state.timeline.length - H*0.5 + 200);
   if(!state.timeline.camY) state.timeline.camY = targetCam;
-  state.timeline.camY += (targetCam - state.timeline.camY) * Math.min(1, dt*3.5);
+  const ease = state._timelineCamEase || 3.5;
+  state.timeline.camY += (targetCam - state.timeline.camY) * Math.min(1, dt*ease);
   state.camera.y = state.timeline.camY;
     }
 
@@ -2645,6 +2872,8 @@ function step(){
     ctx.restore();
     state.player.x = savedX;
   }
+  // Screen-space robot aura (memorable companion)
+  drawBotAura();
   // HUD for fuel/boost removed
 
   requestAnimationFrame(step);
@@ -2683,6 +2912,7 @@ resize();
 
 /* ======= Click interaction on signs ======= */
 canvas.addEventListener('pointerdown', (e)=>{
+  if(state.mode !== 'road') return; // ignore road sign clicks while in timeline
   // detect if clicked near a sign; translate to world x (CSS pixels)
   const rect = canvas.getBoundingClientRect();
   const cx = (e.clientX - rect.left); // CSS px since we scale the context by DPR
@@ -2704,7 +2934,7 @@ canvas.addEventListener('pointerdown', (e)=>{
     const overlay = document.getElementById('guide-overlay');
     if(!overlay) return;
     if(seen){ // Already seen: skip overlay and show shorter toast after a delay
-  // no toast
+      setTimeout(()=>toast('Drive → stop at signs. E to interact.'), 700);
       return;
     }
     // Activate overlay
@@ -2715,7 +2945,7 @@ canvas.addEventListener('pointerdown', (e)=>{
       overlay.classList.add('fading');
       setTimeout(()=>{ overlay.remove(); }, 650);
       localStorage.setItem('sparkit_guided_start_v1','1');
-  // no toast
+      if(reason==='timeout'){ toast('Drive → Explore the highway'); }
     }
     // Dismiss on movement input
     const movementKeys = new Set(['ArrowRight','ArrowLeft','KeyA','KeyD']);
@@ -2824,7 +3054,7 @@ function triggerPhoto(){
       const a = document.createElement('a');
       a.href = canvas.toDataURL('image/png');
       a.download = 'axis25-photo.png'; a.click();
-  // no toast
+      toast('Saved photo 📸');
     }finally{
       state.photo.pending = false;
       state.paused = wasPaused;
@@ -2848,42 +3078,74 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
   let lastMoveT = performance.now();
   let waveCooldown = 0;
   let mobileMode = false; // compact mode for touch devices
-  // Safe-dock behavior for mobile (do not follow touches)
-  function getSafeDock(){
-    const touchWrap = document.getElementById('touch');
-    const pad = 12;
-    let bottomGuard = window.innerHeight - 80;
-    if(touchWrap){
-      const r = touchWrap.getBoundingClientRect();
-      bottomGuard = Math.min(bottomGuard, r.top - 24);
-    }
-    const dockX = Math.max(64, window.innerWidth - 70);
-    const dockY = Math.max(64, bottomGuard);
-    return {x:dockX, y:dockY};
-  }
   let targetExpr = null; // {mode,cx,cy,radius}
   let activeMode = ''; // currently applied expression
   const followEase = 10; // higher = snappier
   const damp = 5.5;
+  // Avoid zones (buttons) — repulsion only when driving
+  let avoidRects = [];
+  function refreshAvoidRects(){
+    const ids = ['leftBtn','rightBtn','interactBtn','upBtn','downBtn','interactBtn2','touch','touch-vertical'];
+    avoidRects = ids.map(id=>{ const el=document.getElementById(id); if(!el) return null; const r=el.getBoundingClientRect(); return {el,r}; }).filter(Boolean);
+  }
+  refreshAvoidRects();
+  // expose for UI toggles
+  window._refreshBotAvoidRects = ()=>{ refreshAvoidRects(); };
+  addEventListener('resize', ()=> setTimeout(refreshAvoidRects, 0));
+  const vv = window.visualViewport; if(vv){
+    vv.addEventListener('resize', ()=> setTimeout(refreshAvoidRects, 0));
+    vv.addEventListener('scroll', ()=> setTimeout(refreshAvoidRects, 0));
+  }
+  let lastBumpT = 0;
   function loop(now){
     const dt = Math.min(.05,(now - (loop._last||now))/1000); loop._last = now;
     const ax = (tx - x)*followEase - vx*damp;
     const ay = (ty - y)*followEase - vy*damp;
     vx += ax*dt; vy += ay*dt;
     x += vx*dt; y += vy*dt;
-    // Clamp away from touch controls on mobile
-    if(mobileMode){
-      const touchWrap = document.getElementById('touch');
-      if(touchWrap){
-        const r = touchWrap.getBoundingClientRect();
-        const guardY = r.top - 20;
-        if(ty > guardY) ty = guardY;
-      }
-    }
     bot.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
     // idle / active state
     if(now - lastMoveT < 280){ bot.classList.add('active'); } else { bot.classList.remove('active'); }
     if(waveCooldown>0) waveCooldown -= dt;
+
+    // Proximity avoidance to buttons when vehicle is driving
+    try{
+      const p = state.player || {vx:0,vy:0};
+      const driving = state.mode==='road' ? Math.abs(p.vx) > 6 : Math.abs(p.vy) > 6;
+      if(driving){
+        // Repel from any control rects within radius
+        const R = 110; // influence radius
+        let rx = 0, ry = 0, mag = 0;
+        avoidRects.forEach(({r})=>{
+          // Use nearest point on rect to bot center
+          const cx = clamp(x, r.left, r.right);
+          const cy = clamp(y, r.top, r.bottom);
+          const dx = x - cx; const dy = y - cy;
+          const d = Math.hypot(dx,dy);
+          if(d < R && d > 0.001){
+            const k = 1 - (d/R);
+            const f = k*k*120; // quadratic falloff
+            rx += (dx/d) * f;
+            ry += (dy/d) * f;
+            mag += f;
+          }
+        });
+  if(mag>0){
+          // Apply repulsion by nudging the target away
+          tx += rx * dt; ty += ry * dt;
+          // Clamp within viewport
+          tx = clamp(tx, 24, (window.innerWidth||W)-24);
+          ty = clamp(ty, 24, (window.innerHeight||H)-24);
+          // Emotion bump occasionally
+          if(now - lastBumpT > 450){
+            lastBumpT = now;
+            window._botLastBump = now;
+            bot.setAttribute('data-mode','impact');
+            setTimeout(()=>{ if(bot.getAttribute('data-mode')==='impact') bot.removeAttribute('data-mode'); }, 420);
+          }
+        }
+      }
+    }catch{}
 
     // Expression activation strictly on arrival inside target inner bounds (rectangle hysteresis)
     if(targetExpr){
@@ -2903,8 +3165,6 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
   }
   requestAnimationFrame(loop);
   window.addEventListener('pointermove', e=>{
-    // On touch-centric mobile, keep bot docked and ignore pointer moves
-    if(mobileMode) return;
     tx = e.clientX; ty = e.clientY; lastMoveT = performance.now();
   }, {passive:true});
   window.addEventListener('pointerdown', ()=>{
@@ -2956,24 +3216,12 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
     if(on){
       bot.classList.add('mobile');
       bot.style.width='64px'; bot.style.height='64px';
-      // Park helper at a safe dock near bottom-right but above controls
-      const d = getSafeDock();
-      tx = d.x; ty = d.y;
-      x = tx; y = ty; bot.style.transform=`translate(${x}px,${y}px)`;
-      bot.setAttribute('data-mode','hero');
-      // Do not follow touches; stay docked and watch
-      // Micro-story caption (once per device)
-      try{
-        const seen = safeLocalStorageGet('bot_story_seen','0')==='1';
-        let cap = bot.querySelector('.bot-caption');
-        if(!seen && !cap){
-          cap = document.createElement('div');
-          cap.className = 'bot-caption';
-          cap.textContent = 'Sprocket sits close, watching your drive. Tap signs to open panels. SparkIT Flash holds the vertical timeline.';
-          bot.appendChild(cap);
-          setTimeout(()=>{ cap.classList.add('hide'); safeLocalStorageSet('bot_story_seen','1'); setTimeout(()=> cap.remove(), 1200); }, 6000);
-        }
-      }catch{}
+      // Keep following pointer by default in mobile; no parking trap
+      if(!bot._mobileInit){
+        bot._mobileInit = true;
+        window.addEventListener('pointermove', e=>{ tx = e.clientX; ty = e.clientY; lastMoveT = performance.now(); }, {passive:true});
+        bot.addEventListener('pointerdown', ()=>{ waveCooldown = 0; lastMoveT = performance.now(); bot.classList.add('active'); });
+      }
     } else {
       bot.classList.remove('mobile');
       bot.style.width='54px'; bot.style.height='54px';
@@ -3029,7 +3277,7 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
 // Fuel/Boost HUD removed
 
 /* ======= Theme toggle ======= */
-function toggleTheme(){ state.theme = state.theme==='neon'?'sunset':'neon'; /* no toast */ }
+function toggleTheme(){ state.theme = state.theme==='neon'?'sunset':'neon'; toast(state.theme==='neon'?'Neon Colombo Night':'Galle Face Sunset'); }
 
 /* ======= Deep links ======= */
 window.addEventListener('hashchange', handleHash);
@@ -3054,7 +3302,7 @@ async function loadContent(){
   }catch(e){
     console.warn('Failed to load content.json:', e);
     // Fallback to default data already in GAME_DATA
-  // no toast
+    toast('⚠️ Using offline content');
   }
   // Rebuild text route and re-handle deep links with new content
   buildTextRoute();
@@ -3224,8 +3472,11 @@ closePanel = function(){
 };
 
 /* ================= Mobile / Responsive Enhancements (Added) ================= */
+// Mobile enhancements (orientation prompt disabled)
 (function mobileEnhancements(){
-  // Orientation overlay removed — portrait-first UX
+  const orientationOverlay = document.getElementById('orientation-overlay');
+  // Disable rotate-to-play overlay entirely for mobile per request
+  if(orientationOverlay){ orientationOverlay.style.display = 'none'; orientationOverlay.setAttribute('aria-hidden','true'); }
 
   // Adaptive DPR & low-power heuristic
   let dprDrop=false; let perfSamples=[]; let lastPerfT=performance.now();
@@ -3251,11 +3502,27 @@ closePanel = function(){
   // Gesture swipe
   let tSX=0,tSY=0,swiping=false; 
   window.addEventListener('touchstart',e=>{ if(e.touches.length===1){ tSX=e.touches[0].clientX; tSY=e.touches[0].clientY; swiping=true; } },{passive:true});
-  window.addEventListener('touchmove',e=>{ if(!swiping) return; const dx=e.touches[0].clientX-tSX; const dy=e.touches[0].clientY-tSY; if(state.mode==='road'){ if(Math.abs(dx)>40 && Math.abs(dx)>Math.abs(dy)){ state.player.vx += (dx>0?80:-80); swiping=false; } } else if(state.mode==='timeline'){ // smooth scroll-like movement
-    e.preventDefault?.();
-    state.player.vy = clamp(dy * 4, -state.player.maxSpeed*0.75, state.player.maxSpeed*0.75);
-  } }, {passive:false});
+  window.addEventListener('touchmove',e=>{ if(!swiping) return; const dx=e.touches[0].clientX-tSX; const dy=e.touches[0].clientY-tSY; if(state.mode==='road'){ if(Math.abs(dx)>40 && Math.abs(dx)>Math.abs(dy)){ state.player.vx += (dx>0?80:-80); swiping=false; } } else if(state.mode==='timeline'){ if(Math.abs(dy)>40 && Math.abs(dy)>Math.abs(dx)){ state.player.vy += (dy>0?80:-80); swiping=false; } } }, {passive:true});
   window.addEventListener('touchend',()=>{ swiping=false; }, {passive:true});
+  // Exit timeline on mobile: when at the top band and an upward swipe starts near the top area
+  canvas.addEventListener('touchstart', e=>{
+    if(state.mode!=='timeline') return;
+    try{
+      const rect = canvas.getBoundingClientRect();
+      const y = e.touches[0].clientY - rect.top;
+      if(y < 80 && state.player.y <= 148){ // near top and at top segment
+        exitTimeline();
+      }
+    }catch{}
+  }, {passive:true});
+
+  // Prevent long-press context/menu and text selection on control buttons
+  const controls = ['leftBtn','rightBtn','interactBtn','upBtn','downBtn','interactBtn2'].map(id=>document.getElementById(id)).filter(Boolean);
+  controls.forEach(btn=>{
+    btn.addEventListener('contextmenu', e=> e.preventDefault());
+    btn.addEventListener('selectstart', e=> e.preventDefault());
+    btn.setAttribute('draggable','false');
+  });
 
   // Inactivity fade for touch controls
   const touchWrap=document.getElementById('touch'); let lastAct=performance.now();
@@ -3269,5 +3536,12 @@ closePanel = function(){
 
   // Lightning throttle in low-power
   const _origLightning=triggerLightning; triggerLightning=function(){ if(document.body.classList.contains('low-power') && Math.random()<0.5){ scheduleLightningStrike(9000+Math.random()*6000); return;} _origLightning(); };
+  
+  // Timeline mobile tuning: faster camera easing and hint at exit
+  const smallScreen = Math.min(window.innerWidth, window.innerHeight) < 720;
+  if(smallScreen){ state._timelineCamEase = 5.2; }
+  
+  // Show a one-time hint on how to exit timeline on mobile
+  let hinted=false; const origEnter=enterTimeline; enterTimeline = function(){ origEnter(); if(!hinted && isMobileDevice()){ hinted=true; setTimeout(()=> toast('Swipe up or tap ▲ to climb; Up @ top to exit'), 600); } };
 })();
 // ================= End Mobile Enhancements =================
