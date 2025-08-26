@@ -339,7 +339,8 @@ function updateWeather() {
     // Schedule the next change for 20-40 seconds from now
     w.nextChange = performance.now() + 20000 + Math.random() * 20000;
     
-    // Environmental messages removed for cleaner experience
+    // Add atmospheric toast notification
+  // no UI toasts
   }
 
   // 2. Smoothly transition the intensity
@@ -403,7 +404,7 @@ function startWorldTransition() {
   
   state.paused = true; // Take control from the player
   
-  // Removed intrusive toast for cleaner experience
+  // cinematic only (no toast)
 }
 
 function updateWorldTransition() {
@@ -448,7 +449,7 @@ function updateWorldTransition() {
       wt.startTime = performance.now();
       wt.progress = 0;
       wt.cameraShake = 12; // Medium shake for transformation
-      // Removed intrusive toast for cleaner experience
+  // no toast
     }
   }
   
@@ -477,7 +478,7 @@ function updateWorldTransition() {
       wt.progress = 0;
       wt.cameraShake = 8; // Light shake for descent
       state.timeline.roadReturnY = state.player.y; // Save for later
-      // Removed intrusive toast for cleaner experience
+  // no toast
     }
   }
   
@@ -843,27 +844,8 @@ function safeSetHTML(element, html) {
 }
 
 function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
-function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;const toastsEl = domCache.getToastsContainer(); if(toastsEl) toastsEl.appendChild(t);setTimeout(()=>t.remove(),3000)}
-// Extended toast to ping robot cursor to wave / deliver
-const _origToast = toast; // preserve original for fallback (already assigned above)
-toast = function(msg){
-  _origToast(msg);
-  try{
-    const bot = domCache.getCursorBot();
-    if(bot){
-      bot.classList.add('wave');
-      // brief delivery expression unless already in thrilled
-      if(bot.getAttribute('data-mode')!=='thrilled'){
-        bot.setAttribute('data-mode','impact');
-        setTimeout(()=>{
-          // only clear if still impact
-          if(bot.getAttribute('data-mode')==='impact') bot.removeAttribute('data-mode');
-        },1200);
-      }
-      setTimeout(()=> bot.classList.remove('wave'), 900);
-    }
-  }catch{}
-};
+// Toasts disabled: keep function for compatibility but do nothing (no DOM, no bot wave)
+function toast(){ /* notifications disabled as requested */ }
 function addXP(amount=50){
   // XP/leveling system removed - function kept for compatibility but does nothing
 }
@@ -929,10 +911,41 @@ const rightBtn = document.getElementById('rightBtn');
 const interactBtn = document.getElementById('interactBtn');
 let leftHeld=false, rightHeld=false;
 ['pointerdown','pointerup','pointerleave','pointercancel'].forEach(ev=>{
-  leftBtn.addEventListener(ev, e=>{ leftHeld = ev==='pointerdown'; });
-  rightBtn.addEventListener(ev, e=>{ rightHeld = ev==='pointerdown'; });
+  leftBtn.addEventListener(ev, e=>{
+    const down = ev==='pointerdown';
+    if(state.mode==='timeline'){
+      // Map left button to UP in timeline
+      state.keys['ArrowUp'] = down;
+      state.keys['KeyW'] = down;
+    } else {
+      leftHeld = down;
+    }
+  });
+  rightBtn.addEventListener(ev, e=>{
+    const down = ev==='pointerdown';
+    if(state.mode==='timeline'){
+      // Map right button to DOWN in timeline
+      state.keys['ArrowDown'] = down;
+      state.keys['KeyS'] = down;
+    } else {
+      rightHeld = down;
+    }
+  });
   interactBtn.addEventListener(ev, e=>{ if(ev==='pointerdown' && state.near) openBranch(state.near) });
 });
+// Update touch button icons/labels per mode for clarity
+function updateTouchUIForMode(){
+  if(!leftBtn||!rightBtn) return;
+  if(state.mode==='timeline'){
+    leftBtn.textContent = '▲'; leftBtn.setAttribute('aria-label','Move up');
+    rightBtn.textContent = '▼'; rightBtn.setAttribute('aria-label','Move down');
+  } else {
+    leftBtn.textContent = '◀'; leftBtn.setAttribute('aria-label','Move left');
+    rightBtn.textContent = '▶'; rightBtn.setAttribute('aria-label','Move right');
+  }
+}
+// Initialize touch UI for starting mode
+try{ updateTouchUIForMode(); }catch{}
 // analog throttle ramp for touch
 let lastAnalogT = performance.now();
 function updateAnalogThrottle(){
@@ -963,7 +976,7 @@ function showOverlay(title, html){
   state.paused = true;
 }
 function closePanel(){ overlay.style.display='none'; state.paused=false }
-function togglePause(){ state.paused=!state.paused; /* Removed toast for cleaner experience */ }
+function togglePause(){ state.paused=!state.paused; /* no toast */ }
 function showHelp(){
   showOverlay('Controls',
     `<div class="grid">
@@ -1904,10 +1917,11 @@ function enterTimeline() {
   state.player.vx=0; state.player.ax=0; 
   state.player.vy=0; state.player.ay=0; 
   state.player.y = 160;
-  toast('Entered Spark Flash');
+  // no toast
 
   const logos = document.getElementById("logo-container");
   if(logos) logos.style.display = "none"; // hide logos
+  try{ updateTouchUIForMode(); }catch{}
 }
 
 function exitTimeline(){
@@ -1918,10 +1932,11 @@ function exitTimeline(){
   state.player.ay = 0;
   positionPlayerOnRoad();
   state.camera.y = 0;
-  toast('Returned to Highway');
+  // no toast
 
   const logos = document.getElementById("logo-container");
   if(logos) logos.style.display = "flex";
+  try{ updateTouchUIForMode(); }catch{}
 }
 function drawTimeline(){
   // dark base
@@ -1963,29 +1978,7 @@ function drawTimeline(){
     const yScreen = m.y - state.camera.y;
     if(yScreen < -140 || yScreen > H+140) return;
     const active = Math.abs(p.y - m.y) < 70;
-    
-    // Enhanced mobile milestone interaction
-    const isMobile = window.innerWidth < 760 && ('ontouchstart' in window);
-    const interactionRange = isMobile ? 85 : 70; // Larger interaction area on mobile
-    const isNearMobile = Math.abs(p.y - m.y) < interactionRange;
-    
-    if(active || (isMobile && isNearMobile)){ 
-      state.near = { label:m.title, type:'timeline:'+m.key, _timeline:m }; 
-      
-      // Mobile-specific visual feedback
-      if(isMobile && isNearMobile) {
-        // Add subtle pulsing effect for mobile users
-        const pulseIntensity = Math.max(0, 1 - Math.abs(p.y - m.y) / interactionRange);
-        ctx.save();
-        ctx.globalAlpha = 0.3 * pulseIntensity;
-        ctx.strokeStyle = 'rgba(124,248,200,0.8)';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.ellipse(trackX, yScreen, 35 + Math.sin(performance.now() * 0.01) * 5, 35 + Math.sin(performance.now() * 0.01) * 5, 0, 0, Math.PI*2);
-        ctx.stroke();
-        ctx.restore();
-      }
-    }
+    if(active){ state.near = { label:m.title, type:'timeline:'+m.key, _timeline:m }; }
     // if near a workshop milestone, prepare robot transform/visuals and spawn themed particles
     if(active && /^workshop/.test(m.key)){
       applyRobotWorkshopVariant(m.key);
@@ -1993,7 +1986,7 @@ function drawTimeline(){
       if(!state.timeline.visited.has(m.key)){
         state.timeline.visited.add(m.key);
         // XP disabled: preserve visit tracking and show a small toast
-        toast('Visited: ' + m.title);
+  // no toast
         // spawn a short burst of themed particles
         spawnTimelineParticles(m.key, trackX, m.y);
       }
@@ -2039,7 +2032,7 @@ function drawTimeline(){
     }
   }
   ctx.font='12px ui-sans-serif'; ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.6)';
-  if(p.y < 240) ctx.fillText('Spark Flash ↓ / S descend • Up / W exit', trackX, 54); else ctx.fillText('Spark Flash: E open • Up climb • Up @ top exit', trackX, 54);
+  if(p.y < 240) ctx.fillText('Spark Flash — drag to scroll; tap to open', trackX, 54); else ctx.fillText('Drag to explore milestones', trackX, 54);
   // torch spotlight (simulate from bot head relative to pointer; fallback center)
   try{
     const bot = document.getElementById('cursor-bot');
@@ -2259,7 +2252,7 @@ function updateHackMiniGame(){
     // auto progress slowly; accelerate if Down key held
     const fast = state.keys['ArrowDown']||state.keys['KeyS'];
     hack.progress += state.dt * (fast? 28: 8);
-  if(hack.progress >= 100){ hack.completed=true; hack.active=false; toast('Hack solved!'); }
+  if(hack.progress >= 100){ hack.completed=true; hack.active=false; /* no toast */ }
   }
 }
 function drawHackMiniGame(){
@@ -2556,16 +2549,7 @@ function step(){
       while(state.skids.length && state.skids[0].alpha<=0.01) state.skids.shift();
     } else if(state.mode==='timeline'){
       const dirY = (downKey?1:0) - (upKey?1:0);
-      
-      // Enhanced mobile timeline navigation
-      const isMobile = window.innerWidth < 760 && ('ontouchstart' in window);
-      if(isMobile) {
-        // More responsive controls for mobile
-        p.ay = dirY * p.accel * 1.2; // 20% faster acceleration on mobile
-      } else {
-        p.ay = dirY * p.accel;
-      }
-      
+      p.ay = dirY * p.accel;
       p.vy += p.ay * dt;
       if(dirY===0){
         const sign = Math.sign(p.vy);
@@ -2575,36 +2559,10 @@ function step(){
       p.vy = clamp(p.vy, -p.maxSpeed*0.75, p.maxSpeed*0.75);
       p.y += p.vy * dt;
       p.y = clamp(p.y, 140, state.timeline.length);
-      
-      // Enhanced mobile feedback for timeline milestones
-      if(isMobile && state.near && state.near.type && state.near.type.startsWith('timeline:')) {
-        // Gentle haptic feedback when approaching milestones
-        try {
-          if(navigator.vibrate) {
-            const milestone = state.near._timeline;
-            const distance = Math.abs(p.y - milestone.y);
-            if(distance < 50 && !milestone._hapticTriggered) {
-              navigator.vibrate(20);
-              milestone._hapticTriggered = true;
-              
-              // Reset haptic trigger after moving away
-              setTimeout(() => {
-                if(Math.abs(p.y - milestone.y) > 80) {
-                  milestone._hapticTriggered = false;
-                }
-              }, 1000);
-            }
-          }
-        } catch(e) {}
-      }
-      
   // inertial smoothing for camera (ease toward target)
   const targetCam = clamp(p.y - H*0.45, 0, state.timeline.length - H*0.5 + 200);
   if(!state.timeline.camY) state.timeline.camY = targetCam;
-  
-  // Enhanced camera smoothing for mobile
-  const smoothingFactor = isMobile ? 4.2 : 3.5; // Slightly more responsive on mobile
-  state.timeline.camY += (targetCam - state.timeline.camY) * Math.min(1, dt*smoothingFactor);
+  state.timeline.camY += (targetCam - state.timeline.camY) * Math.min(1, dt*3.5);
   state.camera.y = state.timeline.camY;
     }
 
@@ -2746,7 +2704,7 @@ canvas.addEventListener('pointerdown', (e)=>{
     const overlay = document.getElementById('guide-overlay');
     if(!overlay) return;
     if(seen){ // Already seen: skip overlay and show shorter toast after a delay
-      setTimeout(()=>toast('Drive → stop at signs. E to interact.'), 700);
+  // no toast
       return;
     }
     // Activate overlay
@@ -2757,7 +2715,7 @@ canvas.addEventListener('pointerdown', (e)=>{
       overlay.classList.add('fading');
       setTimeout(()=>{ overlay.remove(); }, 650);
       localStorage.setItem('sparkit_guided_start_v1','1');
-      if(reason==='timeout'){ toast('Drive → Explore the highway'); }
+  // no toast
     }
     // Dismiss on movement input
     const movementKeys = new Set(['ArrowRight','ArrowLeft','KeyA','KeyD']);
@@ -2866,7 +2824,7 @@ function triggerPhoto(){
       const a = document.createElement('a');
       a.href = canvas.toDataURL('image/png');
       a.download = 'axis25-photo.png'; a.click();
-      toast('Saved photo 📸');
+  // no toast
     }finally{
       state.photo.pending = false;
       state.paused = wasPaused;
@@ -2890,6 +2848,19 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
   let lastMoveT = performance.now();
   let waveCooldown = 0;
   let mobileMode = false; // compact mode for touch devices
+  // Safe-dock behavior for mobile (do not follow touches)
+  function getSafeDock(){
+    const touchWrap = document.getElementById('touch');
+    const pad = 12;
+    let bottomGuard = window.innerHeight - 80;
+    if(touchWrap){
+      const r = touchWrap.getBoundingClientRect();
+      bottomGuard = Math.min(bottomGuard, r.top - 24);
+    }
+    const dockX = Math.max(64, window.innerWidth - 70);
+    const dockY = Math.max(64, bottomGuard);
+    return {x:dockX, y:dockY};
+  }
   let targetExpr = null; // {mode,cx,cy,radius}
   let activeMode = ''; // currently applied expression
   const followEase = 10; // higher = snappier
@@ -2900,6 +2871,15 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
     const ay = (ty - y)*followEase - vy*damp;
     vx += ax*dt; vy += ay*dt;
     x += vx*dt; y += vy*dt;
+    // Clamp away from touch controls on mobile
+    if(mobileMode){
+      const touchWrap = document.getElementById('touch');
+      if(touchWrap){
+        const r = touchWrap.getBoundingClientRect();
+        const guardY = r.top - 20;
+        if(ty > guardY) ty = guardY;
+      }
+    }
     bot.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
     // idle / active state
     if(now - lastMoveT < 280){ bot.classList.add('active'); } else { bot.classList.remove('active'); }
@@ -2923,6 +2903,8 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
   }
   requestAnimationFrame(loop);
   window.addEventListener('pointermove', e=>{
+    // On touch-centric mobile, keep bot docked and ignore pointer moves
+    if(mobileMode) return;
     tx = e.clientX; ty = e.clientY; lastMoveT = performance.now();
   }, {passive:true});
   window.addEventListener('pointerdown', ()=>{
@@ -2974,208 +2956,24 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
     if(on){
       bot.classList.add('mobile');
       bot.style.width='64px'; bot.style.height='64px';
-      
-      // Companion Mode: Robot sits as a gentle observer, not interfering with touch
-      // Park in bottom-right corner by default, watching the action
-      const cornerX = window.innerWidth - 80;
-      const cornerY = window.innerHeight - 90;
-      tx = cornerX; ty = cornerY;
-      x = tx; y = ty; 
-      bot.style.transform=`translate(${x}px,${y}px)`;
+      // Park helper at a safe dock near bottom-right but above controls
+      const d = getSafeDock();
+      tx = d.x; ty = d.y;
+      x = tx; y = ty; bot.style.transform=`translate(${x}px,${y}px)`;
       bot.setAttribute('data-mode','hero');
-      
-      // Create micro-story: Robot is curious but respectful companion
-      let companionMode = 'watching'; // 'watching', 'following', 'celebrating', 'curious'
-      let lastInteractionTime = 0;
-      let celebrationTimeout = null;
-      let storyPhase = 'introduction'; // 'introduction', 'bonding', 'companion'
-      
-      // Introduction phase: Robot appears and settles into watching position
-      setTimeout(() => {
-        if(mobileMode && companionMode === 'watching') {
-          // Small introduction animation
-          const originalTy = ty;
-          ty -= 20;
-          setTimeout(() => {
-            ty = originalTy;
-            bot.classList.add('wave');
-            setTimeout(() => bot.classList.remove('wave'), 800);
-            storyPhase = 'bonding';
-          }, 500);
+      // Do not follow touches; stay docked and watch
+      // Micro-story caption (once per device)
+      try{
+        const seen = safeLocalStorageGet('bot_story_seen','0')==='1';
+        let cap = bot.querySelector('.bot-caption');
+        if(!seen && !cap){
+          cap = document.createElement('div');
+          cap.className = 'bot-caption';
+          cap.textContent = 'Sprocket sits close, watching your drive. Tap signs to open panels. SparkIT Flash holds the vertical timeline.';
+          bot.appendChild(cap);
+          setTimeout(()=>{ cap.classList.add('hide'); safeLocalStorageSet('bot_story_seen','1'); setTimeout(()=> cap.remove(), 1200); }, 6000);
         }
-      }, 1500);
-      
-      // Gentle attraction when user touches near game elements
-      window.addEventListener('pointermove', e => {
-        lastInteractionTime = performance.now();
-        
-        if(companionMode === 'watching') {
-          // Progressive bonding: robot becomes more responsive over time
-          const bondingFactor = storyPhase === 'introduction' ? 0.05 : 
-                                storyPhase === 'bonding' ? 0.1 : 0.15;
-          
-          const targetX = cornerX + (e.clientX - cornerX) * bondingFactor;
-          const targetY = cornerY + (e.clientY - cornerY) * bondingFactor;
-          
-          // Keep within companion zone but allow more movement as bond grows
-          const zoneSize = storyPhase === 'companion' ? 180 : 150;
-          tx = Math.max(window.innerWidth - zoneSize, Math.min(window.innerWidth - 40, targetX));
-          ty = Math.max(window.innerHeight - zoneSize, Math.min(window.innerHeight - 40, targetY));
-          
-          // Transition to companion phase after sustained interaction
-          if(storyPhase === 'bonding' && performance.now() - lastInteractionTime < 500) {
-            if(!bot._bondingStartTime) bot._bondingStartTime = performance.now();
-            if(performance.now() - bot._bondingStartTime > 8000) {
-              storyPhase = 'companion';
-              bot.setAttribute('data-mode', 'solution');
-              setTimeout(() => bot.setAttribute('data-mode', 'hero'), 1200);
-            }
-          }
-        }
-      }, {passive: true});
-      
-      // Enhanced reactions to different types of interactions
-      const touchButtons = ['leftBtn', 'rightBtn', 'interactBtn'];
-      touchButtons.forEach(btnId => {
-        const btn = document.getElementById(btnId);
-        if(btn) {
-          btn.addEventListener('pointerdown', () => {
-            bot.classList.add('active');
-            
-            // Different reactions based on button and story phase
-            if(btnId === 'interactBtn') {
-              companionMode = 'celebrating';
-              bot.setAttribute('data-mode', 'solution');
-              bot.classList.add('wave');
-              
-              // More enthusiastic celebration as bond grows
-              const bounceDistance = storyPhase === 'companion' ? 15 : 8;
-              ty -= bounceDistance;
-              
-              // Special celebration for companion phase
-              if(storyPhase === 'companion') {
-                // Create small particle effect around robot
-                const particles = [];
-                for(let i = 0; i < 6; i++) {
-                  const particle = document.createElement('div');
-                  particle.style.cssText = `
-                    position: fixed;
-                    left: ${tx}px;
-                    top: ${ty}px;
-                    width: 4px;
-                    height: 4px;
-                    background: #7cf8c8;
-                    border-radius: 50%;
-                    pointer-events: none;
-                    z-index: 10001;
-                    animation: celebrationParticle 1.2s ease-out forwards;
-                  `;
-                  document.body.appendChild(particle);
-                  
-                  // Random direction for each particle
-                  particle.style.setProperty('--dx', `${(Math.random() - 0.5) * 80}px`);
-                  particle.style.setProperty('--dy', `${-30 - Math.random() * 40}px`);
-                  
-                  setTimeout(() => particle.remove(), 1200);
-                }
-              }
-              
-              setTimeout(() => {
-                ty += bounceDistance;
-                bot.classList.remove('wave');
-                setTimeout(() => {
-                  bot.setAttribute('data-mode', 'hero');
-                  companionMode = 'watching';
-                }, 800);
-              }, 300);
-              
-            } else {
-              // Subtle acknowledgment for movement buttons
-              bot.setAttribute('data-mode', 'curious');
-              const tiltDirection = btnId === 'leftBtn' ? -3 : 3;
-              bot.style.transform += ` rotate(${tiltDirection}deg)`;
-              
-              setTimeout(() => {
-                bot.style.transform = bot.style.transform.replace(/ rotate\([^)]+\)/, '');
-                bot.setAttribute('data-mode', 'hero');
-              }, 400);
-            }
-          });
-          
-          btn.addEventListener('pointerup', () => {
-            setTimeout(() => bot.classList.remove('active'), 200);
-          });
-        }
-      });
-      
-      // Enhanced idle animations with story progression
-      setInterval(() => {
-        if(performance.now() - lastInteractionTime > 5000 && companionMode === 'watching') {
-          // Different idle behaviors based on story phase
-          if(storyPhase === 'introduction') {
-            // Shy, small movements
-            const originalTx = tx, originalTy = ty;
-            tx += (Math.random() - 0.5) * 8;
-            ty += (Math.random() - 0.5) * 6;
-            setTimeout(() => { tx = originalTx; ty = originalTy; }, 800);
-            
-          } else if(storyPhase === 'bonding') {
-            // More confident, exploring movements
-            const originalTx = tx, originalTy = ty;
-            tx += (Math.random() - 0.5) * 20;
-            ty += (Math.random() - 0.5) * 16;
-            setTimeout(() => { tx = originalTx; ty = originalTy; }, 1000);
-            
-          } else if(storyPhase === 'companion') {
-            // Playful, comfortable movements
-            const originalTx = tx, originalTy = ty;
-            tx += (Math.random() - 0.5) * 30;
-            ty += (Math.random() - 0.5) * 25;
-            
-            // Occasionally do a little dance
-            if(Math.random() < 0.3) {
-              bot.classList.add('wave');
-              setTimeout(() => bot.classList.remove('wave'), 600);
-            }
-            
-            setTimeout(() => { tx = originalTx; ty = originalTy; }, 1400);
-          }
-        }
-      }, 6000);
-      
-      // Optional tap-to-follow mode (user can enable if they want)
-      let followingEnabled = false;
-      bot.addEventListener('pointerdown', (e) => {
-        e.stopPropagation();
-        followingEnabled = !followingEnabled;
-        
-        if(followingEnabled) {
-          companionMode = 'following';
-          bot.setAttribute('data-mode', 'impact');
-          toast('🤖 Robot companion is now following you');
-          waveCooldown = 0; 
-          lastMoveT = performance.now(); 
-          bot.classList.add('active');
-        } else {
-          companionMode = 'watching';
-          bot.setAttribute('data-mode', 'hero');
-          toast('🤖 Robot companion is watching nearby');
-          // Return to corner
-          tx = cornerX; ty = cornerY;
-        }
-      });
-      
-      // Only follow if user explicitly enabled it
-      const originalPointerMoveHandler = window.addEventListener;
-      window.addEventListener('pointermove', e => { 
-        if(followingEnabled && companionMode === 'following') { 
-          // Even in following mode, add some offset to avoid interference
-          tx = e.clientX + 40; // Offset to avoid blocking touch
-          ty = e.clientY - 40; 
-          lastMoveT = performance.now(); 
-        } 
-      }, {passive: true});
-      
+      }catch{}
     } else {
       bot.classList.remove('mobile');
       bot.style.width='54px'; bot.style.height='54px';
@@ -3231,7 +3029,7 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
 // Fuel/Boost HUD removed
 
 /* ======= Theme toggle ======= */
-function toggleTheme(){ state.theme = state.theme==='neon'?'sunset':'neon'; toast('Theme: ' + (state.theme==='neon'?'Neon':'Sunset')); }
+function toggleTheme(){ state.theme = state.theme==='neon'?'sunset':'neon'; /* no toast */ }
 
 /* ======= Deep links ======= */
 window.addEventListener('hashchange', handleHash);
@@ -3256,7 +3054,7 @@ async function loadContent(){
   }catch(e){
     console.warn('Failed to load content.json:', e);
     // Fallback to default data already in GAME_DATA
-    toast('⚠️ Using offline content');
+  // no toast
   }
   // Rebuild text route and re-handle deep links with new content
   buildTextRoute();
@@ -3427,25 +3225,7 @@ closePanel = function(){
 
 /* ================= Mobile / Responsive Enhancements (Added) ================= */
 (function mobileEnhancements(){
-  const orientationOverlay = document.getElementById('orientation-overlay');
-  const continueBtn = document.getElementById('oo-continue');
-  let orientationBypassed = false;
-  function shouldShowOrientation(){
-    if(orientationBypassed) return false;
-    const w = window.innerWidth; const h = window.innerHeight;
-    const portrait = h > w; const small = Math.min(w,h) < 640;
-    return portrait && small;
-  }
-  function updateOrientationOverlay(){
-    if(!orientationOverlay) return;
-    const show = shouldShowOrientation();
-    orientationOverlay.setAttribute('aria-hidden', String(!show));
-    if(show) orientationOverlay.classList.add('active'); else orientationOverlay.classList.remove('active');
-  }
-  if(continueBtn){ continueBtn.addEventListener('click', ()=>{ orientationBypassed = true; updateOrientationOverlay(); }); }
-  window.addEventListener('resize', updateOrientationOverlay);
-  window.addEventListener('orientationchange', updateOrientationOverlay);
-  setTimeout(updateOrientationOverlay, 400);
+  // Orientation overlay removed — portrait-first UX
 
   // Adaptive DPR & low-power heuristic
   let dprDrop=false; let perfSamples=[]; let lastPerfT=performance.now();
@@ -3468,215 +3248,19 @@ closePanel = function(){
     ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr); W=vw; H=vh; positionPlayerOnRoad();
   }
 
-  // Enhanced gesture swipe with micro-interactions
-  let tSX=0,tSY=0,swiping=false,swipeStartTime=0; 
-  let lastSwipeEffect = 0; // For throttling visual effects
-  
-  window.addEventListener('touchstart',e=>{ 
-    if(e.touches.length===1){ 
-      tSX=e.touches[0].clientX; 
-      tSY=e.touches[0].clientY; 
-      swiping=true; 
-      swipeStartTime = performance.now();
-    } 
-  },{passive:true});
-  
-  window.addEventListener('touchmove',e=>{ 
-    if(!swiping) return; 
-    const dx=e.touches[0].clientX-tSX; 
-    const dy=e.touches[0].clientY-tSY;
-    const swipeTime = performance.now() - swipeStartTime;
-    const velocity = Math.hypot(dx, dy) / Math.max(swipeTime, 1);
-    
-    if(state.mode==='road'){ 
-      if(Math.abs(dx)>30 && Math.abs(dx)>Math.abs(dy)){ 
-        // Enhanced road swipe with velocity-based boost
-        const boost = Math.min(150, 60 + velocity * 0.5);
-        state.player.vx += (dx>0?boost:-boost); 
-        
-        // Micro-interaction: Brief visual feedback
-        if(performance.now() - lastSwipeEffect > 200) {
-          const direction = dx > 0 ? 'right' : 'left';
-          toast(`🚗 ${direction === 'right' ? '→' : '←'}`);
-          lastSwipeEffect = performance.now();
-        }
-        swiping=false; 
-      } 
-    } else if(state.mode==='timeline'){ 
-      if(Math.abs(dy)>25 && Math.abs(dy)>Math.abs(dx)){ 
-        // Enhanced timeline navigation with improved responsiveness
-        const boost = Math.min(120, 50 + velocity * 0.4);
-        state.player.vy += (dy>0?boost:-boost);
-        
-        // Micro-interaction: Gentle haptic feedback (if available)
-        try {
-          if(navigator.vibrate) navigator.vibrate(15);
-        } catch(e) {}
-        
-        // Visual feedback for timeline navigation
-        if(performance.now() - lastSwipeEffect > 150) {
-          const direction = dy > 0 ? 'down' : 'up';
-          // Show subtle directional indicator without intrusive toast
-          const indicator = document.createElement('div');
-          indicator.style.cssText = `
-            position: fixed; 
-            top: 50%; left: 50%; 
-            transform: translate(-50%, -50%);
-            font-size: 24px; 
-            pointer-events: none; 
-            z-index: 1000;
-            color: rgba(124, 248, 200, 0.8);
-            text-shadow: 0 0 10px rgba(124, 248, 200, 0.5);
-            animation: fadeInOut 0.6s ease-out forwards;
-          `;
-          indicator.textContent = direction === 'down' ? '↓' : '↑';
-          document.body.appendChild(indicator);
-          
-          // Add CSS animation dynamically
-          if(!document.getElementById('swipe-animation-style')) {
-            const style = document.createElement('style');
-            style.id = 'swipe-animation-style';
-            style.textContent = `
-              @keyframes fadeInOut {
-                0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-                30% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-                100% { opacity: 0; transform: translate(-50%, -50%) scale(1) translateY(${direction === 'down' ? '20px' : '-20px'}); }
-              }
-            `;
-            document.head.appendChild(style);
-          }
-          
-          setTimeout(() => indicator.remove(), 600);
-          lastSwipeEffect = performance.now();
-        }
-        swiping=false; 
-      } 
-    } 
-  }, {passive:true});
-  
+  // Gesture swipe
+  let tSX=0,tSY=0,swiping=false; 
+  window.addEventListener('touchstart',e=>{ if(e.touches.length===1){ tSX=e.touches[0].clientX; tSY=e.touches[0].clientY; swiping=true; } },{passive:true});
+  window.addEventListener('touchmove',e=>{ if(!swiping) return; const dx=e.touches[0].clientX-tSX; const dy=e.touches[0].clientY-tSY; if(state.mode==='road'){ if(Math.abs(dx)>40 && Math.abs(dx)>Math.abs(dy)){ state.player.vx += (dx>0?80:-80); swiping=false; } } else if(state.mode==='timeline'){ // smooth scroll-like movement
+    e.preventDefault?.();
+    state.player.vy = clamp(dy * 4, -state.player.maxSpeed*0.75, state.player.maxSpeed*0.75);
+  } }, {passive:false});
   window.addEventListener('touchend',()=>{ swiping=false; }, {passive:true});
 
-  // Inactivity fade for touch controls with enhanced micro-interactions
-  const touchWrap=document.getElementById('touch'); 
-  let lastAct=performance.now();
-  let touchControlsVisible = true;
-  
-  // Enhanced activity tracking
-  ['pointerdown','touchstart','keydown','pointermove'].forEach(ev=> {
-    window.addEventListener(ev,()=> {
-      lastAct=performance.now();
-      if(!touchControlsVisible) {
-        touchControlsVisible = true;
-        if(touchWrap) {
-          touchWrap.style.transition='opacity .3s ease, transform .3s ease';
-          touchWrap.style.opacity = '1';
-          touchWrap.style.transform = 'translateY(0)';
-        }
-      }
-    })
-  });
-  
-  // Enhanced touch button interactions
-  const enhanceTouchButton = (buttonId, icon, description) => {
-    const btn = document.getElementById(buttonId);
-    if(!btn) return;
-    
-    // Add ripple effect container
-    if(!btn.querySelector('.ripple-container')) {
-      const rippleContainer = document.createElement('div');
-      rippleContainer.className = 'ripple-container';
-      rippleContainer.style.cssText = `
-        position: absolute; inset: 0; border-radius: inherit; 
-        overflow: hidden; pointer-events: none;
-      `;
-      btn.appendChild(rippleContainer);
-    }
-    
-    // Enhanced interaction feedback
-    btn.addEventListener('pointerdown', (e) => {
-      // Ripple effect
-      const rippleContainer = btn.querySelector('.ripple-container');
-      const ripple = document.createElement('div');
-      const rect = btn.getBoundingClientRect();
-      const size = Math.max(rect.width, rect.height);
-      const x = e.clientX - rect.left - size / 2;
-      const y = e.clientY - rect.top - size / 2;
-      
-      ripple.style.cssText = `
-        position: absolute; border-radius: 50%; background: rgba(124, 248, 200, 0.4);
-        width: ${size}px; height: ${size}px; left: ${x}px; top: ${y}px;
-        transform: scale(0); animation: ripple 0.6s ease-out forwards;
-      `;
-      
-      rippleContainer.appendChild(ripple);
-      setTimeout(() => ripple.remove(), 600);
-      
-      // Haptic feedback
-      try {
-        if(navigator.vibrate) navigator.vibrate(25);
-      } catch(e) {}
-      
-      // Button press animation
-      btn.style.transform = 'scale(0.95)';
-      
-      // Show contextual micro-tooltip
-      if(description) {
-        const tooltip = document.createElement('div');
-        tooltip.style.cssText = `
-          position: fixed; 
-          bottom: ${rect.top - 10}px; 
-          left: 50%; 
-          transform: translateX(-50%);
-          background: rgba(11, 16, 32, 0.9); 
-          color: #7cf8c8; 
-          padding: 6px 12px; 
-          border-radius: 8px;
-          font-size: 12px; 
-          font-weight: 600;
-          pointer-events: none; 
-          z-index: 10000;
-          border: 1px solid rgba(124, 248, 200, 0.3);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-          animation: tooltipAppear 0.3s ease-out forwards;
-        `;
-        tooltip.textContent = description;
-        document.body.appendChild(tooltip);
-        
-        setTimeout(() => {
-          tooltip.style.animation = 'tooltipDisappear 0.2s ease-in forwards';
-          setTimeout(() => tooltip.remove(), 200);
-        }, 1000);
-      }
-    });
-    
-    btn.addEventListener('pointerup', () => {
-      btn.style.transform = '';
-    });
-    
-    btn.addEventListener('pointerleave', () => {
-      btn.style.transform = '';
-    });
-  };
-  
-  // Enhance each touch control
-  enhanceTouchButton('leftBtn', '◀', 'Move Left');
-  enhanceTouchButton('rightBtn', '▶', 'Move Right');  
-  enhanceTouchButton('interactBtn', '⩔', 'Interact');
-  
-  function fadeLoop(){ 
-    const now=performance.now(); 
-    if(touchWrap){ 
-      const inactive = now-lastAct > 8000; // Increased threshold
-      if(inactive && touchControlsVisible) {
-        touchControlsVisible = false;
-        touchWrap.style.transition='opacity .6s ease, transform .6s ease';
-        touchWrap.style.opacity = '0.08'; // Slight visibility instead of completely hidden
-        touchWrap.style.transform = 'translateY(10px)';
-      }
-    } 
-    requestAnimationFrame(fadeLoop);
-  } 
-  requestAnimationFrame(fadeLoop);
+  // Inactivity fade for touch controls
+  const touchWrap=document.getElementById('touch'); let lastAct=performance.now();
+  ['pointerdown','touchstart','keydown'].forEach(ev=> window.addEventListener(ev,()=> lastAct=performance.now()));
+  function fadeLoop(){ const now=performance.now(); if(touchWrap){ touchWrap.style.transition='opacity .4s ease'; touchWrap.style.opacity = (now-lastAct>6000)?'0.15':'1'; } requestAnimationFrame(fadeLoop);} requestAnimationFrame(fadeLoop);
 
   // Debounced resize (replace original listeners)
   const origResize=resize; let rT=null; function deb(){ if(rT) clearTimeout(rT); rT=setTimeout(()=> origResize(),140);} 

@@ -584,54 +584,17 @@ input, textarea{
 .help{font-size:12px; color:var(--muted)}
 .success{color:var(--ok)} .error{color:var(--danger)}
 
-/* Toasts */
-#toasts{position:fixed; right:16px; bottom:16px; display:flex; flex-direction:column; gap:8px; z-index:20}
-.toast{background:#0f172a; color:var(--fg); border:1px solid rgba(255,255,255,.16); border-radius:12px; padding:10px 12px;
-  box-shadow: var(--shadow); animation:var(--fade-in)}
+/* Toasts disabled per request (kept in DOM for a11y live region but hidden visually) */
+#toasts{position:fixed; right:16px; bottom:16px; display:none; flex-direction:column; gap:8px; z-index:20; pointer-events:none}
+.toast{display:none}
 
-/* Touch controls with proper focus states and enhanced interactions */
+/* Touch controls with proper focus states */
 #touch{
   position:fixed; left:0; right:0; bottom:calc(12px + env(safe-area-inset-bottom)); z-index:6; display:flex; justify-content:center; gap:12px;
-  transition: opacity 0.6s ease, transform 0.6s ease;
 }
 .padbtn{
   width:64px; height:64px; border-radius:999px; border:1px solid rgba(255,255,255,.2); 
   background:rgba(255,255,255,.06); cursor:pointer; transition:all 0.2s ease;
-  position: relative; overflow: hidden;
-  backdrop-filter: blur(8px) saturate(140%);
-  box-shadow: 0 4px 12px rgba(0,0,0,.3), 0 0 0 1px rgba(255,255,255,.05) inset;
-}
-
-/* Enhanced ripple effect */
-@keyframes ripple {
-  0% { transform: scale(0); opacity: 1; }
-  100% { transform: scale(1); opacity: 0; }
-}
-
-/* Tooltip animations */
-@keyframes tooltipAppear {
-  0% { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.8); }
-  100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-}
-
-@keyframes tooltipDisappear {
-  0% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateX(-50%) translateY(-5px) scale(0.9); }
-}
-
-/* Enhanced button states */
-.padbtn::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(135deg, rgba(124,248,200,.15), rgba(138,164,255,.15));
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.padbtn:hover::before {
-  opacity: 1;
 }
 
 /* Accessibility: Focus states for touch controls */
@@ -639,14 +602,11 @@ input, textarea{
   outline: 3px solid var(--accent);
   outline-offset: 2px;
   background: rgba(124,248,200,.15);
-  transform: scale(1.05);
 }
 
 .padbtn:hover {
   background: rgba(255,255,255,.12);
   border-color: rgba(255,255,255,.4);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0,0,0,.4), 0 0 0 1px rgba(124,248,200,.2) inset;
 }
 
 .padbtn:active {
@@ -654,7 +614,7 @@ input, textarea{
   background: rgba(124,248,200,.2);
 }
 
-/* Enhanced mobile responsiveness */
+/* Improve touch target sizes for accessibility */
 @media (min-width:900px){ #touch{display:none} }
 @media (max-width:699px){
   .padbtn{width:56px; height:56px; font-size:22px; backdrop-filter:blur(6px);}
@@ -699,6 +659,7 @@ noscript {
 body.bot-cursor { cursor: none; }
 body.bot-cursor * { cursor: none !important; }
 #cursor-bot { position:fixed; left:0; top:0; width:54px; height:54px; transform:translate(-50%,-50%); pointer-events:none; z-index:9999; transition:filter .35s ease; }
+#cursor-bot.mobile { pointer-events:none; }
 #cursor-bot .bot { width:100%; height:100%; position:relative; filter:drop-shadow(0 4px 12px rgba(0,0,0,.45)); animation:bot-float 3.2s ease-in-out infinite; }
 @keyframes bot-float { 0%,100%{ transform:translateY(-4px);} 50%{ transform:translateY(4px);} }
 #cursor-bot .face { position:absolute; inset:0; background:linear-gradient(150deg,#8aa4ff 0%,#7cf8c8 45%,#6be3f5 100%); border:2px solid rgba(255,255,255,.55); border-radius:16px; display:flex; align-items:center; justify-content:center; box-shadow:0 0 0 2px rgba(11,16,32,.55) inset,0 0 18px -4px rgba(124,248,200,.55); transition:background .5s ease, transform .4s ease; }
@@ -786,106 +747,18 @@ body.underground-mode #cursor-bot .hard-hat{display:block;}
 #cursor-bot .hard-hat::before{content:""; position:absolute; left:8px; right:8px; top:8px; height:6px; background:linear-gradient(180deg,rgba(0,0,0,.2),rgba(0,0,0,0)); border-radius:4px;} 
 #cursor-bot .hard-hat::after{content:""; position:absolute; left:0; right:0; bottom:-4px; height:10px; background:linear-gradient(180deg,#e6b94d,#c89a2c); border-radius:0 0 10px 10px; filter:brightness(.9);} 
 
-/* Mobile compact helper mode with companion behavior */
-#cursor-bot.mobile { 
-  transition:transform .5s cubic-bezier(.22,.68,.36,1), filter .3s ease; 
-  filter: drop-shadow(0 6px 16px rgba(0,0,0,.35));
-}
-#cursor-bot.mobile .face { 
-  border-radius:22px; 
-  background: linear-gradient(145deg, #8aa4ff 0%, #7cf8c8 60%, #6be3f5 100%);
-  box-shadow: 0 0 0 2px rgba(11,16,32,.55) inset, 0 0 20px -4px rgba(124,248,200,.65);
-}
+/* Mobile compact helper mode */
+#cursor-bot.mobile { transition:transform .5s ease; }
+#cursor-bot.mobile .face { border-radius:22px; }
 #cursor-bot.mobile .mouth { top:8px; }
-
-/* Companion mode breathing animation */
-#cursor-bot.mobile .face {
-  animation: companionBreathe 4s ease-in-out infinite;
+/* Micro-story caption bubble */
+#cursor-bot .bot-caption{
+  position:absolute; bottom:70px; right:0; max-width:min(260px, 62vw);
+  background:rgba(0,0,0,.65); color:var(--fg); border:1px solid rgba(255,255,255,.18); border-radius:12px;
+  padding:10px 12px; font-size:12px; line-height:1.4; box-shadow:var(--shadow);
+  animation:fadeIn .6s ease; pointer-events:none;
 }
-
-@keyframes companionBreathe {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.02); }
-}
-
-/* Enhanced mobile expressions for companion mode */
-#cursor-bot.mobile[data-mode=watching] .face {
-  background: linear-gradient(145deg, #8aa4ff 0%, #7cf8c8 50%, #add8e6 100%);
-  animation: companionBreathe 4s ease-in-out infinite, gentleGlow 3s ease-in-out infinite;
-}
-
-#cursor-bot.mobile[data-mode=celebrating] .face {
-  background: linear-gradient(145deg, #ffd700 0%, #ffb347 50%, #ff6b6b 100%);
-  animation: celebrationBounce 0.6s ease-out;
-}
-
-#cursor-bot.mobile[data-mode=curious] .face {
-  background: linear-gradient(145deg, #9370db 0%, #8aa4ff 50%, #87ceeb 100%);
-}
-
-@keyframes gentleGlow {
-  0%, 100% { box-shadow: 0 0 0 2px rgba(11,16,32,.55) inset, 0 0 20px -4px rgba(124,248,200,.65); }
-  50% { box-shadow: 0 0 0 2px rgba(11,16,32,.55) inset, 0 0 25px -2px rgba(124,248,200,.8); }
-}
-
-@keyframes celebrationBounce {
-  0% { transform: scale(1) rotate(0deg); }
-  30% { transform: scale(1.15) rotate(-5deg); }
-  60% { transform: scale(1.1) rotate(3deg); }
-  100% { transform: scale(1) rotate(0deg); }
-}
-
-/* Mobile companion hover state (when user taps) */
-#cursor-bot.mobile:active {
-  transform: scale(1.1);
-  filter: drop-shadow(0 8px 20px rgba(124,248,200,.4));
-}
-
-/* Companion mode status indicator */
-#cursor-bot.mobile::after {
-  content: '';
-  position: absolute;
-  bottom: -8px;
-  right: -8px;
-  width: 16px;
-  height: 16px;
-  background: radial-gradient(circle, #7cf8c8 0%, #7cf8c8 60%, transparent 70%);
-  border-radius: 50%;
-  opacity: 0.8;
-  animation: statusPulse 2s ease-in-out infinite;
-}
-
-@keyframes statusPulse {
-  0%, 100% { transform: scale(0.8); opacity: 0.6; }
-  50% { transform: scale(1.2); opacity: 1; }
-}
-
-/* Following mode indicator */
-#cursor-bot.mobile[data-mode=impact]::after {
-  background: radial-gradient(circle, #ff6b6b 0%, #ff9f43 60%, transparent 70%);
-  animation: followingPulse 1s ease-in-out infinite;
-}
-
-@keyframes followingPulse {
-  0%, 100% { transform: scale(0.9); }
-  50% { transform: scale(1.3); }
-}
-
-/* Celebration particle animation */
-@keyframes celebrationParticle {
-  0% { 
-    transform: translate(0, 0) scale(1); 
-    opacity: 1; 
-  }
-  50% { 
-    transform: translate(var(--dx, 0), calc(var(--dy, 0) * 0.7)) scale(1.2); 
-    opacity: 0.8; 
-  }
-  100% { 
-    transform: translate(var(--dx, 0), var(--dy, 0)) scale(0); 
-    opacity: 0; 
-  }
-}
+#cursor-bot .bot-caption.hide{ animation:fadeOut .6s ease forwards; }
 
 /* Spotlight scanning mode visuals */
 #cursor-bot.scanning .face {
