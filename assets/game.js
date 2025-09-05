@@ -3529,14 +3529,19 @@ closePanel = function(){
   ['pointerdown','touchstart','keydown'].forEach(ev=> window.addEventListener(ev,()=> lastAct=performance.now()));
   function fadeLoop(){ const now=performance.now(); if(touchWrap){ touchWrap.style.transition='opacity .4s ease'; touchWrap.style.opacity = (now-lastAct>6000)?'0.15':'1'; } requestAnimationFrame(fadeLoop);} requestAnimationFrame(fadeLoop);
 
+  // Debounced resize (replace original listeners)
   const origResize=resize; let rT=null; function deb(){ if(rT) clearTimeout(rT); rT=setTimeout(()=> origResize(),140);} 
   window.removeEventListener('resize', resize); window.addEventListener('resize', deb);
   if('visualViewport' in window){ window.visualViewport.removeEventListener('resize', resize); window.visualViewport.addEventListener('resize', deb); }
 
+  // Lightning throttle in low-power
   const _origLightning=triggerLightning; triggerLightning=function(){ if(document.body.classList.contains('low-power') && Math.random()<0.5){ scheduleLightningStrike(9000+Math.random()*6000); return;} _origLightning(); };
   
+  // Timeline mobile tuning: faster camera easing and hint at exit
   const smallScreen = Math.min(window.innerWidth, window.innerHeight) < 720;
   if(smallScreen){ state._timelineCamEase = 5.2; }
   
+  // Show a one-time hint on how to exit timeline on mobile
   let hinted=false; const origEnter=enterTimeline; enterTimeline = function(){ origEnter(); if(!hinted && isMobileDevice()){ hinted=true; setTimeout(()=> toast('Swipe up or tap ▲ to climb; Up @ top to exit'), 600); } };
 })();
+// ================= End Mobile Enhancements =================
