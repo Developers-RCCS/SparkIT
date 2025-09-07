@@ -21,333 +21,238 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            cursor: none !important;
         }
 
         html, body {
             height: 100%;
             font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: radial-gradient(circle at 30% 20%, rgba(124,248,200,0.08) 0%, transparent 50%),
-                        radial-gradient(circle at 70% 80%, rgba(138,164,255,0.06) 0%, transparent 50%),
-                        linear-gradient(135deg, #0a0f1e 0%, #0d1426 50%, #101832 100%);
+            background: linear-gradient(135deg, #0a0f1e 0%, #0d1426 50%, #101832 100%);
             color: var(--fg);
             overflow-x: hidden;
         }
 
-        /* Animated Background */
-        .cosmic-bg {
+        /* Professional Custom Cursor */
+        .cyber-cursor {
             position: fixed;
-            inset: 0;
-            overflow: hidden;
-            z-index: 1;
+            width: 16px;
+            height: 16px;
+            pointer-events: none;
+            z-index: 10000;
+            transition: transform 0.15s ease;
         }
 
-        .cosmic-rings {
+        .cursor-core {
+            width: 6px;
+            height: 6px;
+            background: var(--accent);
+            border-radius: 50%;
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 800px;
-            height: 800px;
-            border-radius: 50%;
-            background: 
-                radial-gradient(circle, transparent 30%, rgba(124,248,200,0.03) 31%, transparent 32%),
-                radial-gradient(circle, transparent 45%, rgba(138,164,255,0.02) 46%, transparent 47%),
-                radial-gradient(circle, transparent 60%, rgba(255,107,255,0.015) 61%, transparent 62%);
-            animation: ringRotate 30s linear infinite;
+            box-shadow: 0 0 8px var(--accent);
         }
 
-        @keyframes ringRotate {
-            from { transform: translate(-50%, -50%) rotate(0deg); }
-            to { transform: translate(-50%, -50%) rotate(360deg); }
-        }
-
-        .floating-particles {
+        .cursor-ring {
             position: absolute;
-            inset: 0;
-        }
-
-        .particle {
-            position: absolute;
-            width: 3px;
-            height: 3px;
-            background: radial-gradient(circle, rgba(124,248,200,0.8), transparent);
+            border: 1px solid rgba(124,248,200,0.4);
             border-radius: 50%;
-            animation: particleFloat 8s ease-in-out infinite;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 14px;
+            height: 14px;
+            animation: cursorGlow 2s ease-in-out infinite;
         }
 
-        @keyframes particleFloat {
-            0%, 100% { transform: translateY(0px) translateX(0px); opacity: 0.3; }
-            25% { transform: translateY(-20px) translateX(10px); opacity: 0.8; }
-            50% { transform: translateY(-10px) translateX(-15px); opacity: 0.5; }
-            75% { transform: translateY(-30px) translateX(20px); opacity: 1; }
+        @keyframes cursorGlow {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.4; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.8; }
         }
 
         /* Main Container */
-        .registration-container {
-            position: relative;
-            z-index: 10;
+        .container {
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 2rem;
+            position: relative;
         }
 
         .registration-card {
-            background: rgba(255,255,255,0.05);
+            background: var(--glass);
             backdrop-filter: blur(20px);
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 20px;
-            padding: 40px;
-            max-width: 900px;
+            padding: 3rem;
+            box-shadow: var(--shadow);
             width: 100%;
+            max-width: 500px;
             position: relative;
-            overflow: hidden;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            animation: cardIntro 1s ease-out;
+            z-index: 2;
         }
 
-        @keyframes cardIntro {
-            from { opacity: 0; transform: translateY(30px) scale(0.95); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
+        /* Cute Professional Robot Assistant */
+        .robot-assistant {
+            position: absolute;
+            top: -60px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 80px;
+            z-index: 3;
         }
 
-        .registration-card::before {
+        .robot-body {
+            width: 60px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border-radius: 15px;
+            position: relative;
+            margin: 0 auto;
+            box-shadow: 0 5px 20px rgba(124,248,200,0.3);
+            animation: robotBob 3s ease-in-out infinite;
+        }
+
+        .robot-head {
+            width: 40px;
+            height: 35px;
+            background: linear-gradient(135deg, #ffffff, #f0f0f0);
+            border-radius: 50% 50% 45% 45%;
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+        }
+
+        .robot-eyes {
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+        }
+
+        .robot-eye {
+            width: 6px;
+            height: 6px;
+            background: var(--accent2);
+            border-radius: 50%;
+            animation: robotBlink 4s infinite;
+        }
+
+        .robot-mouth {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 12px;
+            height: 6px;
+            border: 2px solid var(--accent);
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+        }
+
+        .robot-antenna {
+            position: absolute;
+            top: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 10px;
+            background: var(--accent);
+        }
+
+        .robot-antenna::after {
             content: '';
             position: absolute;
-            inset: 0;
-            background: linear-gradient(135deg, rgba(124,248,200,0.08), rgba(138,164,255,0.04));
-            border-radius: 20px;
-            z-index: -1;
-            animation: cardGlow 4s ease-in-out infinite alternate;
+            top: -3px;
+            left: -2px;
+            width: 6px;
+            height: 6px;
+            background: var(--accent3);
+            border-radius: 50%;
+            animation: antennaGlow 2s ease-in-out infinite;
         }
 
-        @keyframes cardGlow {
-            from { opacity: 0.5; }
-            to { opacity: 1; }
+        @keyframes robotBob {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+        }
+
+        @keyframes robotBlink {
+            0%, 90%, 100% { transform: scaleY(1); }
+            95% { transform: scaleY(0.1); }
+        }
+
+        @keyframes antennaGlow {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        /* Robot States for Context Awareness */
+        .robot-assistant.typing-password .robot-eye {
+            background: var(--accent3);
+            animation: eyesCovered 0.5s ease-in-out;
+        }
+
+        .robot-assistant.typing-phone .robot-body {
+            animation: robotSneak 2s ease-in-out infinite;
+        }
+
+        .robot-assistant.success .robot-body {
+            animation: robotCelebrate 1s ease-in-out infinite;
+        }
+
+        @keyframes eyesCovered {
+            0%, 100% { transform: scaleX(1) scaleY(1); }
+            50% { transform: scaleX(0.1) scaleY(0.1); }
+        }
+
+        @keyframes robotSneak {
+            0%, 100% { transform: translateX(0px) rotate(0deg); }
+            25% { transform: translateX(-3px) rotate(-2deg); }
+            75% { transform: translateX(3px) rotate(2deg); }
+        }
+
+        @keyframes robotCelebrate {
+            0%, 100% { transform: scale(1) rotate(0deg); }
+            50% { transform: scale(1.1) rotate(5deg); }
         }
 
         /* Header */
-        .portal-header {
+        .header {
             text-align: center;
-            margin-bottom: 50px;
-            position: relative;
+            margin-bottom: 2.5rem;
+            margin-top: 2rem;
         }
 
-        .portal-title {
-            font-size: 3rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #7cf8c8, #8aa4ff, #ff6bff);
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
             -webkit-background-clip: text;
             background-clip: text;
-            color: transparent;
-            margin: 0 0 10px 0;
-            animation: titleGlow 3s ease-in-out infinite alternate;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
         }
 
-        @keyframes titleGlow {
-            from { filter: drop-shadow(0 0 20px rgba(124,248,200,0.3)); }
-            to { filter: drop-shadow(0 0 40px rgba(138,164,255,0.5)); }
-        }
-
-        .portal-subtitle {
-            font-size: 1.2rem;
-            color: rgba(255,255,255,0.8);
-            margin: 0 0 20px 0;
-            letter-spacing: 1px;
-        }
-
-        .robot-mascot {
-            display: inline-block;
-            font-size: 3rem;
-            animation: robotBounce 2s ease-in-out infinite;
-        }
-
-        @keyframes robotBounce {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-10px) rotate(5deg); }
-        }
-
-        /* Form Stages */
-        .form-stage {
-            display: none;
-            animation: stageSlideIn 0.6s ease-out;
-        }
-
-        .form-stage.active {
-            display: block;
-        }
-
-        @keyframes stageSlideIn {
-            from { opacity: 0; transform: translateX(30px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-
-        .stage-title {
-            font-size: 2rem;
-            color: var(--accent);
-            margin: 0 0 30px 0;
-            text-align: center;
-            font-weight: 700;
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 25px;
-            margin-bottom: 40px;
-        }
-
-        .input-group {
-            position: relative;
-        }
-
-        .input-group.full-width {
-            grid-column: 1 / -1;
-        }
-
-        .input-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: rgba(255,255,255,0.8);
-            font-weight: 500;
-            font-size: 14px;
-        }
-
-        .input-group input,
-        .input-group textarea,
-        .input-group select {
-            width: 100%;
-            padding: 15px 20px;
-            background: rgba(255,255,255,0.05);
-            border: 2px solid rgba(255,255,255,0.1);
-            border-radius: 12px;
-            color: #fff;
-            font-size: 16px;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
-        }
-
-        .input-group input:focus,
-        .input-group textarea:focus,
-        .input-group select:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 20px rgba(124,248,200,0.3);
-            background: rgba(124,248,200,0.05);
-            transform: translateY(-2px);
-        }
-
-        .input-group select {
-            cursor: pointer;
-        }
-
-        .input-group select option {
-            background: #0d1426;
-            color: #fff;
-        }
-
-        .required {
-            color: var(--accent3);
-        }
-
-        /* Navigation */
-        .stage-nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 30px;
-        }
-
-        .btn {
-            padding: 15px 30px;
-            border: none;
-            border-radius: 50px;
-            font-weight: 700;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-block;
-            text-align: center;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--accent), var(--accent2));
-            color: #0d1426;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(124,248,200,0.4);
-        }
-
-        .btn-secondary {
-            background: rgba(255,255,255,0.1);
-            color: #fff;
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255,255,255,0.2);
-        }
-
-        .btn-register {
-            background: linear-gradient(135deg, var(--accent3), var(--accent), var(--accent2));
-            color: #fff;
-            animation: registerPulse 2s ease-in-out infinite;
-        }
-
-        @keyframes registerPulse {
-            0%, 100% { box-shadow: 0 0 20px rgba(255,107,255,0.3); }
-            50% { box-shadow: 0 0 40px rgba(124,248,200,0.5); }
-        }
-
-        /* Success Screen */
-        .success-screen {
-            display: none;
-            text-align: center;
-            animation: successAppear 1s ease-out;
-        }
-
-        .success-screen.active {
-            display: block;
-        }
-
-        @keyframes successAppear {
-            from { opacity: 0; transform: scale(0.8); }
-            to { opacity: 1; transform: scale(1); }
-        }
-
-        .success-icon {
-            font-size: 5rem;
-            color: var(--accent);
-            margin-bottom: 30px;
-            animation: successBounce 1s ease-out;
-        }
-
-        @keyframes successBounce {
-            0% { transform: scale(0) rotate(0deg); }
-            50% { transform: scale(1.2) rotate(180deg); }
-            100% { transform: scale(1) rotate(360deg); }
-        }
-
-        .success-title {
-            font-size: 2.5rem;
-            color: var(--accent);
-            margin: 0 0 20px 0;
-        }
-
-        .success-message {
-            font-size: 1.2rem;
-            color: rgba(255,255,255,0.8);
-            margin: 0 0 30px 0;
+        .header p {
+            color: var(--muted);
+            font-size: 1.1rem;
         }
 
         /* Progress Indicator */
-        .progress-indicator {
+        .progress-container {
             display: flex;
             justify-content: center;
-            margin-bottom: 40px;
+            align-items: center;
+            margin-bottom: 2.5rem;
+            position: relative;
         }
 
         .progress-step {
@@ -355,81 +260,243 @@
             height: 40px;
             border-radius: 50%;
             background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.2);
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 10px;
-            font-weight: bold;
+            font-weight: 600;
+            font-size: 0.9rem;
             transition: all 0.3s ease;
+            position: relative;
+            z-index: 2;
         }
 
         .progress-step.active {
             background: linear-gradient(135deg, var(--accent), var(--accent2));
-            color: #0d1426;
-            transform: scale(1.1);
+            border-color: var(--accent);
+            color: #000;
+            box-shadow: 0 0 20px rgba(124,248,200,0.4);
         }
 
         .progress-step.completed {
             background: var(--accent);
-            color: #0d1426;
+            border-color: var(--accent);
+            color: #000;
         }
 
         .progress-line {
-            width: 60px;
             height: 2px;
-            background: rgba(255,255,255,0.1);
-            margin: 19px 0;
+            width: 60px;
+            background: rgba(255,255,255,0.2);
+            position: relative;
+            transition: all 0.3s ease;
         }
 
         .progress-line.completed {
             background: var(--accent);
         }
 
-        /* Back to Game Button */
-        .back-to-game {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            z-index: 100;
+        /* Form Styles */
+        .form-stage {
+            display: none;
+            animation: fadeInUp 0.5s ease;
+        }
+
+        .form-stage.active {
+            display: block;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--fg);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 1rem;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            color: var(--fg);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(124,248,200,0.1);
+            transform: translateY(-2px);
+        }
+
+        .form-control::placeholder {
+            color: var(--muted);
+        }
+
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            color: #000;
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: var(--fg);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        /* Success Screen */
+        .success-screen {
+            display: none;
+            text-align: center;
+            animation: scaleIn 0.6s ease;
+        }
+
+        .success-screen.active {
+            display: block;
+        }
+
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .success-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            animation: bounce 2s ease infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
         }
 
         /* Responsive Design */
         @media (max-width: 768px) {
-            .portal-title { font-size: 2rem; }
-            .form-grid { grid-template-columns: 1fr; }
-            .registration-card { padding: 30px 20px; }
-            .stage-nav { flex-direction: column; gap: 15px; }
-            .btn { width: 100%; }
-            .progress-indicator { flex-wrap: wrap; }
+            .container {
+                padding: 1rem;
+            }
+            
+            .registration-card {
+                padding: 2rem;
+                margin-top: 2rem;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .robot-assistant {
+                transform: translateX(-50%) scale(0.8);
+            }
+            
+            .progress-container {
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            
+            .progress-step {
+                width: 35px;
+                height: 35px;
+                font-size: 0.8rem;
+            }
+            
+            .progress-line {
+                width: 40px;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
         }
 
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation: none !important;
-                transition: none !important;
+        @media (max-width: 480px) {
+            .registration-card {
+                padding: 1.5rem;
+            }
+            
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .form-control {
+                padding: 0.8rem;
             }
         }
     </style>
 </head>
 <body>
-    <div class="cosmic-bg">
-        <div class="cosmic-rings"></div>
-        <div class="floating-particles" id="particles"></div>
+    <!-- Custom Cursor -->
+    <div class="cyber-cursor">
+        <div class="cursor-core"></div>
+        <div class="cursor-ring"></div>
     </div>
 
-    <a href="index.html" class="back-to-game btn btn-secondary">← Back to Game</a>
-
-    <div class="registration-container">
+    <div class="container">
         <div class="registration-card">
+            <!-- Cute Robot Assistant -->
+            <div class="robot-assistant" id="robotAssistant">
+                <div class="robot-body">
+                    <div class="robot-head">
+                        <div class="robot-antenna"></div>
+                        <div class="robot-eyes">
+                            <div class="robot-eye"></div>
+                            <div class="robot-eye"></div>
+                        </div>
+                        <div class="robot-mouth"></div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Header -->
-            <div class="portal-header">
-                <h1 class="portal-title">🚀 SparkIT Competition</h1>
-                <p class="portal-subtitle">Join the ultimate innovation challenge</p>
-                <div class="robot-mascot">🤖</div>
+            <div class="header">
+                <h1>Join SparkIT</h1>
+                <p>Register for the ultimate tech competition</p>
             </div>
 
             <!-- Progress Indicator -->
-            <div class="progress-indicator">
+            <div class="progress-container">
                 <div class="progress-step active" id="step1">1</div>
                 <div class="progress-line" id="line1"></div>
                 <div class="progress-step" id="step2">2</div>
@@ -441,134 +508,89 @@
             <form id="registrationForm">
                 <!-- Stage 1: Personal Information -->
                 <div class="form-stage active" data-stage="1">
-                    <h2 class="stage-title">✨ Personal Information</h2>
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <label for="fullName">Full Name <span class="required">*</span></label>
-                            <input type="text" id="fullName" name="fullName" required>
-                        </div>
-                        <div class="input-group">
-                            <label for="email">Email Address <span class="required">*</span></label>
-                            <input type="email" id="email" name="email" required>
-                        </div>
-                        <div class="input-group">
-                            <label for="phone">Phone Number <span class="required">*</span></label>
-                            <input type="tel" id="phone" name="phone" required>
-                        </div>
-                        <div class="input-group">
-                            <label for="ageGroup">Age Group <span class="required">*</span></label>
-                            <select id="ageGroup" name="ageGroup" required>
-                                <option value="">Select Age Group</option>
-                                <option value="13-15">13-15 years</option>
-                                <option value="16-18">16-18 years</option>
-                                <option value="19-22">19-22 years</option>
-                                <option value="23+">23+ years</option>
-                            </select>
-                        </div>
+                    <div class="form-group">
+                        <label for="firstName">First Name *</label>
+                        <input type="text" id="firstName" name="firstName" class="form-control" placeholder="Enter your first name" required>
                     </div>
-                    <div class="stage-nav">
-                        <div></div>
-                        <button type="button" class="btn btn-primary" onclick="nextStage()">Continue ➤</button>
+                    <div class="form-group">
+                        <label for="lastName">Last Name *</label>
+                        <input type="text" id="lastName" name="lastName" class="form-control" placeholder="Enter your last name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email Address *</label>
+                        <input type="email" id="email" name="email" class="form-control" placeholder="Enter your email address" required>
+                    </div>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-primary" onclick="nextStage()">Next Step</button>
                     </div>
                 </div>
 
-                <!-- Stage 2: Academic Background -->
+                <!-- Stage 2: Contact & Academic Info -->
                 <div class="form-stage" data-stage="2">
-                    <h2 class="stage-title">🎓 Academic Background</h2>
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <label for="school">School/University <span class="required">*</span></label>
-                            <input type="text" id="school" name="school" required>
-                        </div>
-                        <div class="input-group">
-                            <label for="grade">Grade/Year <span class="required">*</span></label>
-                            <select id="grade" name="grade" required>
-                                <option value="">Select Grade/Year</option>
-                                <option value="grade-8">Grade 8</option>
-                                <option value="grade-9">Grade 9</option>
-                                <option value="grade-10">Grade 10</option>
-                                <option value="grade-11">Grade 11</option>
-                                <option value="grade-12">Grade 12</option>
-                                <option value="grade-13">Grade 13</option>
-                                <option value="university-1">University Year 1</option>
-                                <option value="university-2">University Year 2</option>
-                                <option value="university-3">University Year 3</option>
-                                <option value="university-4">University Year 4+</option>
-                            </select>
-                        </div>
-                        <div class="input-group full-width">
-                            <label for="experience">Programming Experience <span class="required">*</span></label>
-                            <select id="experience" name="experience" required>
-                                <option value="">Select Experience Level</option>
-                                <option value="none">Complete Beginner (No experience)</option>
-                                <option value="basic">Basic (HTML/CSS, simple scripts)</option>
-                                <option value="intermediate">Intermediate (One programming language)</option>
-                                <option value="advanced">Advanced (Multiple languages & frameworks)</option>
-                                <option value="expert">Expert (Professional development experience)</option>
-                            </select>
-                        </div>
+                    <div class="form-group">
+                        <label for="phone">Phone Number *</label>
+                        <input type="tel" id="phone" name="phone" class="form-control" placeholder="Enter your phone number" required>
                     </div>
-                    <div class="stage-nav">
-                        <button type="button" class="btn btn-secondary" onclick="prevStage()">⬅ Back</button>
-                        <button type="button" class="btn btn-primary" onclick="nextStage()">Continue ➤</button>
+                    <div class="form-group">
+                        <label for="school">School/University *</label>
+                        <input type="text" id="school" name="school" class="form-control" placeholder="Enter your institution name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="grade">Grade/Year *</label>
+                        <select id="grade" name="grade" class="form-control" required>
+                            <option value="">Select your grade/year</option>
+                            <option value="grade-9">Grade 9</option>
+                            <option value="grade-10">Grade 10</option>
+                            <option value="grade-11">Grade 11</option>
+                            <option value="grade-12">Grade 12</option>
+                            <option value="university-1">University Year 1</option>
+                            <option value="university-2">University Year 2</option>
+                            <option value="university-3">University Year 3</option>
+                            <option value="university-4">University Year 4+</option>
+                        </select>
+                    </div>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-secondary" onclick="prevStage()">Previous</button>
+                        <button type="button" class="btn btn-primary" onclick="nextStage()">Next Step</button>
                     </div>
                 </div>
 
-                <!-- Stage 3: Innovation & Motivation -->
+                <!-- Stage 3: Competition Preferences -->
                 <div class="form-stage" data-stage="3">
-                    <h2 class="stage-title">💡 Your Innovation</h2>
-                    <div class="form-grid">
-                        <div class="input-group full-width">
-                            <label for="projectIdea">Project Idea Description <span class="required">*</span></label>
-                            <textarea id="projectIdea" name="projectIdea" rows="4" required 
-                                placeholder="Describe your project idea or what you want to learn and build..."></textarea>
-                        </div>
-                        <div class="input-group full-width">
-                            <label for="motivation">Why SparkIT? <span class="required">*</span></label>
-                            <textarea id="motivation" name="motivation" rows="3" required 
-                                placeholder="Tell us why you want to participate in SparkIT..."></textarea>
-                        </div>
-                        <div class="input-group">
-                            <label for="category">Project Category <span class="required">*</span></label>
-                            <select id="category" name="category" required>
-                                <option value="">Choose Category</option>
-                                <option value="web-dev">Web Development</option>
-                                <option value="mobile-app">Mobile Apps</option>
-                                <option value="ai-ml">AI & Machine Learning</option>
-                                <option value="iot">IoT & Hardware</option>
-                                <option value="game-dev">Game Development</option>
-                                <option value="cybersecurity">Cybersecurity</option>
-                                <option value="blockchain">Blockchain & Web3</option>
-                                <option value="data-science">Data Science</option>
-                                <option value="other">Other Innovation</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label for="teamSize">Team Size</label>
-                            <select id="teamSize" name="teamSize">
-                                <option value="1">Solo (Just me)</option>
-                                <option value="2">2 members</option>
-                                <option value="3">3 members</option>
-                                <option value="4">4 members</option>
-                            </select>
-                        </div>
+                    <div class="form-group">
+                        <label for="password">Create Password *</label>
+                        <input type="password" id="password" name="password" class="form-control" placeholder="Create a secure password" required minlength="8">
                     </div>
-                    <div class="stage-nav">
-                        <button type="button" class="btn btn-secondary" onclick="prevStage()">⬅ Back</button>
-                        <button type="submit" class="btn btn-register">🚀 Complete Registration!</button>
+                    <div class="form-group">
+                        <label for="experience">Programming Experience *</label>
+                        <select id="experience" name="experience" class="form-control" required>
+                            <option value="">Select your experience level</option>
+                            <option value="beginner">Beginner (0-1 years)</option>
+                            <option value="intermediate">Intermediate (1-3 years)</option>
+                            <option value="advanced">Advanced (3+ years)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="interests">Areas of Interest</label>
+                        <textarea id="interests" name="interests" class="form-control" placeholder="Tell us about your tech interests (optional)" rows="3"></textarea>
+                    </div>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-secondary" onclick="prevStage()">Previous</button>
+                        <button type="submit" class="btn btn-primary">Complete Registration</button>
                     </div>
                 </div>
             </form>
 
             <!-- Success Screen -->
-            <div class="success-screen" id="successScreen">
-                <div class="success-icon">✓</div>
-                <h2 class="success-title">🎉 Registration Successful!</h2>
-                <p class="success-message">Welcome to SparkIT! You'll receive confirmation details soon.</p>
-                <div style="margin-top: 30px;">
-                    <a href="index.html" class="btn btn-primary">🎮 Back to Game</a>
-                    <button type="button" class="btn btn-secondary" onclick="registerAnother()" style="margin-left: 15px;">➕ Register Another</button>
-                </div>
+            <div id="successScreen" class="success-screen">
+                <div class="success-icon">🎉</div>
+                <h2 style="color: var(--accent); margin-bottom: 1rem;">Welcome to SparkIT!</h2>
+                <p style="margin-bottom: 2rem; color: var(--muted);">
+                    Your registration has been completed successfully. Get ready for an amazing tech journey!
+                </p>
+                <button class="btn btn-primary" onclick="registerAnother()">Register Another Participant</button>
+                <br><br>
+                <button class="btn btn-secondary" onclick="window.close()">Return to Game</button>
             </div>
         </div>
     </div>
@@ -577,25 +599,76 @@
         let currentStage = 1;
         const maxStages = 3;
 
-        // Initialize particles
-        function createParticles() {
-            const container = document.getElementById('particles');
-            for (let i = 0; i < 20; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.style.left = Math.random() * 100 + '%';
-                particle.style.top = Math.random() * 100 + '%';
-                particle.style.animationDelay = Math.random() * 8 + 's';
-                particle.style.animationDuration = (6 + Math.random() * 4) + 's';
-                container.appendChild(particle);
+        // Professional Custom Cursor System
+        function initCustomCursor() {
+            const cursor = document.querySelector('.cyber-cursor');
+            let mouseX = 0, mouseY = 0;
+            let cursorX = 0, cursorY = 0;
+
+            document.addEventListener('mousemove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+
+            function animateCursor() {
+                cursorX += (mouseX - cursorX) * 0.1;
+                cursorY += (mouseY - cursorY) * 0.1;
+                
+                cursor.style.left = cursorX + 'px';
+                cursor.style.top = cursorY + 'px';
+                
+                requestAnimationFrame(animateCursor);
             }
+            animateCursor();
+
+            // Cursor interactions with form elements
+            const interactiveElements = document.querySelectorAll('button, input, select, textarea');
+            interactiveElements.forEach(el => {
+                el.addEventListener('mouseenter', () => {
+                    cursor.style.transform = 'scale(1.5)';
+                    cursor.querySelector('.cursor-core').style.boxShadow = '0 0 15px var(--accent)';
+                });
+
+                el.addEventListener('mouseleave', () => {
+                    cursor.style.transform = 'scale(1)';
+                    cursor.querySelector('.cursor-core').style.boxShadow = '0 0 8px var(--accent)';
+                });
+            });
         }
 
-        // Navigation functions
+        // Context-Aware Robot Animations
+        function initRobotAnimations() {
+            const robot = document.getElementById('robotAssistant');
+            const passwordField = document.getElementById('password');
+            const phoneField = document.getElementById('phone');
+
+            // Robot covers eyes when typing password
+            passwordField.addEventListener('focus', () => {
+                robot.classList.add('typing-password');
+                setTimeout(() => {
+                    robot.classList.remove('typing-password');
+                }, 2000);
+            });
+
+            // Robot sneaks when typing phone number
+            phoneField.addEventListener('focus', () => {
+                robot.classList.add('typing-phone');
+            });
+
+            phoneField.addEventListener('blur', () => {
+                robot.classList.remove('typing-phone');
+            });
+
+            // Success animation
+            document.getElementById('registrationForm').addEventListener('submit', () => {
+                robot.classList.add('success');
+            });
+        }
+
+        // Form Navigation
         function nextStage() {
             if (currentStage >= maxStages) return;
 
-            // Validate current stage
             if (!validateCurrentStage()) return;
 
             const currentForm = document.querySelector(`.form-stage[data-stage="${currentStage}"]`);
@@ -650,16 +723,24 @@
                 if (!field.value.trim()) {
                     field.focus();
                     field.style.borderColor = '#ff6b6b';
+                    field.style.boxShadow = '0 0 20px rgba(255,107,107,0.4)';
+                    
+                    // Professional shake animation
+                    field.style.animation = 'shake 0.5s ease-in-out';
+                    
                     setTimeout(() => {
                         field.style.borderColor = 'rgba(255,255,255,0.1)';
+                        field.style.boxShadow = 'none';
+                        field.style.animation = 'none';
                     }, 2000);
+                    
                     return false;
                 }
             }
             return true;
         }
 
-        // Form submission
+        // Form Submission
         document.getElementById('registrationForm').addEventListener('submit', function(e) {
             e.preventDefault();
 
@@ -687,60 +768,48 @@
 
             form.style.display = 'none';
             success.classList.add('active');
-
-            // Create celebration particles
-            createCelebrationParticles();
-        }
-
-        function createCelebrationParticles() {
-            for (let i = 0; i < 30; i++) {
-                setTimeout(() => {
-                    const particle = document.createElement('div');
-                    particle.style.cssText = `
-                        position: fixed;
-                        width: 8px;
-                        height: 8px;
-                        background: linear-gradient(45deg, #7cf8c8, #8aa4ff, #ff6bff);
-                        border-radius: 50%;
-                        pointer-events: none;
-                        z-index: 10000;
-                        left: ${20 + Math.random() * 60}%;
-                        top: 100vh;
-                        animation: celebrationRise 3s ease-out forwards;
-                    `;
-                    document.body.appendChild(particle);
-                    setTimeout(() => particle.remove(), 3000);
-                }, i * 100);
-            }
         }
 
         function registerAnother() {
             window.location.reload();
         }
 
-        // Add celebration animation
+        // Add professional animations via CSS
         const style = document.createElement('style');
         style.textContent = `
-            @keyframes celebrationRise {
-                0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-                100% { transform: translateY(-100vh) rotate(720deg); opacity: 0; }
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-5px); }
+                75% { transform: translateX(5px); }
             }
         `;
         document.head.appendChild(style);
 
-        // Initialize
-        createParticles();
-        updateProgressIndicator();
+        // Enhanced input interactions
+        function enhanceInputs() {
+            document.querySelectorAll('input, textarea, select').forEach(field => {
+                field.addEventListener('focus', () => {
+                    field.style.transform = 'translateY(-2px)';
+                });
+                
+                field.addEventListener('blur', () => {
+                    field.style.transform = 'translateY(0)';
+                });
 
-        // Add input animations
-        document.querySelectorAll('input, textarea, select').forEach(field => {
-            field.addEventListener('focus', () => {
-                field.style.transform = 'translateY(-2px)';
+                field.addEventListener('input', () => {
+                    if (field.value) {
+                        field.style.borderColor = 'rgba(124,248,200,0.3)';
+                    }
+                });
             });
-            
-            field.addEventListener('blur', () => {
-                field.style.transform = 'translateY(0)';
-            });
+        }
+
+        // Initialize everything
+        window.addEventListener('load', () => {
+            initCustomCursor();
+            initRobotAnimations();
+            enhanceInputs();
+            updateProgressIndicator();
         });
     </script>
 </body>
