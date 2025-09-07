@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SparkIT Competition Registration Portal</title>
+    <link rel="icon" href="assets/Logo-SparkIt.png" type="image/png">
+    <style>
+        :root {
+            --bg: #0b1020;
+            --fg: #eef3ff;
+            --muted: #a8b3cf;
+            --accent: #7cf8c8;
+            --accent2: #8aa4ff;
+            --accent3: #ff6bff;
+            --glass: rgba(255,255,255,.08);
+            --shadow: 0 10px 30px rgba(0,0,0,.35);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            cursor: none !important;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #0a0f1e 0%, #0d1426 50%, #101832 100%);
+            color: var(--fg);
+            overflow-x: hidden;
+        }
+
+        /* Professional Custom Cursor */
+        .cyber-cursor {
+            position: fixed;
+            width: 16px;
+            height: 16px;
+            pointer-events: none;
+            z-index: 10000;
+            transition: transform 0.15s ease;
+        }
+
+        .cursor-core {
+            width: 6px;
+            height: 6px;
+            background: var(--accent);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 8px var(--accent);
+        }
+
+        .cursor-ring {
+            position: absolute;
+            border: 1px solid rgba(124,248,200,0.4);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 14px;
+            height: 14px;
+            animation: cursorGlow 2s ease-in-out infinite;
+        }
+
+        @keyframes cursorGlow {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.4; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.8; }
+        }
+
+        /* Main Container */
+        .container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            position: relative;
+        }
+
+        .registration-card {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 3rem;
+            box-shadow: var(--shadow);
+            width: 100%;
+            max-width: 500px;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Cute Professional Robot Assistant - Smooth Movement System */
+        .robot-assistant {
+            position: fixed;
+            top: 10%;
+            right: 10px;
+            width: 60px;
+            height: 60px;
+            z-index: 1000;
+            /* Smooth linear movement transition for all position changes */
+            transition: top 1.5s ease-in-out,
+                       left 1.5s ease-in-out,
+                       right 1.5s ease-in-out,
+                       bottom 1.5s ease-in-out,
+                       transform 1.5s ease-in-out;
+            pointer-events: none;
+        }
+
+        /* Robot visual transformation (colors, shapes) separate from movement */
+        .robot-assistant .robot-body,
+        .robot-assistant .robot-head,
+        .robot-assistant .robot-eye,
+        .robot-assistant .robot-mouth,
+        .robot-assistant .robot-antenna {
+            transition: all 0.6s ease-in-out;
+        }
+
+        .robot-body {
+            width: 45px;
+            height: 38px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border-radius: 12px;
+            position: relative;
+            margin: 0 auto;
+            box-shadow: 0 4px 15px rgba(124,248,200,0.3);
+            animation: robotBob 3s ease-in-out infinite;
+        }
+
+        .robot-head {
+            width: 30px;
+            height: 26px;
+            background: linear-gradient(135deg, #ffffff, #f0f0f0);
+            border-radius: 50% 50% 40% 40%;
+            position: absolute;
+            top: -18px;
+            left: 50%;
+            transform: translateX(-50%);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .robot-eyes {
+            position: absolute;
+            top: 6px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 6px;
+        }
+
+        .robot-eye {
+            width: 4px;
+            height: 4px;
+            background: var(--accent2);
+            border-radius: 50%;
+            animation: robotBlink 4s infinite;
+        }
+
+        .robot-mouth {
+            position: absolute;
+            bottom: 6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8px;
+            height: 4px;
+            border: 1.5px solid var(--accent);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .robot-antenna {
+            position: absolute;
+            top: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 1.5px;
+            height: 8px;
+            background: var(--accent);
+        }
+
+        .robot-antenna::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -1.5px;
+            width: 4.5px;
+            height: 4.5px;
+            background: var(--accent3);
+            border-radius: 50%;
+            animation: antennaGlow 2s ease-in-out infinite;
+        }
+
+        /* Field-Specific Robot Transformations - Smooth Movement Positions */
+
+        /* Student Name - Top Left Corner */
+        .robot-assistant.transform-student {
+            top: 5% !important;
+            left: 10px !important;
+            right: auto !important;
+            bottom: auto !important;
+            transform: none !important;
+        }
+        .robot-assistant.transform-student .robot-head {
+            background: linear-gradient(135deg, #4a90e2, #357abd);
+        }
+        .robot-assistant.transform-student .robot-body {
+            background: linear-gradient(135deg, #4a90e2, #2171b5);
+        }
+        .robot-assistant.transform-student .robot-head::before {
+            content: '🎓';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            animation: graduationFloat 2s ease-in-out infinite;
+        }
+
+        /* WhatsApp - Top Right Corner */
+        .robot-assistant.transform-whatsapp {
+            top: 5% !important;
+            right: 10px !important;
+            left: auto !important;
+            bottom: auto !important;
+            transform: none !important;
+        }
+        .robot-assistant.transform-whatsapp .robot-body {
+            background: linear-gradient(135deg, #25d366, #128c7e);
+            border-radius: 50%;
+        }
+        .robot-assistant.transform-whatsapp .robot-head::before {
+            content: '💬';
+            position: absolute;
+            top: -12px;
+            right: -8px;
+            font-size: 12px;
+            animation: messageFloat 1s ease-in-out infinite;
+        }
+
+        /* Email - Middle Right */
+        .robot-assistant.transform-email {
+            top: 40% !important;
+            right: 10px !important;
+            left: auto !important;
+            bottom: auto !important;
+            transform: none !important;
+        }
+        .robot-assistant.transform-email .robot-body {
+            background: linear-gradient(135deg, #ea4335, #fbbc04);
+        }
+        .robot-assistant.transform-email .robot-head::before {
+            content: '📧';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            animation: emailBounce 1.5s ease-in-out infinite;
+        }
+
+        /* School - Bottom Left */
+        .robot-assistant.transform-school {
+            bottom: 20% !important;
+            left: 10px !important;
+            top: auto !important;
+            right: auto !important;
+            transform: none !important;
+        }
+        .robot-assistant.transform-school .robot-body {
+            background: linear-gradient(135deg, #8b4513, #a0522d);
+            border-radius: 4px;
+        }
+        .robot-assistant.transform-school .robot-head {
+            border-radius: 4px 4px 40% 40%;
+        }
+        .robot-assistant.transform-school .robot-head::before {
+            content: '🏫';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            animation: schoolFloat 2s ease-in-out infinite;
+        }
+
+        /* Grade - Middle Left */
+        .robot-assistant.transform-grade {
+            top: 45% !important;
+            left: 10px !important;
+            right: auto !important;
+            bottom: auto !important;
+            transform: none !important;
+        }
+        .robot-assistant.transform-grade .robot-body {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+        }
+        .robot-assistant.transform-grade .robot-head::before {
+            content: '📚';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            animation: bookFlip 2s ease-in-out infinite;
+        }
+
+        /* TIC Name - Top Center */
+        .robot-assistant.transform-tic-name {
+            top: 5% !important;
+            left: 50% !important;
+            right: auto !important;
+            bottom: auto !important;
+            transform: translateX(-50%) !important;
+        }
+        .robot-assistant.transform-tic-name .robot-body {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+        }
+        .robot-assistant.transform-tic-name .robot-head::before {
+            content: '�️';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            animation: tagWave 2s ease-in-out infinite;
+        }
+
+        /* TIC Contact - Bottom Center */
+        .robot-assistant.transform-tic-contact {
+            bottom: 15% !important;
+            left: 50% !important;
+            top: auto !important;
+            right: auto !important;
+            transform: translateX(-50%) !important;
+        }
+        .robot-assistant.transform-tic-contact .robot-body {
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+        }
+        .robot-assistant.transform-tic-contact .robot-head::before {
+            content: '👨‍�';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            animation: teacherNod 1.5s ease-in-out infinite;
+        }
+
+        /* Password - Bottom Left */
+        .robot-assistant.transform-password {
+            bottom: 10% !important;
+            left: 10px !important;
+            top: auto !important;
+            right: auto !important;
+            transform: none !important;
+        }
+        .robot-assistant.transform-password .robot-body {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+        }
+        .robot-assistant.transform-password .robot-eye {
+            background: #e74c3c;
+            animation: securityBlink 0.5s ease-in-out infinite;
+        }
+        .robot-assistant.transform-password .robot-head::before {
+            content: '🔒';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            animation: lockShake 1s ease-in-out infinite;
+        }
+
+        /* Confirm Password - Bottom Right */
+        .robot-assistant.transform-confirm-password {
+            bottom: 10% !important;
+            right: 10px !important;
+            top: auto !important;
+            left: auto !important;
+            transform: none !important;
+        }
+        .robot-assistant.transform-confirm-password .robot-body {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+        }
+        .robot-assistant.transform-confirm-password .robot-head::before {
+            content: '✅';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            animation: checkMark 1.5s ease-in-out infinite;
+        }
+
+        /* Creative TIC Fields Row Layout */
+        .tic-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            margin-bottom: 1.5rem;
+        }
+
+        .tic-name-group {
+            flex: 1;
+            position: relative;
+        }
+
+        .tic-contact-group {
+            flex: 1;
+            position: relative;
+        }
+
+        .tic-connector {
+            width: 30px;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            margin: 0 0.5rem;
+            margin-bottom: 1rem;
+            border-radius: 2px;
+            animation: connectorPulse 2s ease-in-out infinite;
+            position: relative;
+        }
+
+        .tic-connector::before {
+            content: '👥';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            animation: teamFloat 2s ease-in-out infinite;
+        }
+
+        @keyframes connectorPulse {
+            0%, 100% { opacity: 0.6; transform: scaleX(1); }
+            50% { opacity: 1; transform: scaleX(1.1); }
+        }
+
+        @keyframes teamFloat {
+            0%, 100% { transform: translateX(-50%) translateY(0px); }
+            50% { transform: translateX(-50%) translateY(-3px); }
+        }
+
+        @keyframes robotBob {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+        }
+
+        @keyframes robotBlink {
+            0%, 90%, 100% { transform: scaleY(1); }
+            95% { transform: scaleY(0.1); }
+        }
+
+        @keyframes antennaGlow {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        /* Robot States for Context Awareness - More Obvious Animations */
+        .robot-assistant.typing-password .robot-eye {
+            background: #ff0066 !important;
+            animation: eyesShut 0.3s ease-in-out forwards !important;
+        }
+
+        .robot-assistant.typing-password .robot-head {
+            animation: headShake 0.5s ease-in-out infinite !important;
+        }
+
+        .robot-assistant.typing-password .robot-body {
+            animation: robotBlush 1s ease-in-out infinite !important;
+        }
+
+        .robot-assistant.typing-phone .robot-body {
+            animation: robotSneak 1s ease-in-out infinite !important;
+        }
+
+        .robot-assistant.typing-phone .robot-head {
+            animation: lookAround 2s ease-in-out infinite !important;
+        }
+
+        .robot-assistant.typing-phone .robot-antenna::after {
+            animation: antennaAlert 0.5s ease-in-out infinite !important;
+        }
+
+        .robot-assistant.success .robot-body {
+            animation: robotCelebrate 0.8s ease-in-out infinite !important;
+        }
+
+        .robot-assistant.success .robot-head {
+            animation: happyBounce 1s ease-in-out infinite !important;
+        }
+
+        /* Enhanced Robot Animations */
+        @keyframes eyesShut {
+            0% { transform: scaleY(1); height: 6px; }
+            100% { transform: scaleY(0.1); height: 1px; }
+        }
+
+        @keyframes headShake {
+            0%, 100% { transform: translateX(-50%) rotate(-2deg); }
+            50% { transform: translateX(-50%) rotate(2deg); }
+        }
+
+        @keyframes robotBlush {
+            0%, 100% { background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+            50% { background: linear-gradient(135deg, #ff6b9d, #ff8a80); }
+        }
+
+        @keyframes robotSneak {
+            0%, 100% { transform: translateX(0px) rotate(0deg) scale(1); }
+            25% { transform: translateX(-8px) rotate(-5deg) scale(0.95); }
+            75% { transform: translateX(8px) rotate(5deg) scale(0.95); }
+        }
+
+        @keyframes lookAround {
+            0%, 100% { transform: translateX(-50%) rotate(0deg); }
+            25% { transform: translateX(-50%) rotate(-10deg); }
+            75% { transform: translateX(-50%) rotate(10deg); }
+        }
+
+        @keyframes antennaAlert {
+            0%, 100% { background: var(--accent3); transform: scale(1); }
+            50% { background: #ff0066; transform: scale(1.3); }
+        }
+
+        @keyframes robotCelebrate {
+            0%, 100% { transform: scale(1) rotate(0deg); }
+            25% { transform: scale(1.2) rotate(-10deg); }
+            50% { transform: scale(1.3) rotate(0deg); }
+            75% { transform: scale(1.2) rotate(10deg); }
+        }
+
+        @keyframes happyBounce {
+            0%, 100% { transform: translateX(-50%) translateY(0px); }
+            50% { transform: translateX(-50%) translateY(-10px); }
+        }
+
+        /* Field-Specific Transformation Animations */
+        @keyframes graduationFloat {
+            0%, 100% { transform: translateX(-50%) rotate(-5deg); }
+            50% { transform: translateX(-50%) rotate(5deg); }
+        }
+
+        @keyframes messageFloat {
+            0%, 100% { transform: translateY(0px) scale(1); }
+            50% { transform: translateY(-5px) scale(1.1); }
+        }
+
+        @keyframes signalPulse {
+            0%, 100% { background: #25d366; transform: scale(1); }
+            50% { background: #128c7e; transform: scale(1.3); }
+        }
+
+        @keyframes emailBounce {
+            0%, 100% { transform: translateX(-50%) translateY(0px); }
+            50% { transform: translateX(-50%) translateY(-8px); }
+        }
+
+        @keyframes schoolFloat {
+            0%, 100% { transform: translateX(-50%) translateY(0px) rotate(-2deg); }
+            50% { transform: translateX(-50%) translateY(-5px) rotate(2deg); }
+        }
+
+        @keyframes bookFlip {
+            0%, 100% { transform: translateX(-50%) rotateY(0deg); }
+            50% { transform: translateX(-50%) rotateY(180deg); }
+        }
+
+        @keyframes teacherNod {
+            0%, 100% { transform: translateX(-50%) translateY(0px); }
+            50% { transform: translateX(-50%) translateY(-3px); }
+        }
+
+        @keyframes tagWave {
+            0%, 100% { transform: translateX(-50%) rotate(-10deg); }
+            50% { transform: translateX(-50%) rotate(10deg); }
+        }
+
+        @keyframes securityBlink {
+            0%, 100% { background: #e74c3c; transform: scaleY(1); }
+            50% { background: #c0392b; transform: scaleY(0.3); }
+        }
+
+        @keyframes lockShake {
+            0%, 100% { transform: translateX(-50%) translateX(0px); }
+            25% { transform: translateX(-50%) translateX(-2px); }
+            75% { transform: translateX(-50%) translateX(2px); }
+        }
+
+        @keyframes checkMark {
+            0%, 100% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.2); }
+        }
+
+        /* Subtle Background Enhancements */
+        .background-orbs {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(124,248,200,0.1), transparent);
+            animation: orbFloat 15s ease-in-out infinite;
+            opacity: 0.6;
+        }
+
+        .orb:nth-child(1) {
+            width: 200px;
+            height: 200px;
+            top: 10%;
+            left: 80%;
+            animation-delay: 0s;
+        }
+
+        .orb:nth-child(2) {
+            width: 150px;
+            height: 150px;
+            top: 60%;
+            left: 10%;
+            background: radial-gradient(circle, rgba(138,164,255,0.08), transparent);
+            animation-delay: -5s;
+        }
+
+        .orb:nth-child(3) {
+            width: 100px;
+            height: 100px;
+            top: 80%;
+            left: 85%;
+            background: radial-gradient(circle, rgba(255,107,255,0.06), transparent);
+            animation-delay: -10s;
+        }
+
+        @keyframes orbFloat {
+            0%, 100% { transform: translateY(0px) translateX(0px); }
+            25% { transform: translateY(-20px) translateX(10px); }
+            50% { transform: translateY(-10px) translateX(-15px); }
+            75% { transform: translateY(-30px) translateX(5px); }
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            margin-top: 2rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: var(--muted);
+            font-size: 1.1rem;
+        }
+
+        /* Progress Indicator */
+        .progress-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 2.5rem;
+            position: relative;
+        }
+
+        .progress-step {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 2;
+        }
+
+        .progress-step.active {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border-color: var(--accent);
+            color: #000;
+            box-shadow: 0 0 20px rgba(124,248,200,0.4);
+        }
+
+        .progress-step.completed {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #000;
+        }
+
+        .progress-line {
+            height: 2px;
+            width: 60px;
+            background: rgba(255,255,255,0.2);
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .progress-line.completed {
+            background: var(--accent);
+        }
+
+        /* Form Styles */
+        .form-stage {
+            display: none;
+            animation: fadeInUp 0.5s ease;
+        }
+
+        .form-stage.active {
+            display: block;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 1rem;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            color: var(--fg);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            position: relative;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(124,248,200,0.1);
+            transform: translateY(-2px);
+            background: rgba(255,255,255,0.08);
+        }
+
+        .form-control::placeholder {
+            color: var(--muted);
+        }
+
+        /* Enhanced Form Group with floating effect */
+        .form-group {
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--fg);
+            transition: all 0.3s ease;
+        }
+
+        .form-group:focus-within label {
+            color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            color: #000;
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: var(--fg);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        /* Success Screen */
+        .success-screen {
+            display: none;
+            text-align: center;
+            animation: scaleIn 0.6s ease;
+        }
+
+        .success-screen.active {
+            display: block;
+        }
+
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .success-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            animation: bounce 2s ease infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .registration-card {
+                padding: 2rem;
+                margin-top: 2rem;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            /* Mobile Robot Responsive */
+            .robot-assistant {
+                width: 40px;
+                height: 40px;
+            }
+            
+            .robot-body {
+                width: 32px;
+                height: 26px;
+            }
+            
+            .robot-head {
+                width: 22px;
+                height: 18px;
+                top: -12px;
+            }
+            
+            .robot-eyes {
+                gap: 4px;
+                top: 4px;
+            }
+            
+            .robot-eye {
+                width: 3px;
+                height: 3px;
+            }
+            
+            .robot-mouth {
+                width: 6px;
+                height: 3px;
+                bottom: 4px;
+            }
+            
+            .robot-antenna {
+                height: 6px;
+                top: -4px;
+            }
+            
+            .robot-antenna::after {
+                width: 3px;
+                height: 3px;
+                left: -1px;
+                top: -1px;
+            }
+            
+            /* Mobile positioning adjustments */
+            .robot-assistant.transform-student,
+            .robot-assistant.transform-school,
+            .robot-assistant.transform-grade,
+            .robot-assistant.transform-password {
+                left: 5px;
+            }
+            
+            .robot-assistant.transform-whatsapp,
+            .robot-assistant.transform-email,
+            .robot-assistant.transform-confirm-password {
+                right: 5px;
+            }
+            
+            .robot-assistant.transform-tic-name,
+            .robot-assistant.transform-tic-contact {
+                left: 50%;
+                transform: translateX(-50%);
+            }
+            
+            /* Smaller emojis for mobile */
+            .robot-head::before {
+                font-size: 10px !important;
+                top: -8px !important;
+            }
+            
+            .progress-container {
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            
+            .progress-step {
+                width: 35px;
+                height: 35px;
+                font-size: 0.8rem;
+            }
+            
+            .progress-line {
+                width: 40px;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .registration-card {
+                padding: 1.5rem;
+            }
+            
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .form-control {
+                padding: 0.8rem;
+            }
+            
+            /* Ultra mobile TIC row */
+            .tic-row {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .tic-connector {
+                width: 100%;
+                margin: 0.5rem 0;
+                height: 1px;
+            }
+            
+            .tic-connector::before {
+                top: -8px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Custom Cursor -->
+    <div class="cyber-cursor">
+        <div class="cursor-core"></div>
+        <div class="cursor-ring"></div>
+    </div>
+
+    <!-- Subtle Background Orbs -->
+    <div class="background-orbs">
+        <div class="orb"></div>
+        <div class="orb"></div>
+        <div class="orb"></div>
+    </div>
+
+    <div class="container">
+        <div class="registration-card">
+            <!-- Cute Robot Assistant -->
+            <div class="robot-assistant" id="robotAssistant">
+                <div class="robot-body">
+                    <div class="robot-head">
+                        <div class="robot-antenna"></div>
+                        <div class="robot-eyes">
+                            <div class="robot-eye"></div>
+                            <div class="robot-eye"></div>
+                        </div>
+                        <div class="robot-mouth"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Header -->
+            <div class="header">
+                <h1>Join SparkIT</h1>
+                <p>Register for the ultimate tech competition</p>
+            </div>
+
+            <!-- Progress Indicator -->
+            <div class="progress-container">
+                <div class="progress-step active" id="step1">1</div>
+                <div class="progress-line" id="line1"></div>
+                <div class="progress-step" id="step2">2</div>
+                <div class="progress-line" id="line2"></div>
+                <div class="progress-step" id="step3">3</div>
+            </div>
+
+            <!-- Registration Form -->
+            <form id="registrationForm">
+                <!-- Stage 1: Personal Information -->
+                <div class="form-stage active" data-stage="1">
+                    <div class="form-group">
+                        <label for="studentName">Student Name *</label>
+                        <input type="text" id="studentName" name="studentName" class="form-control" placeholder="Enter your full name" required data-robot="student">
+                    </div>
+                    <div class="form-group">
+                        <label for="whatsapp">WhatsApp Number *</label>
+                        <input type="tel" id="whatsapp" name="whatsapp" class="form-control" placeholder="Enter your WhatsApp number" required data-robot="whatsapp">
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email Address *</label>
+                        <input type="email" id="email" name="email" class="form-control" placeholder="Enter your email address" required data-robot="email">
+                    </div>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-primary" onclick="nextStage()">Next Step</button>
+                    </div>
+                </div>
+
+                <!-- Stage 2: Academic & Contact Info -->
+                <div class="form-stage" data-stage="2">
+                    <div class="form-group">
+                        <label for="school">School/University *</label>
+                        <input type="text" id="school" name="school" class="form-control" placeholder="Enter your institution name" required data-robot="school">
+                    </div>
+                    <div class="form-group">
+                        <label for="grade">Grade/Year *</label>
+                        <select id="grade" name="grade" class="form-control" required data-robot="grade">
+                            <option value="">Select your grade/year</option>
+                            <option value="grade-9">Grade 9</option>
+                            <option value="grade-10">Grade 10</option>
+                            <option value="grade-11">Grade 11</option>
+                            <option value="grade-12">Grade 12</option>
+                            <option value="university-1">University Year 1</option>
+                            <option value="university-2">University Year 2</option>
+                            <option value="university-3">University Year 3</option>
+                            <option value="university-4">University Year 4+</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Creative TIC Row Layout -->
+                    <div class="tic-row">
+                        <div class="tic-name-group">
+                            <div class="form-group">
+                                <label for="ticName">TIC Name *</label>
+                                <input type="text" id="ticName" name="ticName" class="form-control" placeholder="Teacher-in-Charge name" required data-robot="tic-name">
+                            </div>
+                        </div>
+                        
+                        <div class="tic-connector"></div>
+                        
+                        <div class="tic-contact-group">
+                            <div class="form-group">
+                                <label for="ticContact">TIC Contact *</label>
+                                <input type="tel" id="ticContact" name="ticContact" class="form-control" placeholder="Contact number" required data-robot="tic-contact">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-secondary" onclick="prevStage()">Previous</button>
+                        <button type="button" class="btn btn-primary" onclick="nextStage()">Next Step</button>
+                    </div>
+                </div>
+
+                <!-- Stage 3: Security & Final Details -->
+                <div class="form-stage" data-stage="3">
+                    <div class="form-group">
+                        <label for="password">Create Password *</label>
+                        <input type="password" id="password" name="password" class="form-control" placeholder="Create a secure password" required minlength="8" data-robot="password">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm Password *</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" class="form-control" placeholder="Confirm your password" required minlength="8" data-robot="confirm-password">
+                    </div>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-secondary" onclick="prevStage()">Previous</button>
+                        <button type="submit" class="btn btn-primary">Complete Registration</button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Success Screen -->
+            <div id="successScreen" class="success-screen">
+                <div class="success-icon">🎉</div>
+                <h2 style="color: var(--accent); margin-bottom: 1rem;">Welcome to SparkIT!</h2>
+                <p style="margin-bottom: 2rem; color: var(--muted);">
+                    Your registration has been completed successfully. Get ready for an amazing tech journey!
+                </p>
+                <button class="btn btn-primary" onclick="registerAnother()">Register Another Participant</button>
+                <br><br>
+                <button class="btn btn-secondary" onclick="window.close()">Return to Game</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStage = 1;
+        const maxStages = 3;
+
+        // Professional Custom Cursor System
+        function initCustomCursor() {
+            const cursor = document.querySelector('.cyber-cursor');
+            let mouseX = 0, mouseY = 0;
+            let cursorX = 0, cursorY = 0;
+
+            document.addEventListener('mousemove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+
+            function animateCursor() {
+                cursorX += (mouseX - cursorX) * 0.1;
+                cursorY += (mouseY - cursorY) * 0.1;
+                
+                cursor.style.left = cursorX + 'px';
+                cursor.style.top = cursorY + 'px';
+                
+                requestAnimationFrame(animateCursor);
+            }
+            animateCursor();
+
+            // Cursor interactions with form elements
+            const interactiveElements = document.querySelectorAll('button, input, select, textarea');
+            interactiveElements.forEach(el => {
+                el.addEventListener('mouseenter', () => {
+                    cursor.style.transform = 'scale(1.5)';
+                    cursor.querySelector('.cursor-core').style.boxShadow = '0 0 15px var(--accent)';
+                });
+
+                el.addEventListener('mouseleave', () => {
+                    cursor.style.transform = 'scale(1)';
+                    cursor.querySelector('.cursor-core').style.boxShadow = '0 0 8px var(--accent)';
+                });
+            });
+        }
+
+        // Context-Aware Robot Transformations with Persistent State!
+        function initRobotAnimations() {
+            const robot = document.getElementById('robotAssistant');
+            let currentTransformation = null;
+            
+            // Field transformation mappings
+            const fieldTransformations = {
+                'studentName': 'student',
+                'whatsapp': 'whatsapp',
+                'email': 'email',
+                'school': 'school',
+                'grade': 'grade',
+                'ticContact': 'tic-contact',
+                'ticName': 'tic-name',
+                'password': 'password',
+                'confirmPassword': 'confirm-password'
+            };
+
+            // Add transformation listeners to all fields
+            Object.keys(fieldTransformations).forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    const transformType = fieldTransformations[fieldId];
+                    
+                    field.addEventListener('focus', () => {
+                        // Clear all existing transformations
+                        clearAllTransformations(robot);
+                        
+                        // Apply new transformation
+                        robot.classList.add(`transform-${transformType}`);
+                        currentTransformation = transformType;
+                        console.log(`Robot transforming to ${transformType}!`);
+                        
+                        // Add field-specific behaviors
+                        addFieldSpecificBehavior(robot, transformType);
+                    });
+
+                    field.addEventListener('input', () => {
+                        // Keep transformation active while typing
+                        if (!robot.classList.contains(`transform-${transformType}`)) {
+                            clearAllTransformations(robot);
+                            robot.classList.add(`transform-${transformType}`);
+                            currentTransformation = transformType;
+                        }
+                    });
+
+                    // Remove blur event - robot maintains state until next field
+                }
+            });
+
+            // Handle click outside to maintain current state
+            document.addEventListener('click', (e) => {
+                const isFormField = e.target.matches('input, select, textarea');
+                if (!isFormField && currentTransformation) {
+                    // Keep current transformation - robot doesn't go idle
+                    if (!robot.classList.contains(`transform-${currentTransformation}`)) {
+                        robot.classList.add(`transform-${currentTransformation}`);
+                    }
+                }
+            });
+
+            // Success animation
+            document.getElementById('registrationForm').addEventListener('submit', () => {
+                clearAllTransformations(robot);
+                robot.classList.add('success');
+                robot.style.top = '50%';
+                robot.style.left = '50%';
+                robot.style.transform = 'translate(-50%, -50%) scale(1.5)';
+                console.log('Robot celebrating mega success!');
+            });
+        }
+
+        function clearAllTransformations(robot) {
+            const transformClasses = [
+                'transform-student', 'transform-whatsapp', 'transform-email',
+                'transform-school', 'transform-grade', 'transform-tic-contact',
+                'transform-tic-name', 'transform-password', 'transform-confirm-password',
+                'success'
+            ];
+            
+            transformClasses.forEach(className => {
+                robot.classList.remove(className);
+            });
+        }
+
+        function returnToDefaultPosition(robot) {
+            robot.style.top = '20%';
+            robot.style.left = '50%';
+            robot.style.right = 'auto';
+            robot.style.transform = 'translateX(-50%)';
+        }
+
+        function addFieldSpecificBehavior(robot, transformType) {
+            // Add special behaviors for certain field types
+            switch(transformType) {
+                case 'whatsapp':
+                    // Make robot "ring" like a phone
+                    setTimeout(() => {
+                        robot.style.animation = 'none';
+                        robot.style.animation = 'phoneRing 0.3s ease-in-out 3';
+                    }, 500);
+                    break;
+                    
+                case 'password':
+                    // Make robot look around suspiciously
+                    const eyes = robot.querySelectorAll('.robot-eye');
+                    eyes.forEach(eye => {
+                        eye.style.background = '#e74c3c';
+                    });
+                    break;
+                    
+                case 'email':
+                    // Make robot "send" emails
+                    setTimeout(() => {
+                        createEmailParticles(robot);
+                    }, 800);
+                    break;
+                    
+                case 'school':
+                    // Make robot "study"
+                    robot.style.animation = 'studyMode 2s ease-in-out infinite';
+                    break;
+            }
+        }
+
+        function createEmailParticles(robot) {
+            for (let i = 0; i < 3; i++) {
+                setTimeout(() => {
+                    const particle = document.createElement('div');
+                    particle.style.cssText = `
+                        position: fixed;
+                        left: ${robot.offsetLeft + 40}px;
+                        top: ${robot.offsetTop + 20}px;
+                        width: 8px;
+                        height: 8px;
+                        background: #ea4335;
+                        border-radius: 2px;
+                        pointer-events: none;
+                        z-index: 9999;
+                        animation: emailFly 2s ease-out forwards;
+                    `;
+                    document.body.appendChild(particle);
+                    setTimeout(() => particle.remove(), 2000);
+                }, i * 300);
+            }
+        }
+
+        // Add special animation keyframes
+        const specialAnimations = document.createElement('style');
+        specialAnimations.textContent = `
+            @keyframes phoneRing {
+                0%, 100% { transform: translateX(-50%) rotate(0deg); }
+                25% { transform: translateX(-50%) rotate(-3deg); }
+                75% { transform: translateX(-50%) rotate(3deg); }
+            }
+            @keyframes studyMode {
+                0%, 100% { transform: translateY(0px) rotate(-1deg); }
+                50% { transform: translateY(-3px) rotate(1deg); }
+            }
+            @keyframes emailFly {
+                0% { 
+                    transform: translate(0, 0) rotate(0deg); 
+                    opacity: 1; 
+                }
+                100% { 
+                    transform: translate(200px, -100px) rotate(360deg); 
+                    opacity: 0; 
+                }
+            }
+        `;
+        document.head.appendChild(specialAnimations);
+
+        // Form Navigation
+        function nextStage() {
+            if (currentStage >= maxStages) return;
+
+            if (!validateCurrentStage()) return;
+
+            const currentForm = document.querySelector(`.form-stage[data-stage="${currentStage}"]`);
+            const nextForm = document.querySelector(`.form-stage[data-stage="${currentStage + 1}"]`);
+
+            if (currentForm && nextForm) {
+                currentForm.classList.remove('active');
+                nextForm.classList.add('active');
+                currentStage++;
+                updateProgressIndicator();
+            }
+        }
+
+        function prevStage() {
+            if (currentStage <= 1) return;
+
+            const currentForm = document.querySelector(`.form-stage[data-stage="${currentStage}"]`);
+            const prevForm = document.querySelector(`.form-stage[data-stage="${currentStage - 1}"]`);
+
+            if (currentForm && prevForm) {
+                currentForm.classList.remove('active');
+                prevForm.classList.add('active');
+                currentStage--;
+                updateProgressIndicator();
+            }
+        }
+
+        function updateProgressIndicator() {
+            for (let i = 1; i <= maxStages; i++) {
+                const step = document.getElementById(`step${i}`);
+                const line = document.getElementById(`line${i}`);
+
+                if (i < currentStage) {
+                    step.classList.add('completed');
+                    step.classList.remove('active');
+                    if (line) line.classList.add('completed');
+                } else if (i === currentStage) {
+                    step.classList.add('active');
+                    step.classList.remove('completed');
+                } else {
+                    step.classList.remove('active', 'completed');
+                    if (line) line.classList.remove('completed');
+                }
+            }
+        }
+
+        function validateCurrentStage() {
+            const currentForm = document.querySelector(`.form-stage[data-stage="${currentStage}"]`);
+            const requiredFields = currentForm.querySelectorAll('input[required], select[required], textarea[required]');
+            
+            for (let field of requiredFields) {
+                if (!field.value.trim()) {
+                    field.focus();
+                    field.style.borderColor = '#ff6b6b';
+                    field.style.boxShadow = '0 0 20px rgba(255,107,107,0.4)';
+                    
+                    // Professional shake animation
+                    field.style.animation = 'shake 0.5s ease-in-out';
+                    
+                    setTimeout(() => {
+                        field.style.borderColor = 'rgba(255,255,255,0.1)';
+                        field.style.boxShadow = 'none';
+                        field.style.animation = 'none';
+                    }, 2000);
+                    
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // Form Submission
+        document.getElementById('registrationForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            if (!validateCurrentStage()) return;
+
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            // Store registration data
+            const registrations = JSON.parse(localStorage.getItem('sparkit-registrations') || '[]');
+            registrations.push({
+                ...data,
+                timestamp: new Date().toISOString(),
+                id: Math.random().toString(36).substr(2, 9)
+            });
+            localStorage.setItem('sparkit-registrations', JSON.stringify(registrations));
+
+            // Show success screen
+            showSuccessScreen();
+        });
+
+        function showSuccessScreen() {
+            const form = document.getElementById('registrationForm');
+            const success = document.getElementById('successScreen');
+
+            form.style.display = 'none';
+            success.classList.add('active');
+        }
+
+        function registerAnother() {
+            window.location.reload();
+        }
+
+        // Add professional animations via CSS
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-5px); }
+                75% { transform: translateX(5px); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Enhanced input interactions with subtle effects
+        function enhanceInputs() {
+            document.querySelectorAll('input, textarea, select').forEach(field => {
+                field.addEventListener('focus', () => {
+                    field.style.transform = 'translateY(-2px)';
+                    
+                    // Create subtle glow particles around focused field
+                    createInputGlow(field);
+                });
+                
+                field.addEventListener('blur', () => {
+                    field.style.transform = 'translateY(0)';
+                });
+
+                field.addEventListener('input', () => {
+                    if (field.value) {
+                        field.style.borderColor = 'rgba(124,248,200,0.3)';
+                        
+                        // Create success particle when field is filled
+                        if (field.value.length > 0) {
+                            createSuccessParticle(field);
+                        }
+                    }
+                });
+            });
+        }
+
+        // Create subtle glow effect around focused input
+        function createInputGlow(element) {
+            const rect = element.getBoundingClientRect();
+            const glow = document.createElement('div');
+            glow.style.cssText = `
+                position: fixed;
+                left: ${rect.left - 5}px;
+                top: ${rect.top - 5}px;
+                width: ${rect.width + 10}px;
+                height: ${rect.height + 10}px;
+                border: 1px solid rgba(124,248,200,0.3);
+                border-radius: 12px;
+                pointer-events: none;
+                z-index: 1;
+                animation: inputGlow 2s ease-out forwards;
+            `;
+            document.body.appendChild(glow);
+            setTimeout(() => glow.remove(), 2000);
+        }
+
+        // Create success particle when input is filled
+        function createSuccessParticle(element) {
+            const rect = element.getBoundingClientRect();
+            const particle = document.createElement('div');
+            particle.style.cssText = `
+                position: fixed;
+                left: ${rect.right - 10}px;
+                top: ${rect.top + rect.height / 2}px;
+                width: 4px;
+                height: 4px;
+                background: var(--accent);
+                border-radius: 50%;
+                pointer-events: none;
+                z-index: 9999;
+                animation: successParticle 1s ease-out forwards;
+            `;
+            document.body.appendChild(particle);
+            setTimeout(() => particle.remove(), 1000);
+        }
+
+        // Add enhanced animations
+        const enhancedStyle = document.createElement('style');
+        enhancedStyle.textContent = `
+            @keyframes inputGlow {
+                0% { opacity: 0; transform: scale(0.9); }
+                50% { opacity: 1; transform: scale(1); }
+                100% { opacity: 0; transform: scale(1.1); }
+            }
+            @keyframes successParticle {
+                0% { transform: scale(0) translateY(0); opacity: 1; }
+                100% { transform: scale(1) translateY(-20px); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(enhancedStyle);
+
+        // Initialize everything
+        window.addEventListener('load', () => {
+            initCustomCursor();
+            initRobotAnimations();
+            enhanceInputs();
+            updateProgressIndicator();
+        });
+    </script>
+</body>
+</html>
