@@ -3624,4 +3624,3 @@ closePanel = function(){
   // Show a one-time hint on how to exit timeline on mobile
   let hinted=false; const origEnter=enterTimeline; enterTimeline = function(){ origEnter(); if(!hinted && isMobileDevice()){ hinted=true; setTimeout(()=> toast('Swipe up or tap ▲ to climb; Up @ top to exit'), 600); } };
 })();
-// ================= End Mobile Enhancements =================
