@@ -1081,6 +1081,9 @@ function branchHTML(type){
         <div class="card"><h4>Social</h4><p>IG: @axis25 • X: @axis25sl</p></div>
       </div>`;
   }
+  if(type==='registration'){
+    return `<div class="card"><h3>🚀 Registration Portal</h3><p>Opening registration page...</p></div>`;
+  }
   return `<div class="card"><p>Coming soon.</p></div>`;
 }
 
@@ -1152,6 +1155,12 @@ function openBranch(branch){
   if(branch && typeof branch.type==='string' && branch.type.startsWith('timeline:')){
     const m = branch._timeline;
     if(m){ state.timeline.visited.add(m.key); showOverlay(m.title, `<div class="card"><h3>${m.title}</h3><p>${m.text}</p><p class="help">Timeline milestone (demo)</p></div>`); return; }
+  }
+  // Handle registration portal with special effects
+  if(branch && branch.type==='registration'){
+    // Open the dedicated registration page
+    window.open('registration.html', '_blank');
+    return;
   }
   // Intercept Phase 1 branch to start drilling sequence instead of direct timeline entry
   if(branch && branch.type==='phase1'){
@@ -2125,6 +2134,77 @@ function drawTimeline(){
       ctx.fillStyle='rgba(124,248,200,.85)'; ctx.fillRect(trackX+48, yScreen+16, 180, 5);
     }
   });
+
+  // Registration Endpoint - Always at the very end of timeline
+  const registrationY = 1760; // Position after all timeline content
+  const regYScreen = registrationY - state.camera.y;
+  if(regYScreen > -140 && regYScreen < H+140) {
+    const regActive = Math.abs(p.y - registrationY) < 80;
+    if(regActive){ 
+      state.near = { label:'Register for SparkIT Competition', type:'registration', _reg:true }; 
+      // Enhanced robot excitement for registration
+      try {
+        const bot = document.getElementById('cursor-bot');
+        if(bot && !bot.hasAttribute('data-reg-excitement')) {
+          bot.setAttribute('data-reg-excitement', 'true');
+          bot.style.transform += ' scale(1.1)';
+          setTimeout(() => {
+            bot.removeAttribute('data-reg-excitement');
+            bot.style.transform = bot.style.transform.replace(' scale(1.1)', '');
+          }, 2000);
+        }
+      } catch{}
+    }
+    
+    // Draw spectacular registration portal
+    ctx.save();
+    const time = performance.now() * 0.003;
+    
+    // Pulsing base circle with rainbow gradient
+    const regGrad = ctx.createRadialGradient(trackX, regYScreen, 0, trackX, regYScreen, 60);
+    regGrad.addColorStop(0, `rgba(255,100,255,${0.8 + 0.2*Math.sin(time*2)})`);
+    regGrad.addColorStop(0.3, `rgba(124,248,200,${0.6 + 0.4*Math.sin(time*1.5)})`);
+    regGrad.addColorStop(0.7, `rgba(138,164,255,${0.5 + 0.3*Math.sin(time)})`);
+    regGrad.addColorStop(1, 'rgba(255,255,255,0.1)');
+    
+    ctx.fillStyle = regGrad;
+    ctx.beginPath();
+    const pulseRadius = 45 + 15*Math.sin(time*3);
+    ctx.ellipse(trackX, regYScreen, pulseRadius, pulseRadius, 0, 0, Math.PI*2);
+    ctx.fill();
+    
+    // Rotating outer rings
+    for(let ring = 0; ring < 3; ring++) {
+      ctx.strokeStyle = `rgba(255,255,255,${0.4 - ring*0.1})`;
+      ctx.lineWidth = 3 - ring;
+      ctx.beginPath();
+      const ringRadius = 60 + ring*20 + 10*Math.sin(time*2 + ring);
+      ctx.ellipse(trackX, regYScreen, ringRadius, ringRadius, time*(1+ring*0.5), 0, Math.PI*2);
+      ctx.stroke();
+    }
+    
+    // Central registration icon (stylized "R")
+    ctx.fillStyle = regActive ? '#ffffff' : 'rgba(255,255,255,0.8)';
+    ctx.font = 'bold 24px ui-sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('✨', trackX, regYScreen - 5);
+    
+    // Label with enhanced styling
+    ctx.font = regActive ? 'bold 18px ui-sans-serif' : '600 16px ui-sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = regActive ? '#ff6bff' : '#e6ecff';
+    ctx.fillText('Register for Competition', trackX + 60, regYScreen - 8);
+    
+    if(regActive) {
+      ctx.font = '14px ui-sans-serif';
+      ctx.fillStyle = 'rgba(124,248,200,0.9)';
+      ctx.fillText('Press E to enter the portal! ✨', trackX + 60, regYScreen + 12);
+    }
+    
+    ctx.restore();
+  }
+
   // collectibles & ambient & hack progress updates + crystals + ripples
   updateAmbient(); updateOrbs(); updateHackMiniGame(); updateConfetti(); checkCompetitionCelebration(); updateCrystals(); updateRipples();
   drawAmbient(); drawCrystals(); drawOrbs(); drawTimelineParticles(); drawTether(); drawHackMiniGame(); drawMilestoneTooltip(); drawRipples(); drawConfetti(); drawTimelineMinimap();

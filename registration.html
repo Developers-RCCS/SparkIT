@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SparkIT Competition Registration Portal</title>
+    <link rel="icon" href="assets/Logo-SparkIt.png" type="image/png">
+    <style>
+        :root {
+            --bg: #0b1020;
+            --fg: #eef3ff;
+            --muted: #a8b3cf;
+            --accent: #7cf8c8;
+            --accent2: #8aa4ff;
+            --accent3: #ff6bff;
+            --glass: rgba(255,255,255,.08);
+            --shadow: 0 10px 30px rgba(0,0,0,.35);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: radial-gradient(circle at 30% 20%, rgba(124,248,200,0.08) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 80%, rgba(138,164,255,0.06) 0%, transparent 50%),
+                        linear-gradient(135deg, #0a0f1e 0%, #0d1426 50%, #101832 100%);
+            color: var(--fg);
+            overflow-x: hidden;
+        }
+
+        /* Animated Background */
+        .cosmic-bg {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .cosmic-rings {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 800px;
+            height: 800px;
+            border-radius: 50%;
+            background: 
+                radial-gradient(circle, transparent 30%, rgba(124,248,200,0.03) 31%, transparent 32%),
+                radial-gradient(circle, transparent 45%, rgba(138,164,255,0.02) 46%, transparent 47%),
+                radial-gradient(circle, transparent 60%, rgba(255,107,255,0.015) 61%, transparent 62%);
+            animation: ringRotate 30s linear infinite;
+        }
+
+        @keyframes ringRotate {
+            from { transform: translate(-50%, -50%) rotate(0deg); }
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        .floating-particles {
+            position: absolute;
+            inset: 0;
+        }
+
+        .particle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: radial-gradient(circle, rgba(124,248,200,0.8), transparent);
+            border-radius: 50%;
+            animation: particleFloat 8s ease-in-out infinite;
+        }
+
+        @keyframes particleFloat {
+            0%, 100% { transform: translateY(0px) translateX(0px); opacity: 0.3; }
+            25% { transform: translateY(-20px) translateX(10px); opacity: 0.8; }
+            50% { transform: translateY(-10px) translateX(-15px); opacity: 0.5; }
+            75% { transform: translateY(-30px) translateX(20px); opacity: 1; }
+        }
+
+        /* Main Container */
+        .registration-container {
+            position: relative;
+            z-index: 10;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .registration-card {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 900px;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: cardIntro 1s ease-out;
+        }
+
+        @keyframes cardIntro {
+            from { opacity: 0; transform: translateY(30px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .registration-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(124,248,200,0.08), rgba(138,164,255,0.04));
+            border-radius: 20px;
+            z-index: -1;
+            animation: cardGlow 4s ease-in-out infinite alternate;
+        }
+
+        @keyframes cardGlow {
+            from { opacity: 0.5; }
+            to { opacity: 1; }
+        }
+
+        /* Header */
+        .portal-header {
+            text-align: center;
+            margin-bottom: 50px;
+            position: relative;
+        }
+
+        .portal-title {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #7cf8c8, #8aa4ff, #ff6bff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin: 0 0 10px 0;
+            animation: titleGlow 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes titleGlow {
+            from { filter: drop-shadow(0 0 20px rgba(124,248,200,0.3)); }
+            to { filter: drop-shadow(0 0 40px rgba(138,164,255,0.5)); }
+        }
+
+        .portal-subtitle {
+            font-size: 1.2rem;
+            color: rgba(255,255,255,0.8);
+            margin: 0 0 20px 0;
+            letter-spacing: 1px;
+        }
+
+        .robot-mascot {
+            display: inline-block;
+            font-size: 3rem;
+            animation: robotBounce 2s ease-in-out infinite;
+        }
+
+        @keyframes robotBounce {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(5deg); }
+        }
+
+        /* Form Stages */
+        .form-stage {
+            display: none;
+            animation: stageSlideIn 0.6s ease-out;
+        }
+
+        .form-stage.active {
+            display: block;
+        }
+
+        @keyframes stageSlideIn {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .stage-title {
+            font-size: 2rem;
+            color: var(--accent);
+            margin: 0 0 30px 0;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .input-group {
+            position: relative;
+        }
+
+        .input-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: rgba(255,255,255,0.8);
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .input-group input,
+        .input-group textarea,
+        .input-group select {
+            width: 100%;
+            padding: 15px 20px;
+            background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .input-group input:focus,
+        .input-group textarea:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 20px rgba(124,248,200,0.3);
+            background: rgba(124,248,200,0.05);
+            transform: translateY(-2px);
+        }
+
+        .input-group select {
+            cursor: pointer;
+        }
+
+        .input-group select option {
+            background: #0d1426;
+            color: #fff;
+        }
+
+        .required {
+            color: var(--accent3);
+        }
+
+        /* Navigation */
+        .stage-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            color: #0d1426;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(124,248,200,0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .btn-register {
+            background: linear-gradient(135deg, var(--accent3), var(--accent), var(--accent2));
+            color: #fff;
+            animation: registerPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes registerPulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(255,107,255,0.3); }
+            50% { box-shadow: 0 0 40px rgba(124,248,200,0.5); }
+        }
+
+        /* Success Screen */
+        .success-screen {
+            display: none;
+            text-align: center;
+            animation: successAppear 1s ease-out;
+        }
+
+        .success-screen.active {
+            display: block;
+        }
+
+        @keyframes successAppear {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .success-icon {
+            font-size: 5rem;
+            color: var(--accent);
+            margin-bottom: 30px;
+            animation: successBounce 1s ease-out;
+        }
+
+        @keyframes successBounce {
+            0% { transform: scale(0) rotate(0deg); }
+            50% { transform: scale(1.2) rotate(180deg); }
+            100% { transform: scale(1) rotate(360deg); }
+        }
+
+        .success-title {
+            font-size: 2.5rem;
+            color: var(--accent);
+            margin: 0 0 20px 0;
+        }
+
+        .success-message {
+            font-size: 1.2rem;
+            color: rgba(255,255,255,0.8);
+            margin: 0 0 30px 0;
+        }
+
+        /* Progress Indicator */
+        .progress-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 40px;
+        }
+
+        .progress-step {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 10px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .progress-step.active {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            color: #0d1426;
+            transform: scale(1.1);
+        }
+
+        .progress-step.completed {
+            background: var(--accent);
+            color: #0d1426;
+        }
+
+        .progress-line {
+            width: 60px;
+            height: 2px;
+            background: rgba(255,255,255,0.1);
+            margin: 19px 0;
+        }
+
+        .progress-line.completed {
+            background: var(--accent);
+        }
+
+        /* Back to Game Button */
+        .back-to-game {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .portal-title { font-size: 2rem; }
+            .form-grid { grid-template-columns: 1fr; }
+            .registration-card { padding: 30px 20px; }
+            .stage-nav { flex-direction: column; gap: 15px; }
+            .btn { width: 100%; }
+            .progress-indicator { flex-wrap: wrap; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="cosmic-bg">
+        <div class="cosmic-rings"></div>
+        <div class="floating-particles" id="particles"></div>
+    </div>
+
+    <a href="index.html" class="back-to-game btn btn-secondary">← Back to Game</a>
+
+    <div class="registration-container">
+        <div class="registration-card">
+            <!-- Header -->
+            <div class="portal-header">
+                <h1 class="portal-title">🚀 SparkIT Competition</h1>
+                <p class="portal-subtitle">Join the ultimate innovation challenge</p>
+                <div class="robot-mascot">🤖</div>
+            </div>
+
+            <!-- Progress Indicator -->
+            <div class="progress-indicator">
+                <div class="progress-step active" id="step1">1</div>
+                <div class="progress-line" id="line1"></div>
+                <div class="progress-step" id="step2">2</div>
+                <div class="progress-line" id="line2"></div>
+                <div class="progress-step" id="step3">3</div>
+            </div>
+
+            <!-- Registration Form -->
+            <form id="registrationForm">
+                <!-- Stage 1: Personal Information -->
+                <div class="form-stage active" data-stage="1">
+                    <h2 class="stage-title">✨ Personal Information</h2>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="fullName">Full Name <span class="required">*</span></label>
+                            <input type="text" id="fullName" name="fullName" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="email">Email Address <span class="required">*</span></label>
+                            <input type="email" id="email" name="email" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="phone">Phone Number <span class="required">*</span></label>
+                            <input type="tel" id="phone" name="phone" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="ageGroup">Age Group <span class="required">*</span></label>
+                            <select id="ageGroup" name="ageGroup" required>
+                                <option value="">Select Age Group</option>
+                                <option value="13-15">13-15 years</option>
+                                <option value="16-18">16-18 years</option>
+                                <option value="19-22">19-22 years</option>
+                                <option value="23+">23+ years</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="stage-nav">
+                        <div></div>
+                        <button type="button" class="btn btn-primary" onclick="nextStage()">Continue ➤</button>
+                    </div>
+                </div>
+
+                <!-- Stage 2: Academic Background -->
+                <div class="form-stage" data-stage="2">
+                    <h2 class="stage-title">🎓 Academic Background</h2>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="school">School/University <span class="required">*</span></label>
+                            <input type="text" id="school" name="school" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="grade">Grade/Year <span class="required">*</span></label>
+                            <select id="grade" name="grade" required>
+                                <option value="">Select Grade/Year</option>
+                                <option value="grade-8">Grade 8</option>
+                                <option value="grade-9">Grade 9</option>
+                                <option value="grade-10">Grade 10</option>
+                                <option value="grade-11">Grade 11</option>
+                                <option value="grade-12">Grade 12</option>
+                                <option value="grade-13">Grade 13</option>
+                                <option value="university-1">University Year 1</option>
+                                <option value="university-2">University Year 2</option>
+                                <option value="university-3">University Year 3</option>
+                                <option value="university-4">University Year 4+</option>
+                            </select>
+                        </div>
+                        <div class="input-group full-width">
+                            <label for="experience">Programming Experience <span class="required">*</span></label>
+                            <select id="experience" name="experience" required>
+                                <option value="">Select Experience Level</option>
+                                <option value="none">Complete Beginner (No experience)</option>
+                                <option value="basic">Basic (HTML/CSS, simple scripts)</option>
+                                <option value="intermediate">Intermediate (One programming language)</option>
+                                <option value="advanced">Advanced (Multiple languages & frameworks)</option>
+                                <option value="expert">Expert (Professional development experience)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="stage-nav">
+                        <button type="button" class="btn btn-secondary" onclick="prevStage()">⬅ Back</button>
+                        <button type="button" class="btn btn-primary" onclick="nextStage()">Continue ➤</button>
+                    </div>
+                </div>
+
+                <!-- Stage 3: Innovation & Motivation -->
+                <div class="form-stage" data-stage="3">
+                    <h2 class="stage-title">💡 Your Innovation</h2>
+                    <div class="form-grid">
+                        <div class="input-group full-width">
+                            <label for="projectIdea">Project Idea Description <span class="required">*</span></label>
+                            <textarea id="projectIdea" name="projectIdea" rows="4" required 
+                                placeholder="Describe your project idea or what you want to learn and build..."></textarea>
+                        </div>
+                        <div class="input-group full-width">
+                            <label for="motivation">Why SparkIT? <span class="required">*</span></label>
+                            <textarea id="motivation" name="motivation" rows="3" required 
+                                placeholder="Tell us why you want to participate in SparkIT..."></textarea>
+                        </div>
+                        <div class="input-group">
+                            <label for="category">Project Category <span class="required">*</span></label>
+                            <select id="category" name="category" required>
+                                <option value="">Choose Category</option>
+                                <option value="web-dev">Web Development</option>
+                                <option value="mobile-app">Mobile Apps</option>
+                                <option value="ai-ml">AI & Machine Learning</option>
+                                <option value="iot">IoT & Hardware</option>
+                                <option value="game-dev">Game Development</option>
+                                <option value="cybersecurity">Cybersecurity</option>
+                                <option value="blockchain">Blockchain & Web3</option>
+                                <option value="data-science">Data Science</option>
+                                <option value="other">Other Innovation</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="teamSize">Team Size</label>
+                            <select id="teamSize" name="teamSize">
+                                <option value="1">Solo (Just me)</option>
+                                <option value="2">2 members</option>
+                                <option value="3">3 members</option>
+                                <option value="4">4 members</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="stage-nav">
+                        <button type="button" class="btn btn-secondary" onclick="prevStage()">⬅ Back</button>
+                        <button type="submit" class="btn btn-register">🚀 Complete Registration!</button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Success Screen -->
+            <div class="success-screen" id="successScreen">
+                <div class="success-icon">✓</div>
+                <h2 class="success-title">🎉 Registration Successful!</h2>
+                <p class="success-message">Welcome to SparkIT! You'll receive confirmation details soon.</p>
+                <div style="margin-top: 30px;">
+                    <a href="index.html" class="btn btn-primary">🎮 Back to Game</a>
+                    <button type="button" class="btn btn-secondary" onclick="registerAnother()" style="margin-left: 15px;">➕ Register Another</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStage = 1;
+        const maxStages = 3;
+
+        // Initialize particles
+        function createParticles() {
+            const container = document.getElementById('particles');
+            for (let i = 0; i < 20; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 8 + 's';
+                particle.style.animationDuration = (6 + Math.random() * 4) + 's';
+                container.appendChild(particle);
+            }
+        }
+
+        // Navigation functions
+        function nextStage() {
+            if (currentStage >= maxStages) return;
+
+            // Validate current stage
+            if (!validateCurrentStage()) return;
+
+            const currentForm = document.querySelector(`.form-stage[data-stage="${currentStage}"]`);
+            const nextForm = document.querySelector(`.form-stage[data-stage="${currentStage + 1}"]`);
+
+            if (currentForm && nextForm) {
+                currentForm.classList.remove('active');
+                nextForm.classList.add('active');
+                currentStage++;
+                updateProgressIndicator();
+            }
+        }
+
+        function prevStage() {
+            if (currentStage <= 1) return;
+
+            const currentForm = document.querySelector(`.form-stage[data-stage="${currentStage}"]`);
+            const prevForm = document.querySelector(`.form-stage[data-stage="${currentStage - 1}"]`);
+
+            if (currentForm && prevForm) {
+                currentForm.classList.remove('active');
+                prevForm.classList.add('active');
+                currentStage--;
+                updateProgressIndicator();
+            }
+        }
+
+        function updateProgressIndicator() {
+            for (let i = 1; i <= maxStages; i++) {
+                const step = document.getElementById(`step${i}`);
+                const line = document.getElementById(`line${i}`);
+
+                if (i < currentStage) {
+                    step.classList.add('completed');
+                    step.classList.remove('active');
+                    if (line) line.classList.add('completed');
+                } else if (i === currentStage) {
+                    step.classList.add('active');
+                    step.classList.remove('completed');
+                } else {
+                    step.classList.remove('active', 'completed');
+                    if (line) line.classList.remove('completed');
+                }
+            }
+        }
+
+        function validateCurrentStage() {
+            const currentForm = document.querySelector(`.form-stage[data-stage="${currentStage}"]`);
+            const requiredFields = currentForm.querySelectorAll('input[required], select[required], textarea[required]');
+            
+            for (let field of requiredFields) {
+                if (!field.value.trim()) {
+                    field.focus();
+                    field.style.borderColor = '#ff6b6b';
+                    setTimeout(() => {
+                        field.style.borderColor = 'rgba(255,255,255,0.1)';
+                    }, 2000);
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // Form submission
+        document.getElementById('registrationForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            if (!validateCurrentStage()) return;
+
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            // Store registration data
+            const registrations = JSON.parse(localStorage.getItem('sparkit-registrations') || '[]');
+            registrations.push({
+                ...data,
+                timestamp: new Date().toISOString(),
+                id: Math.random().toString(36).substr(2, 9)
+            });
+            localStorage.setItem('sparkit-registrations', JSON.stringify(registrations));
+
+            // Show success screen
+            showSuccessScreen();
+        });
+
+        function showSuccessScreen() {
+            const form = document.getElementById('registrationForm');
+            const success = document.getElementById('successScreen');
+
+            form.style.display = 'none';
+            success.classList.add('active');
+
+            // Create celebration particles
+            createCelebrationParticles();
+        }
+
+        function createCelebrationParticles() {
+            for (let i = 0; i < 30; i++) {
+                setTimeout(() => {
+                    const particle = document.createElement('div');
+                    particle.style.cssText = `
+                        position: fixed;
+                        width: 8px;
+                        height: 8px;
+                        background: linear-gradient(45deg, #7cf8c8, #8aa4ff, #ff6bff);
+                        border-radius: 50%;
+                        pointer-events: none;
+                        z-index: 10000;
+                        left: ${20 + Math.random() * 60}%;
+                        top: 100vh;
+                        animation: celebrationRise 3s ease-out forwards;
+                    `;
+                    document.body.appendChild(particle);
+                    setTimeout(() => particle.remove(), 3000);
+                }, i * 100);
+            }
+        }
+
+        function registerAnother() {
+            window.location.reload();
+        }
+
+        // Add celebration animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes celebrationRise {
+                0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+                100% { transform: translateY(-100vh) rotate(720deg); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Initialize
+        createParticles();
+        updateProgressIndicator();
+
+        // Add input animations
+        document.querySelectorAll('input, textarea, select').forEach(field => {
+            field.addEventListener('focus', () => {
+                field.style.transform = 'translateY(-2px)';
+            });
+            
+            field.addEventListener('blur', () => {
+                field.style.transform = 'translateY(0)';
+            });
+        });
+    </script>
+</body>
+</html>

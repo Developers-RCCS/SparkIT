@@ -806,3 +806,20 @@ button#closePanel:hover, button#closePanel:focus-visible { outline:2px solid var
 .liquid-enabled .card::before { display:none !important; }
 .liquid-enabled .card, .liquid-enabled .card:hover { box-shadow:none !important; }
 .liquid-enabled .card:hover { background: rgba(255,255,255,0.16); }
+
+/* Enhanced robot modes for registration excitement */
+#cursor-bot[data-mode="registration"] {
+  filter: drop-shadow(0 0 15px rgba(124,248,200,0.8));
+  animation: registrationExcitement 2s ease-in-out infinite;
+}
+
+@keyframes registrationExcitement {
+  0%, 100% { transform: scale(1.05); }
+  50% { transform: scale(1.1) rotate(2deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #cursor-bot[data-mode="registration"] {
+    animation: none !important;
+  }
+}
