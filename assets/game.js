@@ -31,12 +31,207 @@ let GAME_DATA = {
     { x: 1150, label:"SparkIT Fusion", type:"phase3" },
     { x: 1600, label:"FAQ", type:"faq" },
     { x: 2000, label:"Contact", type:"contact" }
+  ],
+  branchDescriptions: {
+    "Overview": "Learn about the SparkIT initiative and our mission to ignite ICT literacy in Sri Lanka",
+    "Phase 1 — Register": "Join our session series designed to uplift awareness across different areas of ICT.",
+    "SparkIT Fusion": "A community-driven effort bringing ICT knowledge and resources to schools across Sri Lanka",
+    "FAQ": "Find answers to common questions about SparkIT and the competition process",
+    "Contact": "Get in touch with our team for support, partnerships, or more information"
+  },
+  milestones: [
+    {"y":160, "key":"registration", "title":"Registration", "text":"Complete your Spark Flash registration."},
+    {"y":560, "key":"workshop1", "title":"Robotics and Automations", "text":"Workshop 1 — Robotics and Automations: design, build & program autonomous systems."},
+    {"y":960, "key":"workshop2", "title":"Immersive Technologies", "text":"Workshop 2 — Immersive Technologies: VR, AR & interactive digital experiences."},
+    {"y":1360, "key":"workshop3", "title":"Programming", "text":"Workshop 3 — Programming: algorithms, team projects & mentoring."},
+    {"y":1760, "key":"competitions", "title":"Competitions", "text":"Pitch, demo & compete for recognition."}
+  ],
+  undergroundDescriptions: {
+    "Robotics and Automations": "Navigating Opportunities in Robotics and Smart Automation",
+    "Immersive Technologies": "Exploring Career Pathways in Immersive Technology",
+    "Programming": "Workshop 3 — Programming: algorithms, team projects & mentoring",
+    "Competitions": "Pitch, demo & compete for recognition and prizes"
+  },
+  faq: [
+    { question: "Who can join this?", answer: "This project is open to students enthusiastic about ICT and eager to enhance their digital skills." },
+    { question: "Is SparkIt Flash held online or physical?", answer: "SparkIt Flash is held online." },
+    { question: "Is there a cost to join the program?", answer: "Participation is free" },
+    { question: "Do I need any prior computer knowledge to join?", answer: "No The sessions suit all levels—from beginners to advanced learners" }
   ]
 };
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 let W = canvas.width, H = canvas.height;
+
+// Global image references
+let sparkItLogoImage = null;
+
+// Global audio context and sound system
+let audioContext = null;
+let soundEnabled = true;
+
+// Sound effect configurations for fun, game-like audio
+const SOUND_EFFECTS = {
+  walle_move: { freq: 220, duration: 0.08, type: 'sine', volume: 0.15, envelope: 'bounce' },
+  walle_beep: { freq: 440, duration: 0.15, type: 'sine', volume: 0.2, envelope: 'cheerful' },
+  walle_chirp: { freq: 660, duration: 0.12, type: 'sine', volume: 0.18, envelope: 'happy' },
+  walle_drill: { freq: 180, duration: 0.3, type: 'triangle', volume: 0.12, envelope: 'working' },
+  walle_joy: { freq: 523, duration: 0.25, type: 'sine', volume: 0.2, envelope: 'celebration' },
+  walle_curious: { freq: 349, duration: 0.2, type: 'sine', volume: 0.15, envelope: 'wonder' },
+  eve_scan: { freq: 880, duration: 0.08, type: 'sine', volume: 0.12, envelope: 'sparkle' },
+  branch_hover: { freq: 293, duration: 0.08, type: 'sine', volume: 0.1, envelope: 'gentle' },
+  branch_click: { freq: 392, duration: 0.15, type: 'sine', volume: 0.15, envelope: 'success' },
+  ui_error: { freq: 220, duration: 0.2, type: 'sine', volume: 0.15, envelope: 'gentle_error' },
+  lightning: { freq: 200, duration: 0.25, type: 'triangle', volume: 0.12, envelope: 'magic' },
+  timeline_transition: { freq: 523, duration: 0.4, type: 'sine', volume: 0.1, envelope: 'transition' }
+};
+
+// Initialize audio context
+function initAudioContext() {
+  try {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  } catch (e) {
+    console.warn('Web Audio API not supported:', e);
+    soundEnabled = false;
+  }
+}
+
+// Play fun, game-like sound effects
+function playSound(soundType, pitchVariation = 0) {
+  if (!soundEnabled || !audioContext || !SOUND_EFFECTS[soundType]) return;
+  
+  try {
+    // Resume audio context if suspended (required for user interaction)
+    if (audioContext.state === 'suspended') {
+      audioContext.resume();
+    }
+    
+    const config = SOUND_EFFECTS[soundType];
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    // Configure oscillator
+    oscillator.type = config.type;
+    oscillator.frequency.setValueAtTime(config.freq + pitchVariation, audioContext.currentTime);
+    
+    // Create fun, game-like envelopes based on sound type
+    const now = audioContext.currentTime;
+    gainNode.gain.setValueAtTime(0, now);
+    
+    switch(config.envelope) {
+      case 'bounce':
+        gainNode.gain.linearRampToValueAtTime(config.volume, now + 0.02);
+        gainNode.gain.linearRampToValueAtTime(config.volume * 0.7, now + 0.04);
+        gainNode.gain.linearRampToValueAtTime(config.volume, now + 0.06);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + config.duration);
+        break;
+      case 'cheerful':
+        gainNode.gain.linearRampToValueAtTime(config.volume, now + 0.01);
+        oscillator.frequency.linearRampToValueAtTime(config.freq * 1.2 + pitchVariation, now + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + config.duration);
+        break;
+      case 'happy':
+        gainNode.gain.linearRampToValueAtTime(config.volume, now + 0.01);
+        oscillator.frequency.setValueAtTime(config.freq * 1.1 + pitchVariation, now + 0.06);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + config.duration);
+        break;
+      case 'working':
+        gainNode.gain.linearRampToValueAtTime(config.volume, now + 0.02);
+        gainNode.gain.setValueAtTime(config.volume * 0.9, now + 0.1);
+        gainNode.gain.linearRampToValueAtTime(0.001, now + config.duration);
+        break;
+      case 'celebration':
+        gainNode.gain.linearRampToValueAtTime(config.volume, now + 0.01);
+        oscillator.frequency.linearRampToValueAtTime(config.freq * 1.5 + pitchVariation, now + 0.1);
+        oscillator.frequency.linearRampToValueAtTime(config.freq + pitchVariation, now + 0.2);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + config.duration);
+        break;
+      case 'wonder':
+        gainNode.gain.linearRampToValueAtTime(config.volume, now + 0.02);
+        oscillator.frequency.linearRampToValueAtTime(config.freq * 1.3 + pitchVariation, now + 0.15);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + config.duration);
+        break;
+      case 'sparkle':
+        gainNode.gain.linearRampToValueAtTime(config.volume, now + 0.005);
+        oscillator.frequency.setValueAtTime(config.freq * 1.2 + pitchVariation, now + 0.02);
+        oscillator.frequency.setValueAtTime(config.freq * 1.4 + pitchVariation, now + 0.04);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + config.duration);
+        break;
+      case 'gentle':
+        gainNode.gain.linearRampToValueAtTime(config.volume, now + 0.02);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + config.duration);
+        break;
+      case 'success':
+        gainNode.gain.linearRampToValueAtTime(config.volume, now + 0.01);
+        oscillator.frequency.linearRampToValueAtTime(config.freq * 1.25 + pitchVariation, now + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + config.duration);
+        break;
+      case 'gentle_error':
+        gainNode.gain.linearRampToValueAtTime(config.volume, now + 0.03);
+        oscillator.frequency.linearRampToValueAtTime(config.freq * 0.9 + pitchVariation, now + 0.1);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + config.duration);
+        break;
+      case 'magic':
+        gainNode.gain.linearRampToValueAtTime(config.volume, now + 0.02);
+        oscillator.frequency.linearRampToValueAtTime(config.freq * 1.6 + pitchVariation, now + 0.15);
+        gainNode.gain.linearRampToValueAtTime(0.001, now + config.duration);
+        break;
+      case 'transition':
+        gainNode.gain.linearRampToValueAtTime(config.volume, now + 0.05);
+        oscillator.frequency.linearRampToValueAtTime(config.freq * 1.3 + pitchVariation, now + 0.2);
+        oscillator.frequency.linearRampToValueAtTime(config.freq + pitchVariation, now + 0.35);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + config.duration);
+        break;
+      default:
+        // Default gentle envelope
+        gainNode.gain.linearRampToValueAtTime(config.volume, now + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + config.duration);
+    }
+    
+    // Connect and play
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.start(now);
+    oscillator.stop(now + config.duration);
+    
+  } catch (e) {
+    console.warn('Error playing sound:', e);
+  }
+}
+
+// Special compound sound effects
+function playWalleExpression(emotion) {
+  switch(emotion) {
+    case 'happy':
+      playSound('walle_chirp');
+      setTimeout(() => playSound('walle_beep', 100), 150);
+      break;
+    case 'curious':
+      playSound('walle_curious');
+      setTimeout(() => playSound('walle_beep', -50), 200);
+      break;
+    case 'excited':
+      playSound('walle_joy');
+      setTimeout(() => playSound('walle_chirp', 50), 100);
+      setTimeout(() => playSound('walle_beep', 200), 250);
+      break;
+    case 'working':
+      playSound('walle_move');
+      break;
+  }
+}
+
+// Load SparkIT logo
+function loadSparkItLogo() {
+  sparkItLogoImage = new Image();
+  sparkItLogoImage.src = 'assets/Logo-SparkIt.png';
+}
+
+// Initialize logo loading and audio
+loadSparkItLogo();
+initAudioContext();
 
 const state = {
   // player physics (px units in CSS pixels; velocities are px/s)
@@ -66,8 +261,8 @@ const state = {
     length: 2000,
     milestones:[
   { y:160, key:'registration', title:'Registration', text:'Complete your Spark Flash registration.' },
-  { y:560, key:'workshop1', title:'Game Dev', text:'Workshop 1 — Game Development: design, engines & rapid prototyping.' },
-  { y:960, key:'workshop2', title:'CTF', text:'Workshop 2 — Capture The Flag: hacking challenges & cybersecurity basics.' },
+  { y:560, key:'workshop1', title:'Robotics and Automations', text:'Workshop 1 — Robotics and Automations: design, build & program autonomous systems.' },
+  { y:960, key:'workshop2', title:'Immersive Technologies', text:'Workshop 2 — Immersive Technologies: VR, AR & interactive digital experiences.' },
   { y:1360, key:'workshop3', title:'Programming', text:'Workshop 3 — Programming: algorithms, team projects & mentoring.' },
   { y:1760, key:'competitions', title:'Competitions', text:'Pitch, demo & compete for recognition.' }
     ],
@@ -154,10 +349,10 @@ const state = {
     radius: 250,
     dustMotes: []
   },
-  // world transformation drilling sequence
+  // WALL-E digging sequence
   worldTransition: {
     active: false,
-    phase: 'none', // 'none' | 'cracking' | 'transforming' | 'descending'
+    phase: 'none', // 'none' | 'preparing' | 'digging' | 'descending'
     progress: 0,   // Progress within the current phase (0 to 1)
     startTime: 0,
     cameraShake: 0,
@@ -311,6 +506,10 @@ function buildLightningPath(x1,y1,x2,y2){
 }
 function triggerLightning(){
   const L = state.lightning; if(!state.phase1Sign) return;
+  
+  // Play lightning sound effect
+  playSound('lightning', Math.random() * 100 - 50);
+  
   L.active=true; L.t=0; L.afterglow=0; L.afterglowMax=0; L.focus=1;
   // randomize the origin so bolts can come from random sky/cloud positions
   const signX = state.phase1Sign.x;
@@ -405,16 +604,20 @@ function updateRainParticles() {
   }
 }
 
-// World Transformation Drilling Sequence
+// WALL-E Digging Sequence
 function startWorldTransition() {
   const wt = state.worldTransition;
   if (wt.active) return; // Prevent re-triggering
 
+  // Play drilling preparation sound
+  playWalleExpression('working');
+  setTimeout(() => playSound('walle_drill'), 500);
+
   wt.active = true;
-  wt.phase = 'cracking';
+  wt.phase = 'preparing';
   wt.startTime = performance.now();
   wt.progress = 0;
-  wt.cameraShake = 18; // Intense initial shake
+  wt.cameraShake = 8; // Gentle initial preparation
   wt.roadCrackParticles = [];
   wt.drillSparks = [];
   wt.thrusterFlames = [];
@@ -422,7 +625,7 @@ function startWorldTransition() {
   state.paused = true; // Take control from the player
   
   // Audio feedback
-  toast('🚗💥 World fracturing...');
+  toast('🤖� WALL-E preparing to dig...');
 }
 
 function updateWorldTransition() {
@@ -432,61 +635,60 @@ function updateWorldTransition() {
   const elapsed = performance.now() - wt.startTime;
   const dt = state.dt;
   
-  // Phase 1: The road cracks apart (lasts 1.5 seconds)
-  if (wt.phase === 'cracking') {
-    wt.progress = Math.min(1, elapsed / 1500);
-    wt.cameraShake = Math.max(0, 18 * (1 - wt.progress * 0.7)); // Gradual reduction
+  // Phase 1: WALL-E prepares to dig (lasts 1 second)
+  if (wt.phase === 'preparing') {
+    wt.progress = Math.min(1, elapsed / 1000);
+    wt.cameraShake = Math.max(0, 5 * (1 - wt.progress * 0.5)); // Light shake as WALL-E gets ready
     
-    // Spawn crack particles and debris
-    if (Math.random() > 0.3) {
+    // Gentle preparation particles (dust being kicked up)
+    if (Math.random() > 0.7) {
       wt.roadCrackParticles.push({
-        x: state.player.x + (Math.random() * 300 - 150),
-        y: H - 120 + Math.random() * 20,
-        vy: -Math.random() * 200 - 50,
-        vx: (Math.random() - 0.5) * 100,
-        life: 1.5 + Math.random() * 0.8,
-        size: 3 + Math.random() * 6,
-        spin: (Math.random() - 0.5) * 10
-      });
-    }
-    
-    // Energy eruption particles
-    if (wt.progress > 0.4 && Math.random() > 0.7) {
-      wt.drillSparks.push({
-        x: state.player.x + (Math.random() * 100 - 50),
-        y: H - 100,
-        vy: -Math.random() * 300 - 100,
-        vx: (Math.random() - 0.5) * 150,
-        life: 0.8 + Math.random() * 0.5,
-        brightness: 0.8 + Math.random() * 0.2
+        x: state.player.x + (Math.random() * 80 - 40),
+        y: H - 120 + Math.random() * 10,
+        vy: -Math.random() * 50 - 20,
+        vx: (Math.random() - 0.5) * 40,
+        life: 0.8 + Math.random() * 0.4,
+        size: 1 + Math.random() * 3,
+        spin: (Math.random() - 0.5) * 5
       });
     }
     
     if (wt.progress >= 1) {
-      wt.phase = 'transforming';
+      wt.phase = 'digging';
       wt.startTime = performance.now();
       wt.progress = 0;
-      wt.cameraShake = 12; // Medium shake for transformation
-      toast('🤖⚡ Vehicle transforming...');
+      wt.cameraShake = 15; // Strong shake for digging
+      toast('⛏️🤖 WALL-E is digging...');
     }
   }
   
-  // Phase 2: The vehicle transforms (lasts 2 seconds)
-  else if (wt.phase === 'transforming') {
+  // Phase 2: WALL-E digs the hole (lasts 2 seconds)
+  else if (wt.phase === 'digging') {
     wt.progress = Math.min(1, elapsed / 2000);
-    wt.cameraShake = Math.max(0, 12 * (1 - wt.progress * 0.8));
+    wt.cameraShake = Math.max(0, 15 * (1 - wt.progress * 0.6)); // Strong digging vibration
     
-    // Transformation sparks around the vehicle
-    if (Math.random() > 0.6) {
-      const angle = Math.random() * Math.PI * 2;
-      const radius = 40 + Math.random() * 30;
+    // Intense drilling sparks and debris
+    if (Math.random() > 0.4) {
       wt.drillSparks.push({
-        x: state.player.x + Math.cos(angle) * radius,
-        y: state.player.y + Math.sin(angle) * radius,
-        vy: -Math.random() * 80 - 20,
-        vx: (Math.random() - 0.5) * 60,
+        x: state.player.x + (Math.random() * 60 - 30),
+        y: H - 100,
+        vy: -Math.random() * 250 - 80,
+        vx: (Math.random() - 0.5) * 120,
         life: 0.6 + Math.random() * 0.4,
         brightness: 0.9 + Math.random() * 0.1
+      });
+    }
+    
+    // Dirt and rock debris flying out
+    if (Math.random() > 0.5) {
+      wt.roadCrackParticles.push({
+        x: state.player.x + (Math.random() * 100 - 50),
+        y: H - 110 + Math.random() * 15,
+        vy: -Math.random() * 180 - 60,
+        vx: (Math.random() - 0.5) * 140,
+        life: 1.2 + Math.random() * 0.6,
+        size: 2 + Math.random() * 5,
+        spin: (Math.random() - 0.5) * 8
       });
     }
     
@@ -494,13 +696,13 @@ function updateWorldTransition() {
       wt.phase = 'descending';
       wt.startTime = performance.now();
       wt.progress = 0;
-      wt.cameraShake = 8; // Light shake for descent
+      wt.cameraShake = 6; // Light shake for descent
       state.timeline.roadReturnY = state.player.y; // Save for later
-      toast('🚀⬇️ Initiating descent...');
+      toast('⬇️🤖 WALL-E descending into the underground...');
     }
   }
   
-  // Phase 3: The vehicle descends into the timeline (lasts 2.5 seconds)
+  // Phase 3: WALL-E descends into the underground (lasts 2.5 seconds)
   else if (wt.phase === 'descending') {
     wt.progress = Math.min(1, elapsed / 2500);
     wt.cameraShake = Math.max(0, 8 * (1 - wt.progress));
@@ -588,15 +790,15 @@ function drawWorldTransition() {
 
   ctx.save();
 
-  // Draw the cracking road and chasm
-  if (wt.phase === 'cracking' || wt.phase === 'transforming' || wt.phase === 'descending') {
-    const maxCrackWidth = 400;
-    const crackWidth = maxCrackWidth * Math.pow(wt.progress, 0.8); // Ease-out
+  // Draw the digging hole and effects
+  if (wt.phase === 'digging' || wt.phase === 'descending') {
+    const maxHoleWidth = 120; // Smaller, more WALL-E sized hole
+    const holeWidth = maxHoleWidth * Math.pow(wt.progress, 0.6); // Ease-out
     
     // Left side of the road (intact)
     ctx.save();
     ctx.beginPath();
-    ctx.rect(-state.camera.x, roadY, playerScreenX - crackWidth / 2 + state.camera.x, 80);
+    ctx.rect(-state.camera.x, roadY, playerScreenX - holeWidth / 2 + state.camera.x, 80);
     ctx.clip();
     
     // Draw road normally in this region
@@ -610,7 +812,7 @@ function drawWorldTransition() {
     // Right side of the road (intact)
     ctx.save();
     ctx.beginPath();
-    ctx.rect(playerScreenX + crackWidth / 2, roadY, state.world.length + W, 80);
+    ctx.rect(playerScreenX + holeWidth / 2, roadY, state.world.length + W, 80);
     ctx.clip();
     
     // Draw road normally in this region
@@ -619,26 +821,26 @@ function drawWorldTransition() {
     
     ctx.restore();
     
-    // The glowing chasm
+    // The dug hole
     if(wt.progress > 0) {
-      const chasmGrad = ctx.createLinearGradient(playerScreenX, roadY, playerScreenX, roadY + 80);
-      chasmGrad.addColorStop(0, `rgba(124, 248, 200, ${0.9 * wt.progress})`);
-      chasmGrad.addColorStop(0.5, `rgba(138, 164, 255, ${0.7 * wt.progress})`);
-      chasmGrad.addColorStop(1, `rgba(235, 185, 0, ${0.5 * wt.progress})`);
+      const holeGrad = ctx.createLinearGradient(playerScreenX, roadY, playerScreenX, roadY + 80);
+      holeGrad.addColorStop(0, `rgba(60, 40, 20, ${0.9 * wt.progress})`);  // Dark brown earth
+      holeGrad.addColorStop(0.5, `rgba(40, 25, 15, ${0.8 * wt.progress})`); // Darker earth
+      holeGrad.addColorStop(1, `rgba(20, 15, 10, ${0.9 * wt.progress})`);   // Very dark depths
       
-      ctx.fillStyle = chasmGrad;
-      ctx.fillRect(playerScreenX - crackWidth / 2, roadY, crackWidth, 80);
+      ctx.fillStyle = holeGrad;
+      ctx.fillRect(playerScreenX - holeWidth / 2, roadY, holeWidth, 80);
       
-      // Energy wisps rising from chasm
-      if (wt.phase === 'cracking' && wt.progress > 0.3) {
-        for (let i = 0; i < 5; i++) {
-          const wispX = playerScreenX + (Math.random() - 0.5) * crackWidth * 0.8;
-          const wispY = roadY + 80 - Math.sin(performance.now() * 0.005 + i) * 60;
-          const wispAlpha = (Math.sin(performance.now() * 0.003 + i * 0.5) + 1) * 0.3 * wt.progress;
+      // Dirt particles floating up from hole
+      if (wt.phase === 'digging' && wt.progress > 0.2) {
+        for (let i = 0; i < 3; i++) {
+          const dirtX = playerScreenX + (Math.random() - 0.5) * holeWidth * 0.6;
+          const dirtY = roadY + 60 - Math.sin(performance.now() * 0.003 + i) * 40;
+          const dirtAlpha = (Math.sin(performance.now() * 0.002 + i * 0.7) + 1) * 0.2 * wt.progress;
           
-          ctx.fillStyle = `rgba(124, 248, 200, ${wispAlpha})`;
+          ctx.fillStyle = `rgba(139, 69, 19, ${dirtAlpha})`; // Saddle brown dirt
           ctx.beginPath();
-          ctx.arc(wispX, wispY, 3 + Math.sin(performance.now() * 0.01 + i) * 2, 0, Math.PI * 2);
+          ctx.arc(dirtX, dirtY, 2 + Math.sin(performance.now() * 0.008 + i) * 1, 0, Math.PI * 2);
           ctx.fill();
         }
       }
@@ -690,68 +892,99 @@ function drawWorldTransition() {
     ctx.fill();
   });
   
-  // Draw the transforming car
-  const carScreenY = (wt.phase === 'descending') ? (p.y - state.camera.y) : (p.y);
+  // Draw WALL-E with digging animation
+  const walleScreenY = (wt.phase === 'descending') ? (p.y - state.camera.y) : (p.y);
   
   ctx.save();
-  ctx.translate(playerScreenX, carScreenY);
+  ctx.translate(playerScreenX, walleScreenY);
   
-  let transformProgress = 0;
-  if (wt.phase === 'transforming') transformProgress = wt.progress;
-  if (wt.phase === 'descending') transformProgress = 1;
+  let drillProgress = 0;
+  if (wt.phase === 'preparing') drillProgress = wt.progress * 0.3; // Slight drill extension during prep
+  if (wt.phase === 'digging') drillProgress = 0.3 + (wt.progress * 0.7); // Full drill during digging
+  if (wt.phase === 'descending') drillProgress = 1;
 
-  // Draw base car with transformation overlay
-  const grad = ctx.createLinearGradient(-p.w/2,-20,p.w/2,20);
-  grad.addColorStop(0,'#8aa4ff'); grad.addColorStop(1,'#7cf8c8');
-  ctx.fillStyle = grad; ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=1.2;
+  // Draw WALL-E body with metallic texture
+  const grad = ctx.createLinearGradient(-p.w/2,-p.h/2,p.w/2,p.h/2);
+  grad.addColorStop(0,'#d4d4d4'); grad.addColorStop(0.5,'#a8a8a8'); grad.addColorStop(1,'#8c8c8c');
+  ctx.fillStyle = grad; 
+  ctx.strokeStyle='rgba(0,0,0,.4)'; 
+  ctx.lineWidth=2;
   
-  // Car body - slightly modified during transformation
-  const bodyScale = 1 + transformProgress * 0.1;
-  ctx.save();
-  ctx.scale(bodyScale, 1);
+  // WALL-E main body - boxy shape
   ctx.beginPath(); 
-  ctx.roundRect(-p.w/2, -p.h/2, p.w, p.h, 8); 
+  ctx.roundRect(-p.w/2, -p.h/2, p.w, p.h, 4); 
   ctx.fill(); 
   ctx.stroke();
-  ctx.restore();
 
-  // Windows with energy glow during transformation
-  ctx.fillStyle = transformProgress > 0 ? `rgba(124, 248, 200, ${0.3 + 0.7*transformProgress})` : 'rgba(255,255,255,.25)';
-  ctx.fillRect(-p.w/2+10, -p.h/2+6, 24, p.h-12);
-  ctx.fillRect(p.w/2-34, -p.h/2+6, 24, p.h-12);
+  // WALL-E's front panel/chest
+  ctx.fillStyle='#a8a8a8'; // Lighter metallic panel
+  ctx.fillRect(-p.w/2+8, -p.h/2+8, p.w-16, p.h-16);
   
-  // Wheels - retract during transformation
-  const wheelOffset = -15 * transformProgress;
-  ctx.fillStyle='#0c1226';
+  // Central control panel indicator
+  ctx.fillStyle='#666';
+  ctx.fillRect(-4, -p.h/2 + 18, 8, 6);
+  
+  // WALL-E's eyes
+  ctx.fillStyle='#000';
+  const eyeY = -p.h/2 + 12;
+  ctx.fillRect(-p.w/4-4, eyeY, 8, 6); // Left eye
+  ctx.fillRect(p.w/4-4, eyeY, 8, 6);  // Right eye
+  
+  // Eye glow during digging
+  if (drillProgress > 0.3) {
+    ctx.fillStyle=`rgba(124, 248, 200, ${drillProgress})`;
+    ctx.fillRect(-p.w/4-3, eyeY+1, 6, 4);
+    ctx.fillRect(p.w/4-3, eyeY+1, 6, 4);
+  }
+
+  // WALL-E's tracks/treads
+  ctx.fillStyle='#666';
   ctx.beginPath(); 
-  ctx.arc(-p.w/3, p.h/2 + wheelOffset, 12 * (1 - transformProgress * 0.3), 0, Math.PI*2); 
-  ctx.arc(p.w/3, p.h/2 + wheelOffset, 12 * (1 - transformProgress * 0.3), 0, Math.PI*2); 
+  ctx.arc(-p.w/3, p.h/2, 8, 0, Math.PI*2); 
+  ctx.arc(p.w/3, p.h/2, 8, 0, Math.PI*2); 
   ctx.fill();
 
-  // Drill emerging from front
-  if (transformProgress > 0) {
-    const drillLength = 60 * transformProgress;
-    const drillGlow = Math.sin(performance.now() * 0.01) * 0.2 + 0.8;
+  // Drill attachment extending during animation
+  if (drillProgress > 0) {
+    const drillLength = 40 * drillProgress;
+    const drillGlow = Math.sin(performance.now() * 0.01) * 0.3 + 0.7;
     
     ctx.save();
-    ctx.shadowColor = '#7cf8c8';
-    ctx.shadowBlur = 10 * transformProgress;
+    ctx.shadowColor = '#ffaa00';
+    ctx.shadowBlur = 8 * drillProgress;
     
-    // Drill cone
-    ctx.fillStyle = `rgba(238, 243, 255, ${drillGlow})`;
+    // Drill body
+    ctx.fillStyle = `rgba(220, 220, 220, ${drillGlow})`;
+    ctx.fillRect(-4, p.h/2 + 5, 8, drillLength);
+    
+    // Drill tip with spinning effect
+    const spinAngle = performance.now() * 0.02 * drillProgress;
+    ctx.save();
+    ctx.translate(0, p.h/2 + 5 + drillLength);
+    ctx.rotate(spinAngle);
+    
+    ctx.fillStyle = `rgba(255, 170, 0, ${drillGlow})`;
     ctx.beginPath();
-    ctx.moveTo(p.w/2, -p.h/3);
-    ctx.lineTo(p.w/2 + drillLength, 0);
-    ctx.lineTo(p.w/2, p.h/3);
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-6, 8);
+    ctx.lineTo(6, 8);
     ctx.closePath();
     ctx.fill();
     
-    // Drill tip energy
-    ctx.fillStyle = `rgba(124, 248, 200, ${drillGlow})`;
-    ctx.beginPath();
-    ctx.arc(p.w/2 + drillLength, 0, 4 * transformProgress, 0, Math.PI * 2);
-    ctx.fill();
+    // Drill sparks during digging
+    if (wt.phase === 'digging') {
+      for(let i = 0; i < 3; i++) {
+        const sparkAngle = spinAngle + (i * Math.PI * 2 / 3);
+        const sparkX = Math.cos(sparkAngle) * 8;
+        const sparkY = Math.sin(sparkAngle) * 8;
+        ctx.fillStyle = `rgba(255, 200, 100, ${Math.random() * drillGlow})`;
+        ctx.beginPath();
+        ctx.arc(sparkX, sparkY, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
     
+    ctx.restore();
     ctx.restore();
   }
 
@@ -913,6 +1146,11 @@ for (let i = 0; i < 150; i++) {
 
 /* ======= Input ======= */
 addEventListener('keydown', e=>{
+  // Resume audio context on first user interaction
+  if (audioContext && audioContext.state === 'suspended') {
+    audioContext.resume();
+  }
+  
   if(['ArrowLeft','ArrowRight','KeyA','KeyD','KeyE','Enter','Escape','KeyP','KeyH','KeyF','KeyT'].includes(e.code)) e.preventDefault();
   state.keys[e.code]=true;
   if(state.mode==='road'){
@@ -1025,7 +1263,15 @@ let leftHeld=false, rightHeld=false;
 ['pointerdown','pointerup','pointerleave','pointercancel'].forEach(ev=>{
   leftBtn.addEventListener(ev, e=>{ leftHeld = ev==='pointerdown'; });
   rightBtn.addEventListener(ev, e=>{ rightHeld = ev==='pointerdown'; });
-  interactBtn.addEventListener(ev, e=>{ if(ev==='pointerdown' && state.near) openBranch(state.near) });
+  interactBtn.addEventListener(ev, e=>{ 
+    if(ev==='pointerdown' && state.near) {
+      // Resume audio context on interaction
+      if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+      openBranch(state.near);
+    }
+  });
   if(upBtn) upBtn.addEventListener(ev, e=>{ if(ev==='pointerdown') state.keys['ArrowUp']=true; else state.keys['ArrowUp']=false; });
   if(downBtn) downBtn.addEventListener(ev, e=>{ if(ev==='pointerdown') state.keys['ArrowDown']=true; else state.keys['ArrowDown']=false; });
   if(interactBtn2) interactBtn2.addEventListener(ev, e=>{ if(ev==='pointerdown' && state.near) openBranch(state.near) });
@@ -1067,15 +1313,45 @@ function showOverlay(title, html){
 function closePanel(){ overlay.style.display='none'; document.body.classList.remove('overview-open'); state.paused=false }
 function togglePause(){ state.paused=!state.paused; toast(state.paused?'Paused ⏸':'Resumed ▶') }
 function showHelp(){
-  showOverlay('Controls',
+  showOverlay('Controls & Features',
     `<div class="grid">
       <div class="card">
-  <p><b>Keyboard:</b> ←/A and →/D to move. <b>E</b> to interact at a branch. <b>Shift/X</b> to boost. <b>F</b> Photo Mode. <b>Esc</b> to close. <b>P</b> to pause.</p>
-        <p><b>Mobile:</b> Use the on-screen buttons.</p>
+        <h4>🎮 Movement Controls</h4>
+        <p><b>Desktop:</b> ←/→ Arrow keys or A/D keys to move</p>
+        <p><b>Mobile:</b> Use on-screen touch buttons or swipe</p>
       </div>
-          <div class="card">
-            <p>Discover branches and complete Phase 1 registration. Your progress saves in this browser.</p>
-          </div>
+      <div class="card">
+        <h4>⚡ Action Controls</h4>
+        <p><b>E</b> - Interact with branches and explore sections</p>
+        <p><b>Shift/X</b> - Boost speed for faster movement</p>
+        <p><b>T</b> - Enter Timeline/Underground mode</p>
+        <p><b>F</b> - Photo Mode (freeze and capture moments)</p>
+      </div>
+      <div class="card">
+        <h4>🎛️ System Controls</h4>
+        <p><b>Esc</b> - Close panels and overlays</p>
+        <p><b>P</b> - Pause/Resume game</p>
+        <p><b>H</b> - Show this help screen</p>
+        <p><b>C</b> - Toggle system cursor visibility</p>
+      </div>
+      <div class="card">
+        <h4>💡 Hidden Features</h4>
+        <p>Hidden features are hidden... mess around to find out! 🕵️‍♂️</p>
+        <p>Some secrets only reveal themselves to the curious explorer</p>
+        <p>Try different interactions and see what WALL-E can discover</p>
+      </div>
+      <div class="card">
+        <h4>📱 Mobile Features</h4>
+        <p><b>Touch & Hold</b> - Activate special interactions</p>
+        <p><b>Swipe Left/Right</b> - Quick movement controls</p>
+        <p><b>Tap EVE</b> - Trigger expressions and reactions</p>
+      </div>
+      <div class="card">
+        <h4>� Exploration Tips</h4>
+        <p>Discover all branches to unlock the complete SparkIT experience</p>
+        <p>Each section contains unique content and interactions</p>
+        <p>WALL-E has many surprises for dedicated explorers</p>
+      </div>
     </div>`
   );
 }
@@ -1150,19 +1426,44 @@ function branchHTML(type){
     return `<div class="${cardClass}"><h3>${p.title}</h3><p>${p.summary}</p>${availabilityText}</div>`;
   }
   if(type==='faq'){
-    return `
-      <div class="grid">
-        <div class="card"><h4>Who can apply?</h4><p>Students and early-stage builders.</p></div>
-        <div class="card"><h4>Is Phase 1 free?</h4><p>Yes.</p></div>
-        <div class="card"><h4>Team size?</h4><p>Solo or up to 4.</p></div>
-        <div class="card"><h4>Selection?</h4><p>Based on idea clarity and motivation.</p></div>
-      </div>`;
+    const faqData = GAME_DATA.faq || [
+      { question: "Who can apply?", answer: "Students and early-stage builders." },
+      { question: "Is Phase 1 free?", answer: "Yes." },
+      { question: "Team size?", answer: "Solo or up to 4." },
+      { question: "Selection?", answer: "Based on idea clarity and motivation." }
+    ];
+    
+    const faqCards = faqData.map(item => 
+      `<div class="card"><h4>${item.question}</h4><p>${item.answer}</p></div>`
+    ).join('');
+    
+    return `<div class="grid">${faqCards}</div>`;
   }
   if(type==='contact'){
     return `
-      <div class="grid cols-2">
-        <div class="card"><h4>Contact</h4><p>Email: hello@axis25.example</p><p>Phone: +94 7X XXX XXXX</p></div>
-        <div class="card"><h4>Social</h4><p>IG: @axis25 • X: @axis25sl</p></div>
+      <div class="grid">
+        <div class="card">
+          
+          <p><strong>Chairman | RCCS</strong><br>Sanindu Lakshan<br>📞 +94 70 155 4500</p>
+          <p><strong>Secretary | RCCS</strong><br>Thushan Nilanga<br>📞 +94 71 065 1400</p>
+          <p><strong>Treasurer | RCCS</strong><br>Ravindu Vidarshana<br>📞 +94 77 911 6695</p>
+        </div>
+        <div class="card">
+          
+          <p><strong>Chairman | KGHSICT</strong><br>Yuhasa Gunawardhana<br>📞 +94 74 193 4280</p>
+          <p><strong>Secretary | KGHSICT</strong><br>Sachithra Randeniya<br>📞 +94 71 345 0265</p>
+          <p><strong>Treasurer | KGHSICT</strong><br>Thathsarani Danushika<br>📞 +94 76 694 2445</p>
+        </div>
+        <div class="card">
+         
+          <p><strong>Email Us | RCCS</strong><br>📧 info@rccsonline.com</p>
+          <p><strong>Email Us | KGHSICT</strong><br>📧 ictclub2024.kghs@gmail.com</p>
+        </div>
+        <div class="card">
+         
+          <p><strong>Teacher-In-Charge | RCCS</strong><br>Mrs. B. A. N. D. Samarasinghe<br>📞 +94 71 446 4570</p>
+          <p><strong>Teacher-In-Charge | KGHSICT</strong><br>Mrs. R. A. G. K. Lakmali<br>📞 +94 71 197 5747</p>
+        </div>
       </div>`;
   }
   if(type==='registration'){
@@ -1235,11 +1536,25 @@ function escapeXml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"
 
 /* ======= Open branch ======= */
 function openBranch(branch){
+  // Play branch interaction sound
+  if(branch.type === 'phase3') {
+    playSound('ui_error'); // Error sound for locked content
+  } else {
+    playSound('branch_click'); // Success sound for accessible content
+  }
+  
   // Handle synthetic timeline milestone branches
   if(branch && typeof branch.type==='string' && branch.type.startsWith('timeline:')){
     const m = branch._timeline;
     if(m){ state.timeline.visited.add(m.key); showOverlay(m.title, `<div class="card"><h3>${m.title}</h3><p>${m.text}</p><p class="help">Timeline milestone (demo)</p></div>`); return; }
   }
+  
+  // Block SparkIT Fusion (phase3) interactions
+  if(branch && branch.type === 'phase3'){
+    showOverlay(branch.label, `<div class="card phase locked"><h3>SparkIT Fusion</h3><p>Advanced fusion of technology and innovation</p><div class="availability" style="color: #ff6b6b; font-weight: bold; margin-top: 10px;">Coming Soon!</div><p style="margin-top: 10px; opacity: 0.8;">This phase will be available in the future. Check back later for exciting new features!</p></div>`);
+    return;
+  }
+  
   // Handle registration portal with special effects
   if(branch && branch.type==='registration'){
     // Open the dedicated registration page
@@ -1248,6 +1563,7 @@ function openBranch(branch){
   }
   // Intercept Phase 1 branch to start drilling sequence instead of direct timeline entry
   if(branch && branch.type==='phase1'){
+    playSound('walle_drill'); // Special drilling sound
     startWorldTransition();
     return;
   }
@@ -1385,9 +1701,15 @@ function initBillboards() {
   container.appendChild(logoRow);
   const extraImg = document.createElement("img");
   extraImg.src = "assets/Logo-SparkIt.png";
-  extraImg.style.width = "200px";
+  extraImg.style.width = "250px";
   container.appendChild(extraImg);
   const tagline = document.createElement("div");
+  tagline.style.background = "linear-gradient(90deg, #c9a9ff, #b794ff)";
+  tagline.style.webkitBackgroundClip = "text";
+  tagline.style.backgroundClip = "text";
+  tagline.style.color = "transparent";
+  tagline.style.fontWeight = "600";
+  tagline.style.letterSpacing = "2px";
   tagline.innerText = "IGNITING ICT LITERACY ACROSS SRI LANKA";
   tagline.style.fontSize = "12px";
   tagline.style.fontWeight = "100";
@@ -1396,9 +1718,6 @@ function initBillboards() {
   tagline.style.marginTop = "8px";
   tagline.style.fontFamily = "Arial, Helvetica, sans-serif";
   tagline.style.letterSpacing = "1px";
-  tagline.style.background = "linear-gradient(90deg, #03fb93, #ebb900)";
-  tagline.style.webkitBackgroundClip = "text";
-  tagline.style.color = "transparent";
   container.appendChild(tagline);
   container.appendChild(tagline);
   document.body.appendChild(container);
@@ -2260,12 +2579,26 @@ function drawRoad(){
   // panelWidth is the tile width used for branch panels; use half-width plus small padding
   const near = Math.abs(state.player.x - b.x) < ( (typeof panelWidth !== 'undefined' ? panelWidth : 120) * 0.5 + 8 );
     if(near){
+      // Play hover sound if this is a new branch
+      if(!state.near || state.near.x !== b.x) {
+        playSound('branch_hover', Math.random() * 50 - 25);
+      }
+      
       // Enhanced interaction hint with tree theme
       ctx.font='12px ui-sans-serif'; 
-      ctx.fillStyle='rgba(139,79,179,.9)'; 
       ctx.shadowColor = 'rgba(255,255,255,0.5)';
       ctx.shadowBlur = 2;
-      ctx.fillText('Press E to explore', bx, roadY-trunkHeight-panelHeight-30);
+      
+      // Special handling for SparkIT Fusion (phase3)
+      if(b.type === 'phase3') {
+        ctx.fillStyle='rgba(255,107,107,.9)'; // Red color for "Coming Soon"
+        ctx.fillText('Coming Soon', bx, roadY-trunkHeight-panelHeight-30);
+      } else {
+        ctx.fillStyle='rgba(139,79,179,.9)'; 
+        // Device-specific interaction text
+        const interactionText = isMobileDevice() ? 'Click here to interact' : 'Press E to interact';
+        ctx.fillText(interactionText, bx, roadY-trunkHeight-panelHeight-30);
+      }
       ctx.shadowBlur = 0;
       state.near = b;
     }
@@ -2540,6 +2873,11 @@ function drawTrashPile() {
 /* ===== Timeline Vertical Mode ===== */
 function enterTimeline() {
   if(state.timeline.active) return;
+  
+  // Play timeline transition sound
+  playSound('timeline_transition');
+  playWalleExpression('excited');
+  
   state.timeline.active = true; 
   state.mode='timeline';
   document.body.classList.add('timeline-mode'); // Add timeline class to hide text boxes
@@ -2588,6 +2926,11 @@ function enterTimeline() {
 
 function exitTimeline(){
   if(!state.timeline.active) return;
+  
+  // Play exit timeline sound
+  playSound('timeline_transition', -100);
+  playWalleExpression('happy');
+  
   state.timeline.active = false; 
   state.mode = 'road';
   document.body.classList.remove('timeline-mode'); // Remove timeline class to show text boxes
@@ -2631,10 +2974,14 @@ function exitTimeline(){
 function forceHideDescriptionElements() {
   const elements = [
     'branch-description',
-    'underground-description', 
-    'eve-mobile-dialog',
-    'eve-underground-dialog'
+    'eve-mobile-dialog'
   ];
+  
+  // Only hide these if NOT in underground mode
+  if (!document.body.classList.contains('underground-mode')) {
+    elements.push('underground-description');
+    elements.push('eve-underground-dialog');
+  }
   
   elements.forEach(id => {
     const el = document.getElementById(id);
@@ -2646,7 +2993,7 @@ function forceHideDescriptionElements() {
     }
   });
   
-  // Also hide all elements with glass-description class
+  // Also hide road glass-description elements, but keep underground-box
   document.querySelectorAll('.glass-description').forEach(el => {
     if (!el.classList.contains('underground-box')) {
       el.style.display = 'none';
@@ -3280,7 +3627,18 @@ function updateWallEAnimations() {
   
   // Curiosity mode near interaction points
   const nearBranch = state.near;
+  const wasInCuriosityMode = walle.curiosityMode;
   walle.curiosityMode = !!nearBranch;
+  
+  // Play sound when WALL-E becomes curious
+  if (walle.curiosityMode && !wasInCuriosityMode) {
+    playWalleExpression('curious');
+  }
+  
+  // Eye blink with occasional beep
+  if (walle.eyeBlink.isBlinking && Math.random() < 0.3) {
+    playSound('walle_chirp', Math.random() * 100 - 50);
+  }
   
   // Head tilt based on movement and curiosity
   if (walle.curiosityMode) {
@@ -3542,9 +3900,9 @@ function drawWallE() {
   ctx.arc(bodyW/3 + 5, -bodyH/2 - 15, 2, 0, Math.PI * 2);
   ctx.fill();
   
-  // Status LEDs on chest
+  // Status indicator LEDs on chest
   const ledPositions = [
-    [-bodyW/4, -10], [0, -10], [bodyW/4, -10]
+    [-8, -5], [8, -5], [0, 5] // Three LEDs in triangle formation
   ];
   ledPositions.forEach(([x, y], i) => {
     const ledState = (t + i) % 3 < 1 ? 0.8 : 0.2;
@@ -3964,9 +4322,18 @@ function step(){
       const prevV = p.vx;
       p.x += p.vx * dt;
       p.x = clamp(p.x, 40, state.world.length-40);
+      
+      // Add movement sound effects
+      if(Math.abs(p.vx) > 50 && Math.random() < 0.03) {
+        const pitchVariation = (Math.abs(p.vx) / p.maxSpeed) * 100 - 50; // Higher pitch when moving faster
+        playSound('walle_move', pitchVariation);
+      }
+      
       if(Math.abs(p.ax) > p.accel*0.8 && Math.abs(prevV) > p.maxSpeed*0.4){
         state.skids.push({ x:p.x, alpha:0.25 });
         if(state.skids.length>120) state.skids.shift();
+        // Play acceleration sound
+        playSound('walle_beep', Math.random() * 100 - 50);
       }
       state.camera.x = clamp(p.x - W*0.5, 0, state.world.length - W + 0);
       
@@ -4188,13 +4555,27 @@ canvas.addEventListener('pointerdown', (e)=>{
 // Guided start overlay shown only for first-time visitors
 (function guidedStart(){
   try{
-    const seen = localStorage.getItem('sparkit_guided_start_v1');
+    const seen = localStorage.getItem('sparkit_guided_start_v2'); // Changed to v2 to show help to all users
     const overlay = document.getElementById('guide-overlay');
     if(!overlay) return;
     if(seen){ // Already seen: skip overlay and show shorter toast after a delay
       setTimeout(()=>toast('Drive → stop at signs. E to interact.'), 700);
       return;
     }
+    
+    // Show comprehensive help on first visit
+    setTimeout(() => {
+      showHelp();
+      localStorage.setItem('sparkit_guided_start_v2','1');
+      // Also dismiss the guide overlay if it exists
+      if(overlay) {
+        overlay.classList.add('fading');
+        setTimeout(()=>{ overlay.remove(); }, 650);
+      }
+    }, 1000); // Delay to let game load first
+    
+    return; // Skip the old overlay system
+    
     // Activate overlay
     overlay.classList.add('active');
     let dismissed = false;
@@ -4202,7 +4583,7 @@ canvas.addEventListener('pointerdown', (e)=>{
       if(dismissed) return; dismissed = true;
       overlay.classList.add('fading');
       setTimeout(()=>{ overlay.remove(); }, 650);
-      localStorage.setItem('sparkit_guided_start_v1','1');
+      localStorage.setItem('sparkit_guided_start_v2','1');
       if(reason==='timeout'){ toast('Drive → Explore the highway'); }
     }
     // Dismiss on movement input
@@ -4477,7 +4858,13 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
       if(!eve._mobileInit){
         eve._mobileInit = true;
         window.addEventListener('pointermove', e=>{ tx = e.clientX; ty = e.clientY; lastMoveT = performance.now(); }, {passive:true});
-        eve.addEventListener('pointerdown', ()=>{ waveCooldown = 0; lastMoveT = performance.now(); eve.classList.add('active'); });
+        eve.addEventListener('pointerdown', ()=>{ 
+          waveCooldown = 0; 
+          lastMoveT = performance.now(); 
+          eve.classList.add('active'); 
+          // Play EVE scan sound
+          playSound('eve_scan', Math.random() * 200 - 100);
+        });
       }
     } else {
       eve.classList.remove('mobile');
@@ -4821,19 +5208,19 @@ closePanel = function(){
   if(smallScreen){ state._timelineCamEase = 5.2; }
   
   // Branch Description System with Speed Detection
-  const branchDescriptions = {
-    'Overview': 'Learn about the SparkIT initiative and our mission to train, connect, and transform',
+  // Load descriptions from GAME_DATA content.json
+  const branchDescriptions = GAME_DATA.branchDescriptions || {
+    'Overview': 'Learn about the SparkIT initiative and our mission to ignite ICT literacy across Sri Lanka',
     'Phase 1 — Register': 'Join the competition by completing your registration and profile setup',
-    'Phase 2 — Details': 'Discover workshop details, schedules, and preparation requirements',
-    'Phase 3 — Details': 'Explore advanced tracks, mentorship programs, and final competition format',
+    'SparkIT Fusion': 'Advanced fusion of technology and innovation - Coming Soon! Register for Phase 1 first.',
     'FAQ': 'Find answers to common questions about SparkIT and the competition process',
     'Contact': 'Get in touch with our team for support, partnerships, or more information'
   };
   
   // Underground timeline descriptions (excluding registration)
-  const undergroundDescriptions = {
-    'Game Dev': 'Workshop 1 — Game Development: design, engines & rapid prototyping',
-    'CTF': 'Workshop 2 — Capture The Flag: hacking challenges & cybersecurity basics',
+  const undergroundDescriptions = GAME_DATA.undergroundDescriptions || {
+    'Robotics and Automations': 'Workshop 1 — Robotics and Automations: design, build & program autonomous systems',
+    'Immersive Technologies': 'Workshop 2 — Immersive Technologies: VR, AR & interactive digital experiences',
     'Programming': 'Workshop 3 — Programming: algorithms, team projects & mentoring',
     'Competitions': 'Pitch, demo & compete for recognition and prizes'
   };
@@ -4959,9 +5346,9 @@ closePanel = function(){
     if (isMobile) {
       return {
         branchDescription: document.getElementById('eve-mobile-dialog'),
-        branchText: document.querySelector('#eve-mobile-dialog #branch-text'),
+        branchText: document.querySelector('#eve-mobile-dialog #mobile-branch-text'),
         undergroundDescription: document.getElementById('eve-underground-dialog'),
-        undergroundText: document.querySelector('#eve-underground-dialog #underground-text')
+        undergroundText: document.querySelector('#eve-underground-dialog #mobile-underground-text')
       };
     } else {
       return {
@@ -4981,10 +5368,10 @@ closePanel = function(){
     undergroundDescription = elements.undergroundDescription;
     undergroundText = elements.undergroundText;
     
-    // Force hide ALL description elements if we're in timeline, underground, or overview mode
-    const shouldHideAll = document.body.classList.contains('timeline-mode') || 
-                         document.body.classList.contains('underground-mode') || 
-                         document.body.classList.contains('overview-open');
+    // Force hide road description elements if we're in timeline or overview mode (but not underground mode for underground elements)
+    const shouldHideRoad = document.body.classList.contains('timeline-mode') || 
+                          document.body.classList.contains('overview-open');
+    const isUndergroundMode = document.body.classList.contains('underground-mode');
     
     // Show/hide appropriate elements based on device type
     const isMobile = isMobileDevice();
@@ -4997,22 +5384,26 @@ closePanel = function(){
     const mobileBranch = document.getElementById('eve-mobile-dialog');
     const mobileUnderground = document.getElementById('eve-underground-dialog');
     
-    if (shouldHideAll) {
-      // FORCE HIDE ALL description elements
+    if (shouldHideRoad) {
+      // FORCE HIDE road description elements
       if (desktopBranch) desktopBranch.style.display = 'none';
-      if (desktopUnderground) desktopUnderground.style.display = 'none';
       if (mobileBranch) mobileBranch.style.display = 'none';
-      if (mobileUnderground) mobileUnderground.style.display = 'none';
+      
+      // Only hide underground elements if NOT in underground mode
+      if (!isUndergroundMode) {
+        if (desktopUnderground) desktopUnderground.style.display = 'none';
+        if (mobileUnderground) mobileUnderground.style.display = 'none';
+      }
     } else if (isMobile) {
       if (desktopBranch) desktopBranch.style.display = 'none';
-      if (desktopUnderground) desktopUnderground.style.display = 'none';
+      if (desktopUnderground && !isUndergroundMode) desktopUnderground.style.display = 'none';
       if (mobileBranch) mobileBranch.style.display = 'block';
-      if (mobileUnderground) mobileUnderground.style.display = 'block';
+      if (mobileUnderground && isUndergroundMode) mobileUnderground.style.display = 'block';
     } else {
       if (mobileBranch) mobileBranch.style.display = 'none';
       if (mobileUnderground) mobileUnderground.style.display = 'none';
       if (desktopBranch) desktopBranch.style.display = 'block';
-      if (desktopUnderground) desktopUnderground.style.display = 'block';
+      if (desktopUnderground && isUndergroundMode) desktopUnderground.style.display = 'block';
     }
   }
   
@@ -5044,17 +5435,8 @@ closePanel = function(){
       console.log('Underground description elements found and initialized');
       isUndergroundInitialized = true;
       
-      // Show underground box when entering underground mode
-      setTimeout(() => {
-        if (document.body.classList.contains('underground-mode')) {
-          console.log('Showing initial underground description box');
-          undergroundDescription.classList.add('visible');
-          // Position mobile dialog next to EVE
-          if (isMobileDevice() && undergroundDescription.id === 'eve-underground-dialog') {
-            setTimeout(() => positionDialogNearEve(undergroundDescription, true), 100);
-          }
-        }
-      }, 1000);
+      // Don't automatically show underground box - only show when near milestones with content
+      // Remove the automatic show logic that was here before
     } else {
       console.warn('Underground description elements not found');
     }
@@ -5090,10 +5472,29 @@ closePanel = function(){
     if (desiredVisible && (!isUndergroundVisible || milestoneChanged)) {
       // Smooth text transition for slow movement or when newly arrived
       console.log('Showing underground description for:', milestone.title);
-      undergroundText.style.opacity = '0.5';
+      
+      // Update both desktop and mobile underground text elements
+      const desktopUndergroundText = document.getElementById('underground-text');
+      const mobileUndergroundText = document.getElementById('mobile-underground-text');
+      
+      // Fade out current text
+      if (undergroundText) undergroundText.style.opacity = '0.5';
+      if (desktopUndergroundText && desktopUndergroundText !== undergroundText) desktopUndergroundText.style.opacity = '0.5';
+      if (mobileUndergroundText && mobileUndergroundText !== undergroundText) mobileUndergroundText.style.opacity = '0.5';
+      
       setTimeout(() => {
-        undergroundText.textContent = undergroundDescriptions[milestone.title];
-        undergroundText.style.opacity = '1';
+        const newText = undergroundDescriptions[milestone.title];
+        
+        // Update all underground text elements
+        if (undergroundText) undergroundText.textContent = newText;
+        if (desktopUndergroundText && desktopUndergroundText !== undergroundText) desktopUndergroundText.textContent = newText;
+        if (mobileUndergroundText && mobileUndergroundText !== undergroundText) mobileUndergroundText.textContent = newText;
+        
+        // Fade in new text
+        if (undergroundText) undergroundText.style.opacity = '1';
+        if (desktopUndergroundText && desktopUndergroundText !== undergroundText) desktopUndergroundText.style.opacity = '1';
+        if (mobileUndergroundText && mobileUndergroundText !== undergroundText) mobileUndergroundText.style.opacity = '1';
+        
         undergroundDescription.classList.add('visible');
         isUndergroundVisible = true;
         // Position mobile dialog next to EVE
@@ -5107,13 +5508,28 @@ closePanel = function(){
       console.log('Hiding underground description, delay:', hideDelay);
 
       undergroundTimeout = setTimeout(() => {
-        undergroundText.style.opacity = '0.5';
+        // Update both desktop and mobile underground text elements
+        const desktopUndergroundText = document.getElementById('underground-text');
+        const mobileUndergroundText = document.getElementById('mobile-underground-text');
+        
+        // Fade out all text elements
+        if (undergroundText) undergroundText.style.opacity = '0.5';
+        if (desktopUndergroundText && desktopUndergroundText !== undergroundText) desktopUndergroundText.style.opacity = '0.5';
+        if (mobileUndergroundText && mobileUndergroundText !== undergroundText) mobileUndergroundText.style.opacity = '0.5';
+        
         setTimeout(() => {
           undergroundDescription.classList.remove('visible');
           isUndergroundVisible = false;
           setTimeout(() => {
-            undergroundText.textContent = 'Descend into the technical depths and master advanced skills';
-            undergroundText.style.opacity = '1';
+            // Clear all underground text elements instead of setting default text
+            if (undergroundText) undergroundText.textContent = '';
+            if (desktopUndergroundText && desktopUndergroundText !== undergroundText) desktopUndergroundText.textContent = '';
+            if (mobileUndergroundText && mobileUndergroundText !== undergroundText) mobileUndergroundText.textContent = '';
+            
+            // Restore opacity
+            if (undergroundText) undergroundText.style.opacity = '1';
+            if (desktopUndergroundText && desktopUndergroundText !== undergroundText) desktopUndergroundText.style.opacity = '1';
+            if (mobileUndergroundText && mobileUndergroundText !== undergroundText) mobileUndergroundText.style.opacity = '1';
           }, 300);
         }, 200);
       }, hideDelay);

@@ -2,19 +2,57 @@
   "project": { 
     "name": "SparkIT — ICT Literacy Initiative", 
     "tagline": "Igniting ICT literacy across Sri Lanka, one district at a time.", 
-    "about": "SparkIT explores Sri Lanka's digital economy through hands-on learning and maker energy. Start in Phase 1 to register and pitch your idea; build in Phase 2; showcase in Phase 3.",
+    "about": "SparkIT explores Sri Lanka's digital economy through hands-on learning and maker energy. Start in SparkIT Flash to register and pitch your idea; build and learn; showcase in SparkIT Fusion.",
     "location": "Sri Lanka", 
     "date": "2024-2025" 
   },
   "phases": [
-    {"id":1,"title":"Phase 1 & 2 — Bridging the Gap","summary":"For schools already exposed to ICT, SparkIT strengthens their foundation with advanced programming, robotics, and cybersecurity.","open":true,"formFields":[{"name":"fullName","label":"Full Name","type":"text","required":true},{"name":"email","label":"Email","type":"email","required":true},{"name":"phone","label":"Phone","type":"tel","required":true},{"name":"bio","label":"Short Bio / Motivation","type":"textarea","required":true}]},
+    {"id":1,"title":"SparkIT Flash — Bridging the Gap","summary":"For schools already exposed to ICT, SparkIT strengthens their foundation with advanced programming, robotics, and cybersecurity.","open":true,"formFields":[{"name":"fullName","label":"Full Name","type":"text","required":true},{"name":"email","label":"Email","type":"email","required":true},{"name":"phone","label":"Phone","type":"tel","required":true},{"name":"bio","label":"Short Bio / Motivation","type":"textarea","required":true}]},
     {"id":3,"title":"SparkIT Fusion","summary":"Advanced fusion of technology and innovation - Coming Soon! This phase will feature cutting-edge workshops and collaborative projects.","open":false,"locked":true}
   ],
   "branches": [
     {"x":300,"label":"Overview","type":"about"},
-    {"x":700,"label":"Phase 1 — Register","type":"phase1"},
+    {"x":700,"label":"SparkIT Flash — Register","type":"phase1"},
     {"x":1150,"label":"SparkIT Fusion","type":"phase3"},
     {"x":1600,"label":"FAQ","type":"faq"},
     {"x":2000,"label":"Contact","type":"contact"}
+  ],
+  "branchDescriptions": {
+    "Overview": "Learn about the SparkIT initiative and our mission to ignite ICT literacy in Sri Lanka",
+    "SparkIT Flash — Register": "Join our session series designed to uplift awareness across different areas of ICT.",
+    "SparkIT Fusion": "A community-driven effort bringing ICT knowledge and resources to schools across Sri Lanka",
+    "FAQ": "Find answers to common questions about SparkIT and the competition process",
+    "Contact": "Get in touch with our team for support, partnerships, or more information"
+  },
+  "milestones": [
+    {"y":160, "key":"registration", "title":"Registration", "text":"Complete your Spark Flash registration."},
+    {"y":560, "key":"workshop1", "title":"Robotics and Automations", "text":"Workshop 1 — Robotics and Automations: design, build & program autonomous systems."},
+    {"y":960, "key":"workshop2", "title":"Immersive Technologies", "text":"Workshop 2 — Immersive Technologies: VR, AR & interactive digital experiences."},
+    {"y":1360, "key":"workshop3", "title":"Programming", "text":"Workshop 3 — Programming: algorithms, team projects & mentoring."},
+    {"y":1760, "key":"competitions", "title":"Competitions", "text":"Pitch, demo & compete for recognition."}
+  ],
+  "undergroundDescriptions": {
+    "Robotics and Automations": "Navigating Opportunities in Robotics and Smart Automation",
+    "Immersive Technologies": "Exploring Career Pathways in Immersive Technology",
+    "Programming": "Workshop 3 — Programming: algorithms, team projects & mentoring",
+    "Competitions": "Pitch, demo & compete for recognition and prizes"
+  },
+  "faq": [
+    {
+      "question": "Who can join this?",
+      "answer": "This project is open to students enthusiastic about ICT and eager to enhance their digital skills."
+    },
+    {
+      "question": "Is SparkIt Flash held online or physical?",
+      "answer": "SparkIt Flash is held online."
+    },
+    {
+      "question": "Is there a cost to join the program?",
+      "answer": "Participation is free"
+    },
+    {
+      "question": "Do I need any prior computer knowledge to join?",
+      "answer": "No The sessions suit all levels—from beginners to advanced learners"
+    }
   ]
 }
