@@ -2750,10 +2750,13 @@ function drawTimeline(){
     }
   }
   ctx.restore();
-  // milestones
+  // milestones (filter out registration for underground mode)
   const p = state.player;
   state.near = null;
   state.timeline.milestones.forEach(m=>{
+    // Skip registration milestone in underground timeline
+    if(m.key === 'registration') return;
+    
     const yScreen = m.y - state.camera.y;
     if(yScreen < -140 || yScreen > H+140) return;
     const active = Math.abs(p.y - m.y) < 70;
@@ -2820,11 +2823,14 @@ function drawTimeline(){
     const bx = r ? r.left + r.width/2 : W/2;
     const by = r ? r.top + r.height/2 : H/2;
     // intensify spotlight when near a milestone
-    const nearFactor = state.near && state.near.type && state.near.type.startsWith('timeline:') ? 0.55 : 0.35;
-    const grad = ctx.createRadialGradient(bx,by,20,bx,by,320);
-    grad.addColorStop(0,'rgba(255,255,210,'+nearFactor.toFixed(3)+')');
-    grad.addColorStop(0.25,'rgba(255,255,180,'+(nearFactor*0.55).toFixed(3)+')');
-    grad.addColorStop(1,'rgba(0,0,0,0.88)');
+    const nearFactor = state.near && state.near.type && state.near.type.startsWith('timeline:') ? 0.65 : 0.45;
+    const grad = ctx.createRadialGradient(bx,by,30,bx,by,400);
+    // White-purple underground torch light
+    grad.addColorStop(0,'rgba(255,255,255,'+nearFactor.toFixed(3)+')');
+    grad.addColorStop(0.2,'rgba(240,230,255,'+(nearFactor*0.7).toFixed(3)+')');
+    grad.addColorStop(0.4,'rgba(220,200,255,'+(nearFactor*0.5).toFixed(3)+')');
+    grad.addColorStop(0.7,'rgba(200,180,255,'+(nearFactor*0.3).toFixed(3)+')');
+    grad.addColorStop(1,'rgba(0,0,0,0.92)');
     ctx.fillStyle = grad;
     ctx.globalCompositeOperation = 'multiply';
     ctx.fillRect(0,0,W,H);
@@ -4780,9 +4786,8 @@ closePanel = function(){
     'Contact': 'Get in touch with our team for support, partnerships, or more information'
   };
   
-  // Underground timeline descriptions
+  // Underground timeline descriptions (excluding registration)
   const undergroundDescriptions = {
-    'Registration': 'Complete your Spark Flash registration and join the technical journey',
     'Game Dev': 'Workshop 1 — Game Development: design, engines & rapid prototyping',
     'CTF': 'Workshop 2 — Capture The Flag: hacking challenges & cybersecurity basics',
     'Programming': 'Workshop 3 — Programming: algorithms, team projects & mentoring',
