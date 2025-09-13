@@ -19,23 +19,18 @@ let GAME_DATA = {
       ]
     },
     {
-      id: 2, title: "Phase 2 — Advanced Foundation",
-      summary: "Students dive into advanced topics like programming, robotics, and cybersecurity to match real industry needs.",
-      open: false
-    },
-    {
-      id: 3, title: "Phase 3 — The Big Leap",
-      summary: "Monthly district workshops with sci-fi themed immersive learning, establishing ICT societies and continuous mentorship.",
-      open: false
+      id: 3, title: "SparkIT Fusion",
+      summary: "Advanced fusion of technology and innovation - Coming Soon! This phase will feature cutting-edge workshops and collaborative projects.",
+      open: false,
+      locked: true
     }
   ],
   branches: [
     { x: 300,  label:"Overview", type:"about" },
     { x: 700,  label:"Phase 1 — Register", type:"phase1" },
-    { x: 1150, label:"Phase 2 — Details", type:"phase2" },
-    { x: 1600, label:"Phase 3 — Details", type:"phase3" },
-    { x: 2000, label:"FAQ", type:"faq" },
-    { x: 2400, label:"Contact", type:"contact" }
+    { x: 1150, label:"SparkIT Fusion", type:"phase3" },
+    { x: 1600, label:"FAQ", type:"faq" },
+    { x: 2000, label:"Contact", type:"contact" }
   ]
 };
 
@@ -1062,9 +1057,14 @@ function showOverlay(title, html){
   safeSetHTML(panelContent, html);
   overlay.style.display='grid';
   overlay.querySelector('.panel').focus();
+  document.body.classList.add('overview-open'); // Add overview class to hide text boxes
+  
+  // FORCE HIDE all description elements immediately
+  forceHideDescriptionElements();
+  
   state.paused = true;
 }
-function closePanel(){ overlay.style.display='none'; state.paused=false }
+function closePanel(){ overlay.style.display='none'; document.body.classList.remove('overview-open'); state.paused=false }
 function togglePause(){ state.paused=!state.paused; toast(state.paused?'Paused ⏸':'Resumed ▶') }
 function showHelp(){
   showOverlay('Controls',
@@ -1144,7 +1144,10 @@ function branchHTML(type){
     return `<div class="card"><h3>Phase 2 — Development</h3><p>Prototype with mentors. Unlocks after Phase 1.</p></div>`;
   }
   if(type==='phase3'){
-    return `<div class="card"><h3>Phase 3 — Showcase</h3><p>Final presentations, awards, and press.</p></div>`;
+    const p = GAME_DATA.phases[1]; // SparkIT Fusion phase
+    const cardClass = p.locked ? 'card phase locked' : 'card phase';
+    const availabilityText = p.locked ? '<div class="availability" style="color: #ff6b6b; font-weight: bold; margin-top: 10px;">Available Soon</div>' : '';
+    return `<div class="${cardClass}"><h3>${p.title}</h3><p>${p.summary}</p>${availabilityText}</div>`;
   }
   if(type==='faq'){
     return `
@@ -1382,10 +1385,10 @@ function initBillboards() {
   container.appendChild(logoRow);
   const extraImg = document.createElement("img");
   extraImg.src = "assets/Logo-SparkIt.png";
-  extraImg.style.width = "150px";
+  extraImg.style.width = "200px";
   container.appendChild(extraImg);
   const tagline = document.createElement("div");
-  tagline.innerText = "TRAIN. CONNECT. TRANSFORM.\nSPARK THE SIMULATION.";
+  tagline.innerText = "IGNITING ICT LITERACY ACROSS SRI LANKA";
   tagline.style.fontSize = "12px";
   tagline.style.fontWeight = "100";
   tagline.style.textAlign = "center";
@@ -2539,6 +2542,12 @@ function enterTimeline() {
   if(state.timeline.active) return;
   state.timeline.active = true; 
   state.mode='timeline';
+  document.body.classList.add('timeline-mode'); // Add timeline class to hide text boxes
+  document.body.classList.add('underground-mode'); // Also add underground class for extra coverage
+  
+  // FORCE HIDE all description elements immediately
+  forceHideDescriptionElements();
+  
   state.timeline.roadReturnY = state.player.y;
   state.player.vx=0; state.player.ax=0; 
   state.player.vy=0; state.player.ay=0; 
@@ -2581,6 +2590,8 @@ function exitTimeline(){
   if(!state.timeline.active) return;
   state.timeline.active = false; 
   state.mode = 'road';
+  document.body.classList.remove('timeline-mode'); // Remove timeline class to show text boxes
+  document.body.classList.remove('underground-mode'); // Remove underground class as well
   state.player.vy = 0; 
   state.player.ay = 0;
   positionPlayerOnRoad();
@@ -2615,6 +2626,37 @@ function exitTimeline(){
   // disable timeline tap interactions
   try{ canvas.removeEventListener('pointerdown', handleTimelineTap); }catch{}
 }
+
+// FORCE HIDE all description elements immediately
+function forceHideDescriptionElements() {
+  const elements = [
+    'branch-description',
+    'underground-description', 
+    'eve-mobile-dialog',
+    'eve-underground-dialog'
+  ];
+  
+  elements.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.style.display = 'none';
+      el.style.opacity = '0';
+      el.style.visibility = 'hidden';
+      el.style.pointerEvents = 'none';
+    }
+  });
+  
+  // Also hide all elements with glass-description class
+  document.querySelectorAll('.glass-description').forEach(el => {
+    if (!el.classList.contains('underground-box')) {
+      el.style.display = 'none';
+      el.style.opacity = '0';
+      el.style.visibility = 'hidden';
+      el.style.pointerEvents = 'none';
+    }
+  });
+}
+
 function drawTimeline(){
   // dark base
   ctx.fillStyle = '#04080f'; ctx.fillRect(0,0,W,H);
@@ -4704,6 +4746,7 @@ closePanel = function(){
       delete state.liquidFX;
     }
   }catch(e){ console.warn('Error cleaning up liquid FX:', e); }
+  document.body.classList.remove('overview-open'); // Remove overview class to show text boxes
   _closePanelOrig();
 };
 
@@ -4938,6 +4981,11 @@ closePanel = function(){
     undergroundDescription = elements.undergroundDescription;
     undergroundText = elements.undergroundText;
     
+    // Force hide ALL description elements if we're in timeline, underground, or overview mode
+    const shouldHideAll = document.body.classList.contains('timeline-mode') || 
+                         document.body.classList.contains('underground-mode') || 
+                         document.body.classList.contains('overview-open');
+    
     // Show/hide appropriate elements based on device type
     const isMobile = isMobileDevice();
     
@@ -4949,7 +4997,13 @@ closePanel = function(){
     const mobileBranch = document.getElementById('eve-mobile-dialog');
     const mobileUnderground = document.getElementById('eve-underground-dialog');
     
-    if (isMobile) {
+    if (shouldHideAll) {
+      // FORCE HIDE ALL description elements
+      if (desktopBranch) desktopBranch.style.display = 'none';
+      if (desktopUnderground) desktopUnderground.style.display = 'none';
+      if (mobileBranch) mobileBranch.style.display = 'none';
+      if (mobileUnderground) mobileUnderground.style.display = 'none';
+    } else if (isMobile) {
       if (desktopBranch) desktopBranch.style.display = 'none';
       if (desktopUnderground) desktopUnderground.style.display = 'none';
       if (mobileBranch) mobileBranch.style.display = 'block';

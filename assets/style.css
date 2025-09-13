@@ -420,9 +420,30 @@ body.loader-transition .glass-description {
   pointer-events: none;
 }
 
-/* Hide road text box when in underground mode */
-body.underground-mode .glass-description:not(.underground-box) {
-  display: none;
+/* Hide road text box when in underground mode, timeline mode, or when overview is open */
+body.underground-mode .glass-description:not(.underground-box),
+body.timeline-mode .glass-description:not(.underground-box),
+body.overview-open .glass-description:not(.underground-box) {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Additional failsafe - hide ANY glass-description when overlays are active */
+body.underground-mode .glass-description,
+body.timeline-mode .glass-description,
+body.overview-open .glass-description {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Exception: keep underground-box visible in underground mode */
+body.underground-mode .glass-description.underground-box {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
 }
 
 /* Underground Timeline Description Box (Left Side) */
@@ -1101,6 +1122,24 @@ canvas{width:100%; height:100%; display:block; touch-action:none}
   0% { height: 20%; top: 0; }
   50% { height: 100%; top: 0; }
   100% { height: 20%; top: 80%; }
+}
+
+/* Locked Phase - Red Text */
+.card.phase.locked {
+  background: linear-gradient(135deg, 
+    rgba(255, 138, 138, 0.15) 0%, 
+    rgba(255, 255, 255, 0.08) 100%);
+  border: 1px solid rgba(255, 138, 138, 0.25);
+  color: #ff6b6b;
+}
+
+.card.phase.locked h3,
+.card.phase.locked .summary {
+  color: #ff6b6b !important;
+}
+
+.card.phase.locked::before {
+  background: linear-gradient(180deg, #ff6b6b, #e74c3c);
 }
 
 /* Impact Card - Special Highlight */
