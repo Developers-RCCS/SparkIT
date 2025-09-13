@@ -42,10 +42,10 @@ body.underground-mode{background:linear-gradient(160deg,#08121e,#0d1824 50%,#0f1
 /* loader robot removed */
 .loader-hint{position:absolute; bottom:40px; left:50%; transform:translateX(-50%); font-size:12px; font-weight:500; letter-spacing:2px; text-transform:uppercase; color:var(--muted); opacity:.8; animation:hintPulse 4s ease-in-out infinite;}
 @keyframes hintPulse{0%,100%{opacity:.25; letter-spacing:2px;}50%{opacity:.85; letter-spacing:3px;}}
-/* Transition animation of robot from loader to cursor */
-body.pre-init #cursor-bot{opacity:0;}
-body.loader-transition #cursor-bot{animation:botArrival 1.15s cubic-bezier(.22,1.2,.36,1) forwards;}
-@keyframes botArrival{0%{opacity:0; transform:translate(50%,50%) scale(.4) rotate(-18deg);}60%{opacity:1; transform:translate(0,0) scale(1.12);}100%{opacity:1; transform:translate(0,0) scale(1);} }
+/* Transition animation of EVE from loader to cursor */
+body.pre-init #cursor-eve{opacity:0;}
+body.loader-transition #cursor-eve{animation:eveArrival 1.15s cubic-bezier(.22,1.2,.36,1) forwards;}
+@keyframes eveArrival{0%{opacity:0; transform:translate(50%,50%) scale(.4) rotate(-18deg);}60%{opacity:1; transform:translate(0,0) scale(1.12);}100%{opacity:1; transform:translate(0,0) scale(1);} }
 /* Loader to world reveal mask */
 #loader.world-zoom{animation:worldReveal 1.1s ease forwards; transform-origin:center;}
 @keyframes worldReveal{0%{clip-path:circle(140% at 50% 50%);}100%{clip-path:circle(0% at 85% 78%); opacity:0;}}
@@ -673,138 +673,644 @@ noscript {
   background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:12px;
 }
 
-/* ========= Robot Cursor (Custom Character) ========= */
-body.bot-cursor { cursor: none; }
-body.bot-cursor * { cursor: none !important; }
-#cursor-bot { position:fixed; left:0; top:0; width:54px; height:54px; transform:translate(-50%,-50%); pointer-events:none; z-index:9999; transition:filter .35s ease; }
-#cursor-bot .bot { width:100%; height:100%; position:relative; filter:drop-shadow(0 4px 12px rgba(0,0,0,.45)); animation:bot-float 3.2s ease-in-out infinite; }
-@keyframes bot-float { 0%,100%{ transform:translateY(-4px);} 50%{ transform:translateY(4px);} }
-#cursor-bot .face { position:absolute; inset:0; background:linear-gradient(150deg,#8aa4ff 0%,#7cf8c8 45%,#6be3f5 100%); border:2px solid rgba(255,255,255,.55); border-radius:16px; display:flex; align-items:center; justify-content:center; box-shadow:0 0 0 2px rgba(11,16,32,.55) inset,0 0 18px -4px rgba(124,248,200,.55); transition:background .5s ease, transform .4s ease; }
-#cursor-bot .face::before { content:""; position:absolute; inset:2px; border-radius:14px; background:radial-gradient(circle at 30% 25%,rgba(255,255,255,.35),rgba(255,255,255,0) 65%); mix-blend-mode:screen; pointer-events:none; }
-#cursor-bot .eye { width:10px; height:14px; background:#06101d; border-radius:6px; margin:0 4px; position:relative; overflow:hidden; transform-origin:center; transition:height .25s, width .25s, transform .25s; }
-#cursor-bot .eye::after { content:""; position:absolute; inset:0; background:linear-gradient(160deg,#7cf8c8,#8aa4ff); opacity:.75; border-radius:inherit; box-shadow:0 0 6px 2px rgba(124,248,200,.55); }
-#cursor-bot .mouth { width:18px; height:8px; background:#06101d; border-radius:0 0 12px 12px; margin-left:6px; position:relative; top:6px; transition:height .25s, width .25s, border-radius .25s, transform .25s, background .25s; }
-#cursor-bot .mouth::after { content:""; position:absolute; left:50%; top:0; transform:translate(-50%,0); width:70%; height:60%; background:radial-gradient(circle at 50% 0,#7cf8c8,transparent 70%); opacity:.4; border-bottom-left-radius:50%; border-bottom-right-radius:50%; }
-#cursor-bot .antenna { position:absolute; top:-12px; left:50%; transform:translateX(-50%); width:6px; height:12px; }
-#cursor-bot .antenna span { position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:4px; height:10px; background:linear-gradient(#7cf8c8,#8aa4ff); border-radius:3px; box-shadow:0 0 6px rgba(124,248,200,.7); }
-#cursor-bot .antenna span::after { content:""; position:absolute; top:-6px; left:50%; transform:translateX(-50%); width:10px; height:10px; background:radial-gradient(circle at 40% 40%,#fff,#7cf8c8 60%, transparent 70%); border-radius:50%; box-shadow:0 0 10px 4px rgba(124,248,200,.6); animation:antenna-pulse 2.6s ease-in-out infinite; }
-@keyframes antenna-pulse { 0%,100%{ transform:translate(-50%,0) scale(.9);} 50%{ transform:translate(-50%,0) scale(1.15);} }
-#cursor-bot.active .face { filter:brightness(1.18) saturate(140%); transform:scale(1.06); }
-#cursor-bot.active .eye { height:10px; width:12px; margin-top:6px; }
-#cursor-bot.active .mouth { height:12px; border-radius:12px; top:4px; background:#0b1324; }
-#cursor-bot.wave .antenna span::after { animation:antenna-pulse 0.4s linear 2; }
-#cursor-bot.wave .bot { animation:bot-wave 0.6s ease; }
-@keyframes bot-wave { 0%{ transform:rotate(0deg);} 30%{ transform:rotate(-12deg);} 60%{ transform:rotate(10deg);} 100%{ transform:rotate(0deg);} }
-/* Blink */
-#cursor-bot .eye { animation:eye-blink 5.2s ease-in-out infinite; }
-/* ===== Expression Modes ===== */
-#cursor-bot[data-mode=problem] .face { background:linear-gradient(150deg,#ff6b6b 0%,#ff9f43 60%,#ffc27d 100%); }
-#cursor-bot[data-mode=problem] .eye::after { background:linear-gradient(160deg,#ff9f43,#ff6b6b); box-shadow:0 0 8px 3px rgba(255,107,107,.55); }
-#cursor-bot[data-mode=problem] .eye { height:6px; margin-top:10px; }
-#cursor-bot[data-mode=problem] .mouth { height:4px; width:14px; border-radius:12px; top:14px; background:#1d0808; }
+/* ========= EVE CURSOR SYSTEM (Film-Accurate Extra-Terrestrial Vegetation Evaluator) ========= */
+/* Completely removes all bus/vehicle cursor code and rebuilds around hyper-detailed EVE */
 
-#cursor-bot[data-mode=solution] .face { background:linear-gradient(150deg,#5be37d 0%,#7cf8c8 55%,#8aa4ff 100%); }
-#cursor-bot[data-mode=solution] .eye::after { background:linear-gradient(160deg,#c6ffe4,#7cf8c8); box-shadow:0 0 10px 4px rgba(124,248,200,.8); }
-#cursor-bot[data-mode=solution] .mouth { height:14px; width:22px; border-radius:0 0 24px 24px; top:4px; }
+body.eve-cursor { cursor: none; }
+body.eve-cursor * { cursor: none !important; }
 
-#cursor-bot[data-mode=impact] .face { background:linear-gradient(150deg,#8aa4ff 0%,#7cf8c8 40%,#8aa4ff 80%); animation:impact-pulse 3.4s ease-in-out infinite; }
-@keyframes impact-pulse { 0%,100%{ box-shadow:0 0 0 2px rgba(11,16,32,.55) inset,0 0 18px -4px rgba(124,248,200,.55);} 50%{ box-shadow:0 0 0 2px rgba(11,16,32,.55) inset,0 0 26px -4px rgba(138,164,255,.75);} }
-#cursor-bot[data-mode=impact] .eye::after { background:conic-gradient(from 0deg,#7cf8c8,#8aa4ff,#7cf8c8); animation:impact-eyes 4s linear infinite; }
-@keyframes impact-eyes { to { transform:rotate(360deg); } }
-#cursor-bot[data-mode=impact] .mouth { width:20px; height:10px; border-radius:12px; top:6px; }
+#cursor-eve { 
+  position: fixed; 
+  left: 0; 
+  top: 0; 
+  width: 54px; 
+  height: 54px; 
+  transform: translate(-50%, -50%); 
+  pointer-events: none; 
+  z-index: 9999; 
+  transition: filter 0.35s ease; 
+}
 
-#cursor-bot[data-mode=phase] .face { background:linear-gradient(150deg,#8aa4ff 0%,#5d72ff 45%,#7cf8c8 100%); }
-#cursor-bot[data-mode=phase] .eye { transform:scaleX(.8); }
-#cursor-bot[data-mode=phase] .mouth { width:10px; height:6px; top:10px; }
+/* Main EVE body container with floating animation */
+#cursor-eve .eve-body { 
+  width: 100%; 
+  height: 100%; 
+  position: relative; 
+  filter: drop-shadow(0 6px 16px rgba(0,0,0,0.25)); 
+  animation: eve-float 3.8s ease-in-out infinite; 
+}
 
-#cursor-bot[data-mode=hero] .face { background:linear-gradient(150deg,#8aa4ff 0%,#7cf8c8 60%,#6be3f5 100%); }
-#cursor-bot[data-mode=hero] .mouth { height:10px; width:18px; top:6px; }
+@keyframes eve-float { 
+  0%, 100% { transform: translateY(-3px) rotate(-0.5deg); } 
+  50% { transform: translateY(3px) rotate(0.5deg); } 
+}
 
-#cursor-bot.transitioning .face { transition:background .25s ease, transform .25s ease; }
+/* Anti-gravity propulsion rings */
+#cursor-eve .propulsion-field {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 48px;
+  height: 16px;
+  pointer-events: none;
+}
+
+#cursor-eve .energy-ring {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  border: 1px solid rgba(0, 184, 232, 0.4);
+  animation: energy-pulse 2.2s ease-in-out infinite;
+}
+
+#cursor-eve .energy-ring:nth-child(1) {
+  width: 40px;
+  height: 8px;
+  bottom: 0;
+  animation-delay: 0s;
+}
+
+#cursor-eve .energy-ring:nth-child(2) {
+  width: 48px;
+  height: 10px;
+  bottom: -2px;
+  animation-delay: 0.3s;
+}
+
+@keyframes energy-pulse {
+  0%, 100% { 
+    opacity: 0.3; 
+    transform: translateX(-50%) scale(0.9); 
+    border-color: rgba(0, 184, 232, 0.3); 
+  }
+  50% { 
+    opacity: 0.8; 
+    transform: translateX(-50%) scale(1.1); 
+    border-color: rgba(0, 184, 232, 0.7); 
+    box-shadow: 0 0 12px rgba(0, 184, 232, 0.4);
+  }
+}
+
+/* Main shell - sleek egg-shaped pod */
+#cursor-eve .shell {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(140deg, #FFFFFF 0%, #EAE9EB 40%, #F5F5F5 100%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 
+    0 0 0 1px rgba(0, 184, 232, 0.15) inset,
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    0 8px 24px -8px rgba(0, 184, 232, 0.2);
+  transition: background 0.4s ease, transform 0.3s ease, box-shadow 0.3s ease;
+  overflow: hidden;
+}
+
+/* Pristine shell highlight effect */
+#cursor-eve .shell::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  background: radial-gradient(
+    ellipse at 30% 25%, 
+    rgba(255, 255, 255, 0.6) 0%, 
+    rgba(255, 255, 255, 0.2) 40%, 
+    transparent 70%
+  );
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+/* Energy seams - subtle blue lines */
+#cursor-eve .shell::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  border: 1px solid rgba(0, 184, 232, 0.2);
+  opacity: 0.6;
+  animation: seam-glow 4s ease-in-out infinite;
+}
+
+@keyframes seam-glow {
+  0%, 100% { opacity: 0.2; border-color: rgba(0, 184, 232, 0.2); }
+  50% { opacity: 0.6; border-color: rgba(0, 184, 232, 0.4); }
+}
+
+/* LED Display Screen for eyes */
+#cursor-eve .display-screen {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  background: linear-gradient(180deg, #00194D 0%, #001A35 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 0 0 1px rgba(0, 25, 77, 0.3) inset;
+  overflow: hidden;
+}
+
+/* Minimalist LED eyes */
+#cursor-eve .eye-led {
+  width: 6px;
+  height: 6px;
+  background: radial-gradient(circle at 40% 30%, #4A90E2 0%, #00B8E8 70%);
+  border-radius: 50%;
+  box-shadow: 
+    0 0 6px rgba(74, 144, 226, 0.8),
+    0 0 12px rgba(0, 184, 232, 0.4);
+  transition: all 0.25s ease;
+  animation: eye-idle 3.5s ease-in-out infinite;
+}
+
+@keyframes eye-idle {
+  0%, 100% { opacity: 0.9; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+/* Display reflection effect */
+#cursor-eve .display-screen::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 7px;
+  background: linear-gradient(
+    135deg, 
+    rgba(74, 144, 226, 0.1) 0%, 
+    transparent 50%
+  );
+  pointer-events: none;
+}
+
+/* Hidden retractable arms (deployed on interaction) */
+#cursor-eve .arm-compartment {
+  position: absolute;
+  width: 16px;
+  height: 4px;
+  background: linear-gradient(90deg, #F5F5F5, #EAE9EB);
+  border-radius: 2px;
+  opacity: 0;
+  transition: all 0.3s ease;
+}
+
+#cursor-eve .arm-left {
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%) translateX(-100%);
+}
+
+#cursor-eve .arm-right {
+  right: -8px;
+  top: 50%;
+  transform: translateY(-50%) translateX(100%);
+}
+
+/* Scanning beam (activated on hover/interaction) */
+#cursor-eve .scanning-beam {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 0;
+  background: linear-gradient(180deg, rgba(0, 184, 232, 0.9), rgba(74, 144, 226, 0.6));
+  border-radius: 1px;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 8px rgba(0, 184, 232, 0.6);
+}
+
+/* ===== EVE STATE ANIMATIONS ===== */
+
+/* Active state - scanning mode */
+#cursor-eve.active .shell {
+  filter: brightness(1.1) saturate(120%);
+  transform: scale(1.05);
+  box-shadow: 
+    0 0 0 2px rgba(0, 184, 232, 0.3) inset,
+    0 4px 12px rgba(0, 0, 0, 0.15),
+    0 0 20px rgba(0, 184, 232, 0.4);
+}
+
+#cursor-eve.active .eye-led {
+  width: 8px;
+  height: 8px;
+  box-shadow: 
+    0 0 10px rgba(74, 144, 226, 1),
+    0 0 20px rgba(0, 184, 232, 0.6);
+  animation: eye-scan 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes eye-scan {
+  0% { opacity: 0.8; transform: scale(1); }
+  100% { opacity: 1; transform: scale(1.2); }
+}
+
+#cursor-eve.active .scanning-beam {
+  height: 40px;
+  opacity: 0.8;
+  animation: beam-sweep 1.2s ease-in-out infinite;
+}
+
+@keyframes beam-sweep {
+  0%, 100% { height: 40px; opacity: 0.8; }
+  50% { height: 60px; opacity: 1; }
+}
+
+#cursor-eve.active .arm-compartment {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* Curious state - gentle investigation mode */
+#cursor-eve.curious .eve-body {
+  animation: eve-curious 2.5s ease-in-out infinite;
+}
+
+@keyframes eve-curious {
+  0%, 100% { transform: translateY(-2px) rotate(-1deg); }
+  25% { transform: translateY(1px) rotate(0.5deg); }
+  75% { transform: translateY(-1px) rotate(-0.5deg); }
+}
+
+#cursor-eve.curious .eye-led {
+  animation: eye-curious 2s ease-in-out infinite;
+}
+
+@keyframes eye-curious {
+  0%, 100% { transform: scale(1) translateX(0); }
+  50% { transform: scale(1.1) translateX(1px); }
+}
+
+/* Energy aura for special interactions */
+#cursor-eve .energy-aura {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 50%, 
+    rgba(0, 184, 232, 0.1) 0%, 
+    rgba(0, 184, 232, 0.05) 50%, 
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  animation: aura-pulse 3s ease-in-out infinite;
+}
+
+@keyframes aura-pulse {
+  0%, 100% { transform: scale(0.9); opacity: 0; }
+  50% { transform: scale(1.1); opacity: 0.6; }
+}
+
+#cursor-eve.active .energy-aura {
+  opacity: 1;
+}
+
+/* Deployment animation for arms */
+#cursor-eve.deploy .arm-compartment {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+#cursor-eve.deploy .arm-right::after {
+  content: "";
+  position: absolute;
+  right: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  background: radial-gradient(circle, #00B8E8, #4A90E2);
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(0, 184, 232, 0.8);
+  animation: plasma-charge 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes plasma-charge {
+  0% { opacity: 0.6; transform: translateY(-50%) scale(0.8); }
+  100% { opacity: 1; transform: translateY(-50%) scale(1.2); }
+}
+
+/* ===== EVE MODE VARIANTS (replacing data-mode attributes) ===== */
+
+/* Problem-solving mode (error state) */
+#cursor-eve[data-mode=problem] .shell {
+  background: linear-gradient(140deg, #FFE5E5 0%, #FFD5D5 40%, #FFEEEE 100%);
+  box-shadow: 
+    0 0 0 1px rgba(255, 107, 107, 0.2) inset,
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    0 8px 24px -8px rgba(255, 107, 107, 0.3);
+}
+
+#cursor-eve[data-mode=problem] .eye-led {
+  background: radial-gradient(circle at 40% 30%, #FF6B6B 0%, #FF8E8E 70%);
+  box-shadow: 
+    0 0 6px rgba(255, 107, 107, 0.8),
+    0 0 12px rgba(255, 107, 107, 0.4);
+}
+
+#cursor-eve[data-mode=problem] .energy-ring {
+  border-color: rgba(255, 107, 107, 0.4);
+}
+
+/* Solution mode (success state) */
+#cursor-eve[data-mode=solution] .shell {
+  background: linear-gradient(140deg, #E8F5E8 0%, #D5F5D5 40%, #F0F8F0 100%);
+  box-shadow: 
+    0 0 0 1px rgba(91, 227, 125, 0.3) inset,
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    0 8px 24px -8px rgba(91, 227, 125, 0.4);
+}
+
+#cursor-eve[data-mode=solution] .eye-led {
+  background: radial-gradient(circle at 40% 30%, #5BE37D 0%, #7CF8C8 70%);
+  box-shadow: 
+    0 0 8px rgba(91, 227, 125, 0.9),
+    0 0 16px rgba(124, 248, 200, 0.5);
+}
+
+/* Impact mode (powered up) */
+#cursor-eve[data-mode=impact] .shell {
+  background: linear-gradient(140deg, #E8F4FF 0%, #D5EEFF 40%, #F0F8FF 100%);
+  animation: impact-energy 3.4s ease-in-out infinite;
+}
+
+@keyframes impact-energy {
+  0%, 100% { 
+    box-shadow: 
+      0 0 0 1px rgba(0, 184, 232, 0.2) inset,
+      0 2px 8px rgba(0, 0, 0, 0.1),
+      0 8px 24px -8px rgba(0, 184, 232, 0.3);
+  }
+  50% { 
+    box-shadow: 
+      0 0 0 2px rgba(0, 184, 232, 0.4) inset,
+      0 4px 12px rgba(0, 0, 0, 0.15),
+      0 12px 32px -8px rgba(138, 164, 255, 0.6);
+  }
+}
+
+#cursor-eve[data-mode=impact] .eye-led {
+  background: conic-gradient(from 0deg, #00B8E8, #8AA4FF, #00B8E8);
+  animation: impact-eyes 4s linear infinite;
+}
+
+@keyframes impact-eyes {
+  to { transform: rotate(360deg); }
+}
+
+/* Phase transition mode */
+#cursor-eve[data-mode=phase] .shell {
+  background: linear-gradient(140deg, #F0F0FF 0%, #E8E8FF 40%, #F8F8FF 100%);
+}
+
+#cursor-eve[data-mode=phase] .eye-led {
+  transform: scaleX(0.8);
+  background: radial-gradient(circle at 40% 30%, #8AA4FF 0%, #5D72FF 70%);
+}
+
+/* Hero mode (narrative moments) */
+#cursor-eve[data-mode=hero] .shell {
+  background: linear-gradient(140deg, #FFFFFF 0%, #EAE9EB 40%, #F5F5F5 100%);
+  filter: brightness(1.1) saturate(110%);
+}
+
+#cursor-eve[data-mode=hero] .eye-led {
+  background: radial-gradient(circle at 40% 30%, #4A90E2 0%, #00B8E8 70%);
+  box-shadow: 
+    0 0 8px rgba(74, 144, 226, 1),
+    0 0 16px rgba(0, 184, 232, 0.6);
+}
+
+/* Transitioning between modes */
+#cursor-eve.transitioning .shell { 
+  transition: background 0.25s ease, transform 0.25s ease; 
+}
 
 /* Additional dynamic expressions */
-#cursor-bot[data-mode=thrilled] .face { background:linear-gradient(150deg,#fff176 0%,#ffd54f 40%,#ffb300 80%); box-shadow:0 0 0 2px rgba(11,16,32,.55) inset,0 0 22px -4px rgba(255,214,120,.85); }
-#cursor-bot[data-mode=thrilled] .eye { height:16px; width:12px; margin-top:2px; }
-#cursor-bot[data-mode=thrilled] .eye::after { background:linear-gradient(160deg,#fff59d,#ffe082); box-shadow:0 0 10px 3px rgba(255,214,120,.75); }
-#cursor-bot[data-mode=thrilled] .mouth { height:16px; width:26px; top:4px; border-radius:0 0 26px 26px; background:#0b1324; }
+#cursor-eve[data-mode=thrilled] .shell {
+  background: linear-gradient(140deg, #FFF8E1 0%, #FFF3C4 40%, #FFFDE7 100%);
+  box-shadow: 
+    0 0 0 1px rgba(255, 193, 7, 0.3) inset,
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    0 8px 24px -8px rgba(255, 193, 7, 0.4);
+}
 
-#cursor-bot[data-mode=bored] .face { background:linear-gradient(150deg,#607d8b 0%,#546e7a 50%,#455a64 100%); filter:grayscale(.15) brightness(.9); }
-#cursor-bot[data-mode=bored] .eye { height:6px; width:14px; margin-top:14px; transform:scaleX(1.1); }
-#cursor-bot[data-mode=bored] .eye::after { background:linear-gradient(160deg,#90a4ae,#78909c); box-shadow:0 0 4px 1px rgba(120,144,156,.55); }
-#cursor-bot[data-mode=bored] .mouth { width:16px; height:4px; top:18px; border-radius:12px; background:#0e1a24; }
+#cursor-eve[data-mode=thrilled] .eye-led {
+  width: 8px;
+  height: 8px;
+  background: radial-gradient(circle at 40% 30%, #FFC107 0%, #FFD54F 70%);
+  box-shadow: 
+    0 0 10px rgba(255, 193, 7, 0.9),
+    0 0 20px rgba(255, 213, 79, 0.5);
+}
 
-#cursor-bot[data-mode=sleepy] .face { background:linear-gradient(170deg,#37474f 0%,#263238 60%,#1b262c 100%); filter:brightness(.85); }
-#cursor-bot[data-mode=sleepy] .eye { height:4px; width:16px; margin-top:18px; }
-#cursor-bot[data-mode=sleepy] .eye::after { background:linear-gradient(160deg,#546e7a,#455a64); box-shadow:0 0 4px 1px rgba(84,110,122,.45); }
-#cursor-bot[data-mode=sleepy] .mouth { width:10px; height:4px; top:20px; border-radius:50%; background:#0e1822; }
-#cursor-bot[data-mode=sleepy] .mouth::after { display:none; }
+#cursor-eve[data-mode=bored] .shell {
+  background: linear-gradient(140deg, #F5F5F5 0%, #E0E0E0 40%, #F0F0F0 100%);
+  filter: grayscale(0.15) brightness(0.9);
+}
+
+#cursor-eve[data-mode=bored] .eye-led {
+  width: 8px;
+  height: 4px;
+  background: radial-gradient(circle at 40% 30%, #607D8B 0%, #78909C 70%);
+  box-shadow: 
+    0 0 4px rgba(96, 125, 139, 0.6),
+    0 0 8px rgba(120, 144, 156, 0.3);
+}
+
+#cursor-eve[data-mode=sleepy] .shell {
+  background: linear-gradient(140deg, #EEEEEE 0%, #DDDDDD 40%, #E8E8E8 100%);
+  filter: brightness(0.85);
+}
+
+#cursor-eve[data-mode=sleepy] .eye-led {
+  width: 10px;
+  height: 2px;
+  background: radial-gradient(circle at 40% 30%, #37474F 0%, #455A64 70%);
+  box-shadow: 
+    0 0 4px rgba(55, 71, 79, 0.5),
+    0 0 8px rgba(69, 90, 100, 0.3);
+}
 
 /* Workshop Variant Transformations */
-#cursor-bot.variant-transition .face { animation:bot-variant-pop .48s cubic-bezier(.22,1.4,.36,1); }
-@keyframes bot-variant-pop { 0%{ transform:scale(.85) rotate(-6deg); filter:brightness(.8) saturate(80%);} 60%{ transform:scale(1.12) rotate(3deg);} 100%{ transform:scale(1); } }
-#cursor-bot .bot-gear { transition:transform .45s cubic-bezier(.22,1.3,.34,1), opacity .45s ease; opacity:.95; }
-#cursor-bot.workshop-game .face { background:linear-gradient(140deg,#b488ff 0%,#8aa4ff 45%,#7cf8c8 100%); }
-#cursor-bot.workshop-ctf .face { background:linear-gradient(140deg,#022c22 0%,#046a55 45%,#7cf8c8 100%); }
-#cursor-bot.workshop-code .face { background:linear-gradient(140deg,#0d2238 0%,#154266 45%,#6be3f5 100%); }
-#cursor-bot.workshop-ctf .eye::after { background:linear-gradient(160deg,#0f0,#7cf8c8); box-shadow:0 0 10px 3px rgba(0,255,160,.55); }
-#cursor-bot.workshop-game .eye::after { background:linear-gradient(160deg,#d8b6ff,#8aa4ff); box-shadow:0 0 10px 3px rgba(180,120,255,.55); }
-#cursor-bot.workshop-code .eye::after { background:linear-gradient(160deg,#6be3f5,#8aa4ff); box-shadow:0 0 10px 3px rgba(100,200,255,.55); }
-#cursor-bot.workshop-ctf .mouth { background:#051a16; }
-#cursor-bot.workshop-game .mouth { background:#1d1230; }
-#cursor-bot.workshop-code .mouth { background:#061d2c; }
+#cursor-eve.variant-transition .shell { 
+  animation: eve-variant-pop 0.48s cubic-bezier(0.22, 1.4, 0.36, 1); 
+}
 
-/* Underground mode modifications */
-body.underground-mode #cursor-bot .face{background:linear-gradient(150deg,#546274 0%,#3b4a59 50%,#2e3d49 100%); box-shadow:0 0 0 2px rgba(8,12,18,.8) inset,0 0 18px -4px rgba(124,248,200,.25);} 
-body.underground-mode #cursor-bot .antenna span{background:linear-gradient(#d4b552,#f6e7a4); box-shadow:0 0 6px rgba(255,214,120,.6);} 
-body.underground-mode #cursor-bot .antenna span::after{background:radial-gradient(circle at 40% 40%,#ffe7a0,#d4b552 60%, transparent 70%); box-shadow:0 0 8px 3px rgba(255,214,120,.55);} 
-body.underground-mode #cursor-bot .hard-hat{display:block;} 
+@keyframes eve-variant-pop { 
+  0% { 
+    transform: scale(0.85) rotate(-6deg); 
+    filter: brightness(0.8) saturate(80%); 
+  } 
+  60% { 
+    transform: scale(1.12) rotate(3deg); 
+  } 
+  100% { 
+    transform: scale(1); 
+  } 
+}
 
-/* Robot enter/exit underground transitions */
-#cursor-bot.enter-underground .face { animation:bot-enter-underground .7s cubic-bezier(.22,1.25,.36,1); }
-@keyframes bot-enter-underground { 0%{ transform:translateY(-10px) scale(.9); filter:brightness(.9);} 60%{ transform:translateY(4px) scale(1.08);} 100%{ transform:none; } }
-#cursor-bot.exit-underground .face { animation:bot-exit-underground .7s cubic-bezier(.22,1.25,.36,1); }
-@keyframes bot-exit-underground { 0%{ transform:translateY(10px) scale(1.05);} 100%{ transform:none; } }
+#cursor-eve.workshop-game .shell {
+  background: linear-gradient(140deg, #F3E5FF 0%, #E1BEE7 40%, #F8F0FF 100%);
+}
 
-/* Hard hat element */
-#cursor-bot .hard-hat{position:absolute; left:50%; top:-4px; transform:translate(-50%,-60%) rotate(-2deg); width:54px; height:26px; background:linear-gradient(180deg,#ffda76,#e6b94d); border:2px solid rgba(0,0,0,.35); border-radius:50% 50% 40% 40%; box-shadow:0 4px 6px -2px rgba(0,0,0,.45); display:none; }
-#cursor-bot .hard-hat::before{content:""; position:absolute; left:8px; right:8px; top:8px; height:6px; background:linear-gradient(180deg,rgba(0,0,0,.2),rgba(0,0,0,0)); border-radius:4px;} 
-#cursor-bot .hard-hat::after{content:""; position:absolute; left:0; right:0; bottom:-4px; height:10px; background:linear-gradient(180deg,#e6b94d,#c89a2c); border-radius:0 0 10px 10px; filter:brightness(.9);} 
+#cursor-eve.workshop-ctf .shell {
+  background: linear-gradient(140deg, #E0F2F1 0%, #B2DFDB 40%, #F1F8E9 100%);
+}
+
+#cursor-eve.workshop-code .shell {
+  background: linear-gradient(140deg, #E3F2FD 0%, #BBDEFB 40%, #F0F8FF 100%);
+}
+
+#cursor-eve.workshop-game .eye-led {
+  background: radial-gradient(circle at 40% 30%, #B488FF 0%, #8AA4FF 70%);
+  box-shadow: 
+    0 0 8px rgba(180, 136, 255, 0.8),
+    0 0 16px rgba(138, 164, 255, 0.4);
+}
+
+#cursor-eve.workshop-ctf .eye-led {
+  background: radial-gradient(circle at 40% 30%, #00FF88 0%, #7CF8C8 70%);
+  box-shadow: 
+    0 0 8px rgba(0, 255, 136, 0.8),
+    0 0 16px rgba(124, 248, 200, 0.4);
+}
+
+#cursor-eve.workshop-code .eye-led {
+  background: radial-gradient(circle at 40% 30%, #6BE3F5 0%, #8AA4FF 70%);
+  box-shadow: 
+    0 0 8px rgba(107, 227, 245, 0.8),
+    0 0 16px rgba(138, 164, 255, 0.4);
+}
+
+/* Underground mode modifications for EVE */
+body.underground-mode #cursor-eve .shell {
+  background: linear-gradient(140deg, #F5F3E7 0%, #E8E0D6 40%, #F0EDE5 100%);
+  box-shadow: 
+    0 0 0 1px rgba(212, 181, 82, 0.2) inset,
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    0 8px 24px -8px rgba(212, 181, 82, 0.3);
+}
+
+body.underground-mode #cursor-eve .energy-ring {
+  border-color: rgba(212, 181, 82, 0.5);
+}
+
+body.underground-mode #cursor-eve .eye-led {
+  background: radial-gradient(circle at 40% 30%, #D4B552 0%, #F6E7A4 70%);
+  box-shadow: 
+    0 0 6px rgba(212, 181, 82, 0.8),
+    0 0 12px rgba(246, 231, 164, 0.4);
+}
+
+/* EVE enter/exit underground transitions */
+#cursor-eve.enter-underground .shell { 
+  animation: eve-enter-underground 0.7s cubic-bezier(0.22, 1.25, 0.36, 1); 
+}
+
+@keyframes eve-enter-underground { 
+  0% { 
+    transform: translateY(-10px) scale(0.9); 
+    filter: brightness(0.9); 
+  } 
+  60% { 
+    transform: translateY(4px) scale(1.08); 
+  } 
+  100% { 
+    transform: none; 
+  } 
+}
+
+#cursor-eve.exit-underground .shell { 
+  animation: eve-exit-underground 0.7s cubic-bezier(0.22, 1.25, 0.36, 1); 
+}
+
+@keyframes eve-exit-underground { 
+  0% { 
+    transform: translateY(10px) scale(1.05); 
+  } 
+  100% { 
+    transform: none; 
+  } 
+}
+
+/* Wave animation equivalent */
+#cursor-eve.wave .eve-body { 
+  animation: eve-wave 0.6s ease; 
+}
+
+@keyframes eve-wave { 
+  0% { transform: rotate(0deg); } 
+  30% { transform: rotate(-8deg); } 
+  60% { transform: rotate(6deg); } 
+  100% { transform: rotate(0deg); } 
+}
 
 /* Mobile compact helper mode */
-#cursor-bot.mobile { transition:transform .5s ease; }
-#cursor-bot.mobile .face { border-radius:22px; }
-#cursor-bot.mobile .mouth { top:8px; }
-
-/* Spotlight scanning mode visuals */
-#cursor-bot.scanning .face {
-  background: linear-gradient(150deg, #6be3f5 0%, #7cf8c8 55%, #ffffff 100%);
-  box-shadow: 0 0 0 2px rgba(11,16,32,.55) inset, 0 0 28px -2px rgba(124,248,200,.85);
-}
-#cursor-bot.scanning .eye {
-  height: 4px;
-  width: 14px;
-  margin-top: 10px;
-  border-radius: 2px;
-}
-#cursor-bot.scanning .antenna span::after {
-  animation: antenna-pulse 0.5s ease-in-out infinite;
-  box-shadow: 0 0 12px 6px rgba(124, 248, 200, .8);
+#cursor-eve.mobile { 
+  transition: transform 0.5s ease; 
 }
 
-/* Subtle tap affordance for timeline crystals (drawn on canvas, but hint via cursor-bot) */
-body.underground-mode #cursor-bot::after{
+#cursor-eve.mobile .shell { 
+  border-radius: 50%; 
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  #cursor-eve .eve-body,
+  #cursor-eve .energy-ring,
+  #cursor-eve .eye-led,
+  #cursor-eve .energy-aura,
+  #cursor-eve .scanning-beam {
+    animation: none !important;
+  }
+  
+  #cursor-eve .eve-body {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+/* Legacy transition animations preserved for compatibility */
+body.pre-init #cursor-eve { opacity: 0; }
+body.loader-transition #cursor-eve { 
+  animation: eve-arrival 1.15s cubic-bezier(0.22, 1.2, 0.36, 1) forwards; 
+}
+
+@keyframes eve-arrival {
+  0% { 
+    opacity: 0; 
+    transform: translate(50%, 50%) scale(0.3) rotate(-12deg); 
+  }
+  60% { 
+    opacity: 1; 
+    transform: translate(0, 0) scale(1.08) rotate(2deg); 
+  }
+  100% { 
+    opacity: 1; 
+    transform: translate(0, 0) scale(1) rotate(0deg); 
+  }
+}
+/* Legacy cursor styles removed - EVE implementation is complete */
+
+/* Subtle tap affordance for timeline crystals (drawn on canvas, but hint via cursor-eve) */
+body.underground-mode #cursor-eve::after{
   content:""; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
   width:64px; height:64px; border-radius:50%; pointer-events:none; opacity:0; 
-  background: radial-gradient(circle, rgba(124,248,200,.2) 0%, rgba(124,248,200,0) 70%);
+  background: radial-gradient(circle, rgba(0,184,232,.2) 0%, rgba(0,184,232,0) 70%);
 }
 
 /* Close button synergy */
-button#closePanel:hover, button#closePanel:focus-visible { outline:2px solid var(--accent); outline-offset:2px; box-shadow:0 0 12px -2px rgba(124,248,200,.6); }
-
-@keyframes eye-blink { 0%,4%,100% { transform:scaleY(1);} 2%,3% { transform:scaleY(.15);} }
-@media (prefers-reduced-motion: reduce){
-  #cursor-bot .bot, #cursor-bot .eye, #cursor-bot .antenna span::after { animation:none !important; }
-}
+button#closePanel:hover, button#closePanel:focus-visible { outline:2px solid var(--accent); outline-offset:2px; box-shadow:0 0 12px -2px rgba(0,184,232,.6); }
 
 /* ========= Disable Overview Outer Glow ========= */
 /* Remove radial sheen & hover halo specifically inside liquid-enabled overview panel */
@@ -812,9 +1318,9 @@ button#closePanel:hover, button#closePanel:focus-visible { outline:2px solid var
 .liquid-enabled .card, .liquid-enabled .card:hover { box-shadow:none !important; }
 .liquid-enabled .card:hover { background: rgba(255,255,255,0.16); }
 
-/* Enhanced robot modes for registration excitement */
-#cursor-bot[data-mode="registration"] {
-  filter: drop-shadow(0 0 15px rgba(124,248,200,0.8));
+/* Enhanced EVE modes for registration excitement */
+#cursor-eve[data-mode="registration"] {
+  filter: drop-shadow(0 0 15px rgba(0,184,232,0.8));
   animation: registrationExcitement 2s ease-in-out infinite;
 }
 
@@ -824,7 +1330,7 @@ button#closePanel:hover, button#closePanel:focus-visible { outline:2px solid var
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #cursor-bot[data-mode="registration"] {
+  #cursor-eve[data-mode="registration"] {
     animation: none !important;
   }
 }

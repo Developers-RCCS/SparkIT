@@ -840,14 +840,14 @@ const canvasStateManager = {
 
 // Cache frequently accessed DOM elements
 const domCache = {
-  cursorBot: null,
+  cursorEve: null,
   toastsContainer: null,
   
-  getCursorBot() {
-    if (!this.cursorBot || !document.contains(this.cursorBot)) {
-      this.cursorBot = document.getElementById('cursor-bot');
+  getCursorEve() {
+    if (!this.cursorEve || !document.contains(this.cursorEve)) {
+      this.cursorEve = document.getElementById('cursor-eve');
     }
-    return this.cursorBot;
+    return this.cursorEve;
   },
   
   getToastsContainer() {
@@ -882,18 +882,18 @@ const _origToast = toast; // preserve original for fallback (already assigned ab
 toast = function(msg){
   _origToast(msg);
   try{
-    const bot = domCache.getCursorBot();
-    if(bot){
-      bot.classList.add('wave');
+    const eve = domCache.getCursorEve();
+    if(eve){
+      eve.classList.add('wave');
       // brief delivery expression unless already in thrilled
-      if(bot.getAttribute('data-mode')!=='thrilled'){
-        bot.setAttribute('data-mode','impact');
+      if(eve.getAttribute('data-mode')!=='thrilled'){
+        eve.setAttribute('data-mode','impact');
         setTimeout(()=>{
           // only clear if still impact
-          if(bot.getAttribute('data-mode')==='impact') bot.removeAttribute('data-mode');
+          if(eve.getAttribute('data-mode')==='impact') eve.removeAttribute('data-mode');
         },1200);
       }
-      setTimeout(()=> bot.classList.remove('wave'), 900);
+      setTimeout(()=> eve.classList.remove('wave'), 900);
     }
   }catch{}
 };
@@ -1687,12 +1687,12 @@ function drawWasteDebris(){
   });
 }
 
-// Robot Spotlight — Volumetric beam and dust
+// EVE Spotlight — Volumetric beam and dust
 function drawSpotlight(){
   const s = state.spotlight;
-  const bot = document.getElementById('cursor-bot');
-  if (!s.active) { if(bot) bot.classList.remove('scanning'); return; }
-  if(bot) bot.classList.add('scanning');
+  const eve = document.getElementById('cursor-eve');
+  if (!s.active) { if(eve) eve.classList.remove('scanning'); return; }
+  if(eve) eve.classList.add('scanning');
 
   ctx.save();
   // Volumetric beam gradient (screen-space)
@@ -1718,27 +1718,27 @@ function drawSpotlight(){
   ctx.restore();
 }
 
-// Memorable robot aura — screen-space subtle glow and pulse
-function drawBotAura(){
+// Memorable EVE aura — screen-space subtle glow and pulse
+function drawEveAura(){
   try{
-    const bot = domCache.getCursorBot(); if(!bot) return;
-    const r = bot.getBoundingClientRect();
+    const eve = domCache.getCursorEve(); if(!eve) return;
+    const r = eve.getBoundingClientRect();
     const cx = r.left + r.width/2; const cy = r.top + r.height/2;
     const t = performance.now()*0.001;
     const base = 38 + Math.sin(t*2.1)*4;
     // Stronger pulse shortly after a bump
-    const since = (performance.now() - (window._botLastBump||0));
+    const since = (performance.now() - (window._eveLastBump||0));
     const pulse = since < 600 ? (1 - since/600) : 0;
     ctx.save();
     const g1 = ctx.createRadialGradient(cx, cy, 0, cx, cy, base + 26*pulse);
-    g1.addColorStop(0, `rgba(124,248,200,${(0.22 + 0.25*pulse).toFixed(3)})`);
-    g1.addColorStop(1, 'rgba(124,248,200,0)');
+    g1.addColorStop(0, `rgba(0,184,232,${(0.22 + 0.25*pulse).toFixed(3)})`);
+    g1.addColorStop(1, 'rgba(0,184,232,0)');
     ctx.fillStyle = g1;
     ctx.beginPath(); ctx.arc(cx, cy, base + 26*pulse, 0, Math.PI*2); ctx.fill();
     // outer soft ring
     const g2 = ctx.createRadialGradient(cx, cy, base, cx, cy, base*1.6 + 30*pulse);
-    g2.addColorStop(0, 'rgba(138,164,255,0.12)');
-    g2.addColorStop(1, 'rgba(138,164,255,0)');
+    g2.addColorStop(0, 'rgba(74,144,226,0.12)');
+    g2.addColorStop(1, 'rgba(74,144,226,0)');
     ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(cx, cy, base*1.6 + 30*pulse, 0, Math.PI*2); ctx.fill();
     ctx.restore();
   }catch{}
@@ -2343,11 +2343,11 @@ function enterTimeline() {
   state.camera.x = 0; // ensure screen-space drawing in timeline
   toast('Entered Spark Flash');
 
-  // Switch UI/robot to underground styling
+  // Switch UI/EVE to underground styling
   try{ 
     document.body.classList.add('underground-mode'); 
-    const bot = document.getElementById('cursor-bot');
-    if(bot){ bot.classList.add('enter-underground'); setTimeout(()=> bot.classList.remove('enter-underground'), 700); }
+    const eve = document.getElementById('cursor-eve');
+    if(eve){ eve.classList.add('enter-underground'); setTimeout(()=> eve.classList.remove('enter-underground'), 700); }
   }catch{}
 
   // Show vertical controls on mobile, hide horizontal ones
@@ -2355,8 +2355,8 @@ function enterTimeline() {
     const tv = document.getElementById('touch-vertical');
     const th = document.getElementById('touch');
     if(isMobileDevice()){ if(tv) tv.style.display='flex'; if(th) th.style.display='none'; }
-  // refresh bot avoidance rectangles now that controls changed
-  try{ window._refreshBotAvoidRects && window._refreshBotAvoidRects(); }catch{}
+  // refresh EVE avoidance rectangles now that controls changed
+  try{ window._refreshEveAvoidRects && window._refreshEveAvoidRects(); }catch{}
   }catch{}
 
   const logos = document.getElementById("logo-container");
@@ -2378,8 +2378,8 @@ function exitTimeline(){
   // Restore surface styling
   try{ 
     document.body.classList.remove('underground-mode');
-    const bot = document.getElementById('cursor-bot');
-    if(bot){ bot.classList.add('exit-underground'); setTimeout(()=> bot.classList.remove('exit-underground'), 700); }
+    const eve = document.getElementById('cursor-eve');
+    if(eve){ eve.classList.add('exit-underground'); setTimeout(()=> eve.classList.remove('exit-underground'), 700); }
   }catch{}
 
   // Restore horizontal controls on mobile
@@ -2387,7 +2387,7 @@ function exitTimeline(){
     const tv = document.getElementById('touch-vertical');
     const th = document.getElementById('touch');
     if(isMobileDevice()){ if(tv) tv.style.display='none'; if(th) th.style.display='flex'; }
-  // refresh bot avoidance rectangles now that controls changed
+  // refresh EVE avoidance rectangles now that controls changed
   try{ window._refreshBotAvoidRects && window._refreshBotAvoidRects(); }catch{}
   }catch{}
 
@@ -2471,9 +2471,9 @@ function drawTimeline(){
     if(yScreen < -140 || yScreen > H+140) return;
     const active = Math.abs(p.y - m.y) < 70;
     if(active){ state.near = { label:m.title, type:'timeline:'+m.key, _timeline:m }; }
-    // if near a workshop milestone, prepare robot transform/visuals and spawn themed particles
+    // if near a workshop milestone, prepare EVE transform/visuals and spawn themed particles
     if(active && /^workshop/.test(m.key)){
-      applyRobotWorkshopVariant(m.key);
+      applyEveWorkshopVariant(m.key);
   // award small visit reward only on first passive approach
       if(!state.timeline.visited.has(m.key)){
         state.timeline.visited.add(m.key);
@@ -2483,11 +2483,11 @@ function drawTimeline(){
         spawnTimelineParticles(m.key, trackX, m.y);
       }
     }
-    // compute attenuation based on torch distance (bot position)
+    // compute attenuation based on torch distance (EVE position)
     let atten = 1;
     try{
-      const bot = document.getElementById('cursor-bot');
-      const r = bot?.getBoundingClientRect();
+      const eve = document.getElementById('cursor-eve');
+      const r = eve?.getBoundingClientRect();
       const by = r ? r.top + r.height/2 : H/2;
       const dy = Math.abs(by - yScreen);
       atten = Math.max(0.15, 1 - dy/520);
@@ -2520,17 +2520,17 @@ function drawTimeline(){
   const regYScreen = registrationY - state.camera.y;
   if(regYScreen > -140 && regYScreen < H+140) {
     const regActive = Math.abs(p.y - registrationY) < 80;
-    if(regActive){ 
+  if(regActive){ 
       state.near = { label:'Register for SparkIT Competition', type:'registration', _reg:true }; 
-      // Enhanced robot excitement for registration
+      // Enhanced EVE excitement for registration
       try {
-        const bot = document.getElementById('cursor-bot');
-        if(bot && !bot.hasAttribute('data-reg-excitement')) {
-          bot.setAttribute('data-reg-excitement', 'true');
-          bot.style.transform += ' scale(1.1)';
+        const eve = document.getElementById('cursor-eve');
+        if(eve && !eve.hasAttribute('data-reg-excitement')) {
+          eve.setAttribute('data-reg-excitement', 'true');
+          eve.style.transform += ' scale(1.1)';
           setTimeout(() => {
-            bot.removeAttribute('data-reg-excitement');
-            bot.style.transform = bot.style.transform.replace(' scale(1.1)', '');
+            eve.removeAttribute('data-reg-excitement');
+            eve.style.transform = eve.style.transform.replace(' scale(1.1)', '');
           }, 2000);
         }
       } catch{}
@@ -2591,15 +2591,15 @@ function drawTimeline(){
   // clear workshop variant if no current active workshop milestone proximity
   if(!(state.near && /workshop/.test(state.near.type||''))){
     if(state.currentWorkshopVariant){
-      clearRobotWorkshopVariant();
+      clearEveWorkshopVariant();
     }
   }
   ctx.font='12px ui-sans-serif'; ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.6)';
   if(p.y < 240) ctx.fillText('Spark Flash ↓ / S descend • Up / W exit', trackX, 54); else ctx.fillText('Spark Flash: E open • Up climb • Up @ top exit', trackX, 54);
-  // torch spotlight (simulate from bot head relative to pointer; fallback center)
+  // torch spotlight (simulate from EVE position relative to pointer; fallback center)
   try{
-    const bot = document.getElementById('cursor-bot');
-    const r = bot?.getBoundingClientRect();
+    const eve = document.getElementById('cursor-eve');
+    const r = eve?.getBoundingClientRect();
     const bx = r ? r.left + r.width/2 : W/2;
     const by = r ? r.top + r.height/2 : H/2;
     // intensify spotlight when near a milestone
@@ -2971,31 +2971,27 @@ function checkCompetitionCelebration(){
 }
 
 
-// Apply a small accessory/transform to the robot cursor for each workshop
-function applyRobotWorkshopVariant(key){
-  const bot = document.getElementById('cursor-bot'); if(!bot) return;
-  let gear = bot.querySelector('.bot-gear');
-  if(!gear){ gear = document.createElement('div'); gear.className='bot-gear'; gear.style.position='absolute'; gear.style.left='0'; gear.style.top='0'; gear.style.pointerEvents='none'; bot.appendChild(gear); }
-  gear.style.transform = 'translate(-14px,-18px) scale(1)';
+// Apply workshop styling to EVE cursor for each workshop
+function applyEveWorkshopVariant(key){
+  const eve = document.getElementById('cursor-eve'); if(!eve) return;
   if(state.currentWorkshopVariant !== key){
-    bot.classList.add('variant-transition');
-    setTimeout(()=> bot.classList.remove('variant-transition'), 480);
+    eve.classList.add('variant-transition');
+    setTimeout(()=> eve.classList.remove('variant-transition'), 480);
   }
-  bot.classList.remove('workshop-game','workshop-ctf','workshop-code');
+  eve.classList.remove('workshop-game','workshop-ctf','workshop-code');
   if(key==='workshop1'){
-    bot.classList.add('workshop-game'); gear.innerHTML = '<svg width="28" height="18" viewBox="0 0 28 18" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="24" height="14" rx="3" fill="#b488ff"/><circle cx="8" cy="9" r="2" fill="#2b1036"/><rect x="18" y="7" width="6" height="4" rx="1" fill="#2b1036"/></svg>';
+    eve.classList.add('workshop-game');
   } else if(key==='workshop2'){
-    bot.classList.add('workshop-ctf'); gear.innerHTML = '<svg width="28" height="18" viewBox="0 0 28 18" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="24" height="14" rx="3" fill="#7cf8c8"/><path d="M8 11h12v1H8z" fill="#022"/><rect x="12" y="5" width="4" height="2" fill="#0f0"/></svg>';
+    eve.classList.add('workshop-ctf');
   } else if(key==='workshop3'){
-    bot.classList.add('workshop-code'); gear.innerHTML = '<div style="font:700 12px/12px ui-sans-serif; color:#dff; text-shadow:0 1px 0 rgba(0,0,0,.35)">{ }</div>';
-  } else { gear.innerHTML=''; }
+    eve.classList.add('workshop-code');
+  }
   state.currentWorkshopVariant = key;
 }
 
-function clearRobotWorkshopVariant(){
-  const bot = document.getElementById('cursor-bot'); if(!bot) return;
-  bot.classList.remove('workshop-game','workshop-ctf','workshop-code');
-  const gear = bot.querySelector('.bot-gear'); if(gear){ gear.innerHTML=''; }
+function clearEveWorkshopVariant(){
+  const eve = document.getElementById('cursor-eve'); if(!eve) return;
+  eve.classList.remove('workshop-game','workshop-ctf','workshop-code');
   state.currentWorkshopVariant = null;
 }
 
@@ -3757,10 +3753,10 @@ function step(){
   // draw
   ctx.clearRect(0,0,W,H);
 
-  // Evaluate bot expression triggers (after updating physics & player speed)
+  // Evaluate EVE expression triggers (after updating physics & player speed)
   try{
-    const bot = domCache.getCursorBot();
-    if(bot){
+    const eve = domCache.getCursorEve();
+    if(eve){
       const p = state.player;
       const speed = Math.abs(p.vx);
       const max = p.maxSpeed;
@@ -3778,26 +3774,26 @@ function step(){
       // Thrilled: near max speed sustained for >0.6s
       if(state.mode==='road' && speed > max*0.9){
         if(tNow - botExpr.lastThrillT > 200){
-          bot.setAttribute('data-mode','thrilled');
+          eve.setAttribute('data-mode','thrilled');
           botExpr.lastThrillT = tNow;
         }
-      } else if(bot.getAttribute('data-mode')==='thrilled' && speed < max*0.5){
+      } else if(eve.getAttribute('data-mode')==='thrilled' && speed < max*0.5){
         // release thrilled if slowing down and not overlapped by other forced states
-        bot.removeAttribute('data-mode');
+        eve.removeAttribute('data-mode');
       }
       // Idle boredom stages
-      if(bot.getAttribute('data-mode')!=='thrilled'){ // don't override thrill
+      if(eve.getAttribute('data-mode')!=='thrilled'){ // don't override thrill
         if(!botExpr.sleepyTriggered && botExpr.idleAccum > 35){
-          bot.setAttribute('data-mode','sleepy');
+          eve.setAttribute('data-mode','sleepy');
           botExpr.sleepyTriggered = true;
         } else if(!botExpr.boredTriggered && botExpr.idleAccum > 12){
-          bot.setAttribute('data-mode','bored');
+          eve.setAttribute('data-mode','bored');
           botExpr.boredTriggered = true;
         }
       }
       // If user interacts (keys) clear bored/sleepy quickly
-      if(moving && (bot.getAttribute('data-mode')==='bored' || bot.getAttribute('data-mode')==='sleepy')){
-        bot.removeAttribute('data-mode');
+      if(moving && (eve.getAttribute('data-mode')==='bored' || eve.getAttribute('data-mode')==='sleepy')){
+        eve.removeAttribute('data-mode');
       }
     }
   }catch{}
@@ -3833,8 +3829,8 @@ function step(){
     ctx.restore();
     state.player.x = savedX;
   }
-  // Screen-space robot aura (memorable companion)
-  drawBotAura();
+  // Screen-space EVE aura (memorable companion)
+  drawEveAura();
   // HUD for fuel/boost removed
 
   requestAnimationFrame(step);
@@ -4041,13 +4037,12 @@ function triggerPhoto(){
 /* ======= Reduced motion ======= */
 const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || false;
 
-/* ======= Robot Cursor Character ======= */
+/* ======= EVE Cursor Character ======= */
 (()=>{
-  const bot = document.getElementById('cursor-bot');
-  if(!bot) return;
+  const eve = document.getElementById('cursor-eve');
+  if(!eve) return;
   const body = document.body;
   const closeBtn = document.getElementById('closePanel');
-  const hat = bot.querySelector('.hard-hat');
   let tx=window.innerWidth/2, ty=window.innerHeight/2; // target
   let x=tx, y=ty; // current
   let vx=0, vy=0; // velocity for easing
@@ -4066,7 +4061,7 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
   }
   refreshAvoidRects();
   // expose for UI toggles
-  window._refreshBotAvoidRects = ()=>{ refreshAvoidRects(); };
+  window._refreshEveAvoidRects = ()=>{ refreshAvoidRects(); };
   addEventListener('resize', ()=> setTimeout(refreshAvoidRects, 0));
   const vv = window.visualViewport; if(vv){
     vv.addEventListener('resize', ()=> setTimeout(refreshAvoidRects, 0));
@@ -4079,9 +4074,9 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
     const ay = (ty - y)*followEase - vy*damp;
     vx += ax*dt; vy += ay*dt;
     x += vx*dt; y += vy*dt;
-    bot.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+    eve.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
     // idle / active state
-    if(now - lastMoveT < 280){ bot.classList.add('active'); } else { bot.classList.remove('active'); }
+    if(now - lastMoveT < 280){ eve.classList.add('active'); } else { eve.classList.remove('active'); }
     if(waveCooldown>0) waveCooldown -= dt;
 
     // Proximity avoidance to buttons when vehicle is driving
@@ -4106,7 +4101,7 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
             mag += f;
           }
         });
-  if(mag>0){
+        if(mag>0){
           // Apply repulsion by nudging the target away
           tx += rx * dt; ty += ry * dt;
           // Clamp within viewport
@@ -4115,9 +4110,9 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
           // Emotion bump occasionally
           if(now - lastBumpT > 450){
             lastBumpT = now;
-            window._botLastBump = now;
-            bot.setAttribute('data-mode','impact');
-            setTimeout(()=>{ if(bot.getAttribute('data-mode')==='impact') bot.removeAttribute('data-mode'); }, 420);
+            window._eveLastBump = now;
+            eve.setAttribute('data-mode','impact');
+            setTimeout(()=>{ if(eve.getAttribute('data-mode')==='impact') eve.removeAttribute('data-mode'); }, 420);
           }
         }
       }
@@ -4130,13 +4125,13 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
       const inOuter = x >= outer.l && x <= outer.r && y >= outer.t && y <= outer.b;
       if(inInner && activeMode !== mode){
         activeMode = mode;
-        bot.classList.add('transitioning');
-        bot.setAttribute('data-mode', activeMode);
-        clearTimeout(bot._t1); bot._t1 = setTimeout(()=> bot.classList.remove('transitioning'), 240);
+        eve.classList.add('transitioning');
+        eve.setAttribute('data-mode', activeMode);
+        clearTimeout(eve._t1); eve._t1 = setTimeout(()=> eve.classList.remove('transitioning'), 240);
       } else if(activeMode === mode && !inOuter){
-        activeMode=''; bot.removeAttribute('data-mode');
+        activeMode=''; eve.removeAttribute('data-mode');
       }
-    } else if(activeMode){ activeMode=''; bot.removeAttribute('data-mode'); }
+    } else if(activeMode){ activeMode=''; eve.removeAttribute('data-mode'); }
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
@@ -4144,10 +4139,10 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
     tx = e.clientX; ty = e.clientY; lastMoveT = performance.now();
   }, {passive:true});
   window.addEventListener('pointerdown', ()=>{
-    if(waveCooldown<=0){ bot.classList.add('wave'); setTimeout(()=>bot.classList.remove('wave'), 650); waveCooldown = 2.2; }
+    if(waveCooldown<=0){ eve.classList.add('wave'); setTimeout(()=>eve.classList.remove('wave'), 650); waveCooldown = 2.2; }
   });
   // Accessibility: allow toggle with keyboard (press C) to show system cursor again
-  window.addEventListener('keydown', e=>{ if(e.code==='KeyC'){ body.classList.toggle('bot-cursor'); if(!body.classList.contains('bot-cursor')){ bot.style.display='none'; } else { bot.style.display='block'; } } });
+  window.addEventListener('keydown', e=>{ if(e.code==='KeyC'){ body.classList.toggle('eve-cursor'); if(!body.classList.contains('eve-cursor')){ eve.style.display='none'; } else { eve.style.display='block'; } } });
   // Interaction with overview liquid cards: slight lean towards nearest animated card
   const observeLiquid = new MutationObserver(()=>attach());
   observeLiquid.observe(document.getElementById('panel-content'), {childList:true, subtree:true});
@@ -4155,11 +4150,11 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
     const grid = document.querySelector('#panel-content .grid.overview'); if(!grid) return;
     grid.addEventListener('pointermove', e=>{
       const card = e.target.closest('.card'); if(!card) return;
-      // small attract effect: nudge bot 6% toward card center
+      // small attract effect: nudge EVE 6% toward card center
       const r = card.getBoundingClientRect();
       const cx = r.left + r.width/2; const cy = r.top + r.height/2;
       tx += (cx - tx)*0.06; ty += (cy - ty)*0.06;
-      // record desired expression ONLY; activation happens when robot enters inner bounds
+      // record desired expression ONLY; activation happens when EVE enters inner bounds
   let mode = 'hero';
   if(card.classList.contains('problem')) mode='problem'; else
   if(card.classList.contains('solution')) mode='solution'; else
@@ -4190,29 +4185,24 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
     if(on === mobileMode) return;
     mobileMode = on;
     if(on){
-      bot.classList.add('mobile');
-      bot.style.width='64px'; bot.style.height='64px';
+      eve.classList.add('mobile');
+      eve.style.width='64px'; eve.style.height='64px';
       // Keep following pointer by default in mobile; no parking trap
-      if(!bot._mobileInit){
-        bot._mobileInit = true;
+      if(!eve._mobileInit){
+        eve._mobileInit = true;
         window.addEventListener('pointermove', e=>{ tx = e.clientX; ty = e.clientY; lastMoveT = performance.now(); }, {passive:true});
-        bot.addEventListener('pointerdown', ()=>{ waveCooldown = 0; lastMoveT = performance.now(); bot.classList.add('active'); });
+        eve.addEventListener('pointerdown', ()=>{ waveCooldown = 0; lastMoveT = performance.now(); eve.classList.add('active'); });
       }
     } else {
-      bot.classList.remove('mobile');
-      bot.style.width='54px'; bot.style.height='54px';
+      eve.classList.remove('mobile');
+      eve.style.width='54px'; eve.style.height='54px';
     }
   }
   applyMobileMode(detectMobile());
   window.addEventListener('resize', ()=> applyMobileMode(detectMobile()));
 
-  // Observe body class changes to toggle hard-hat
-  const classObserver = new MutationObserver(()=>{
-    if(!hat) return;
-    if(document.body.classList.contains('underground-mode')) hat.style.display='block'; else hat.style.display='none';
-  });
-  classObserver.observe(document.body,{attributes:true, attributeFilter:['class']});
-  if(document.body.classList.contains('underground-mode')){ if(hat) hat.style.display='block'; }
+  // EVE doesn't have a hard-hat component, skip this observer
+  // Underground mode styling is handled via CSS
 
   /* ===== Reaction to Close Button ===== */
   if(closeBtn){
