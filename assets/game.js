@@ -2551,6 +2551,15 @@ function enterTimeline() {
     document.body.classList.add('underground-mode'); 
     const eve = document.getElementById('cursor-eve');
     if(eve){ eve.classList.add('enter-underground'); setTimeout(()=> eve.classList.remove('enter-underground'), 700); }
+    
+    // Show underground text box
+    setTimeout(() => {
+      if (isUndergroundInitialized && undergroundDescription) {
+        console.log('Showing underground description on mode enter');
+        undergroundDescription.classList.add('visible');
+        isUndergroundVisible = true;
+      }
+    }, 800);
   }catch{}
 
   // Show vertical controls on mobile, hide horizontal ones
@@ -2583,6 +2592,13 @@ function exitTimeline(){
     document.body.classList.remove('underground-mode');
     const eve = document.getElementById('cursor-eve');
     if(eve){ eve.classList.add('exit-underground'); setTimeout(()=> eve.classList.remove('exit-underground'), 700); }
+    
+    // Hide underground text box
+    if (isUndergroundInitialized && undergroundDescription) {
+      console.log('Hiding underground description on mode exit');
+      undergroundDescription.classList.remove('visible');
+      isUndergroundVisible = false;
+    }
   }catch{}
 
   // Restore horizontal controls on mobile
@@ -2643,18 +2659,86 @@ function drawTimeline(){
   }
   // vertical track (green path) with rails and animated pulse
   const trackX = W/2; const _now = performance.now();
+  // Find CTF milestone to stop timeline there
+  const ctfMilestone = state.timeline.milestones.find(m => m.key === 'workshop2');
+  const timelineEndY = ctfMilestone ? ctfMilestone.y + 100 : state.timeline.length + 200;
+  
   ctx.save();
   ctx.strokeStyle='rgba(124,248,200,.44)'; ctx.lineWidth=10; ctx.lineCap='round';
-  ctx.beginPath(); ctx.moveTo(trackX, -state.camera.y + 100); ctx.lineTo(trackX, -state.camera.y + state.timeline.length + 200); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(trackX, -state.camera.y + 100); ctx.lineTo(trackX, -state.camera.y + timelineEndY); ctx.stroke();
   // animated dash
   ctx.strokeStyle='rgba(235,185,0,.42)'; ctx.lineWidth=3.5; ctx.setLineDash([18,14]);
   ctx.lineDashOffset = -((_now*0.12)%100);
-  ctx.beginPath(); ctx.moveTo(trackX, -state.camera.y + 80); ctx.lineTo(trackX, -state.camera.y + state.timeline.length + 220); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(trackX, -state.camera.y + 80); ctx.lineTo(trackX, -state.camera.y + timelineEndY); ctx.stroke();
   ctx.setLineDash([]);
   // side rails
   ctx.strokeStyle='rgba(138,164,255,.22)'; ctx.lineWidth=3;
-  ctx.beginPath(); ctx.moveTo(trackX-28, -state.camera.y + 120); ctx.lineTo(trackX-28, -state.camera.y + state.timeline.length + 240); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(trackX+28, -state.camera.y + 120); ctx.lineTo(trackX+28, -state.camera.y + state.timeline.length + 240); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(trackX-28, -state.camera.y + 120); ctx.lineTo(trackX-28, -state.camera.y + timelineEndY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(trackX+28, -state.camera.y + 120); ctx.lineTo(trackX+28, -state.camera.y + timelineEndY); ctx.stroke();
+  
+  // Show unfinished digging after CTF
+  if (ctfMilestone) {
+    const digY = -state.camera.y + timelineEndY;
+    if (digY > -40 && digY < H + 40) {
+      // Draw obvious barrier wall
+      ctx.fillStyle = 'rgba(139,69,19,0.8)';
+      ctx.fillRect(trackX - 50, digY - 20, 100, 40);
+      
+      // Barrier texture with rocks and debris
+      for (let i = 0; i < 15; i++) {
+        const bx = trackX - 45 + (i % 5) * 22;
+        const by = digY - 15 + Math.floor(i / 5) * 12;
+        ctx.fillStyle = `rgba(101,67,33,${0.6 + Math.random() * 0.3})`;
+        ctx.fillRect(bx + Math.random() * 4, by + Math.random() * 4, 8, 8);
+      }
+      
+      // Warning barriers
+      ctx.strokeStyle = 'rgba(255,215,0,0.9)';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([10, 5]);
+      ctx.beginPath();
+      ctx.moveTo(trackX - 60, digY - 25);
+      ctx.lineTo(trackX + 60, digY - 25);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // Draw rough tunnel end with debris
+      ctx.fillStyle = 'rgba(205,133,63,0.3)';
+      ctx.beginPath();
+      for (let i = 0; i < 20; i++) {
+        const angle = (i / 20) * Math.PI * 2;
+        const r = 25 + Math.sin(_now * 0.001 + i) * 8;
+        const x = trackX + Math.cos(angle) * r;
+        const y = digY + Math.sin(angle) * r * 0.6;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      
+      // Debris particles with more visibility
+      for (let i = 0; i < 12; i++) {
+        const px = trackX + (Math.random() - 0.5) * 80;
+        const py = digY + (Math.random() - 0.5) * 50;
+        const size = 2 + Math.random() * 4;
+        ctx.fillStyle = `rgba(139,69,19,${0.5 + Math.random() * 0.4})`;
+        ctx.fillRect(px, py, size, size);
+      }
+      
+      // Prominent warning text
+      ctx.font = 'bold 16px ui-sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255,215,0,0.95)';
+      ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+      ctx.lineWidth = 2;
+      ctx.strokeText('🚧 TUNNEL UNDER CONSTRUCTION 🚧', trackX, digY + 60);
+      ctx.fillText('🚧 TUNNEL UNDER CONSTRUCTION 🚧', trackX, digY + 60);
+      
+      ctx.font = '14px ui-sans-serif';
+      ctx.fillStyle = 'rgba(205,133,63,0.9)';
+      ctx.fillText('Access denied beyond CTF milestone', trackX, digY + 80);
+    }
+  }
   // rail flickers
   for(let i=0;i<8;i++){
     const ry = (((_now*0.12)+(i*220)) % (state.timeline.length+400)) - state.camera.y;
@@ -2717,76 +2801,6 @@ function drawTimeline(){
       ctx.fillStyle='rgba(124,248,200,.85)'; ctx.fillRect(trackX+48, yScreen+16, 180, 5);
     }
   });
-
-  // Registration Endpoint - Always at the very end of timeline
-  const registrationY = 1760; // Position after all timeline content
-  const regYScreen = registrationY - state.camera.y;
-  if(regYScreen > -140 && regYScreen < H+140) {
-    const regActive = Math.abs(p.y - registrationY) < 80;
-  if(regActive){ 
-      state.near = { label:'Register for SparkIT Competition', type:'registration', _reg:true }; 
-      // Enhanced EVE excitement for registration
-      try {
-        const eve = document.getElementById('cursor-eve');
-        if(eve && !eve.hasAttribute('data-reg-excitement')) {
-          eve.setAttribute('data-reg-excitement', 'true');
-          eve.style.transform += ' scale(1.1)';
-          setTimeout(() => {
-            eve.removeAttribute('data-reg-excitement');
-            eve.style.transform = eve.style.transform.replace(' scale(1.1)', '');
-          }, 2000);
-        }
-      } catch{}
-    }
-    
-    // Draw spectacular registration portal
-    ctx.save();
-    const time = performance.now() * 0.003;
-    
-    // Pulsing base circle with rainbow gradient
-    const regGrad = ctx.createRadialGradient(trackX, regYScreen, 0, trackX, regYScreen, 60);
-    regGrad.addColorStop(0, `rgba(255,100,255,${0.8 + 0.2*Math.sin(time*2)})`);
-    regGrad.addColorStop(0.3, `rgba(124,248,200,${0.6 + 0.4*Math.sin(time*1.5)})`);
-    regGrad.addColorStop(0.7, `rgba(138,164,255,${0.5 + 0.3*Math.sin(time)})`);
-    regGrad.addColorStop(1, 'rgba(255,255,255,0.1)');
-    
-    ctx.fillStyle = regGrad;
-    ctx.beginPath();
-    const pulseRadius = 45 + 15*Math.sin(time*3);
-    ctx.ellipse(trackX, regYScreen, pulseRadius, pulseRadius, 0, 0, Math.PI*2);
-    ctx.fill();
-    
-    // Rotating outer rings
-    for(let ring = 0; ring < 3; ring++) {
-      ctx.strokeStyle = `rgba(255,255,255,${0.4 - ring*0.1})`;
-      ctx.lineWidth = 3 - ring;
-      ctx.beginPath();
-      const ringRadius = 60 + ring*20 + 10*Math.sin(time*2 + ring);
-      ctx.ellipse(trackX, regYScreen, ringRadius, ringRadius, time*(1+ring*0.5), 0, Math.PI*2);
-      ctx.stroke();
-    }
-    
-    // Central registration icon (stylized "R")
-    ctx.fillStyle = regActive ? '#ffffff' : 'rgba(255,255,255,0.8)';
-    ctx.font = 'bold 24px ui-sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('✨', trackX, regYScreen - 5);
-    
-    // Label with enhanced styling
-    ctx.font = regActive ? 'bold 18px ui-sans-serif' : '600 16px ui-sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillStyle = regActive ? '#ff6bff' : '#e6ecff';
-    ctx.fillText('Register for Competition', trackX + 60, regYScreen - 8);
-    
-    if(regActive) {
-      ctx.font = '14px ui-sans-serif';
-      ctx.fillStyle = 'rgba(124,248,200,0.9)';
-      ctx.fillText('Press E to enter the portal! ✨', trackX + 60, regYScreen + 12);
-    }
-    
-    ctx.restore();
-  }
 
   // collectibles & ambient & hack progress updates + crystals + ripples
   updateAmbient(); updateOrbs(); updateHackMiniGame(); updateConfetti(); checkCompetitionCelebration(); updateCrystals(); updateRipples();
@@ -3935,6 +3949,26 @@ function step(){
   // Lock horizontal position to track and constrain movement strictly on the green path
   state.player.x = W/2; // hard lock to center path in CSS px space
   p.y += p.vy * dt;
+      
+      // Collision detection at CTF barrier
+      const ctfMilestone = state.timeline.milestones.find(m => m.key === 'workshop2');
+      if (ctfMilestone) {
+        const barrierY = ctfMilestone.y + 80; // Barrier slightly after CTF
+        if (p.y > barrierY) {
+          p.y = barrierY; // Stop at barrier
+          p.vy = Math.min(0, p.vy); // Cancel downward velocity
+          // Show bounce back effect and feedback
+          if (p.vy > 20) {
+            p.vy = -p.vy * 0.3; // Small bounce back
+            // Show feedback message
+            if (!state.timeline.barrierMessageShown) {
+              toast('🚧 Construction ahead - CTF workshop is the current limit!');
+              state.timeline.barrierMessageShown = true;
+            }
+          }
+        }
+      }
+      
       p.y = clamp(p.y, 140, state.timeline.length);
       // Auto-exit when pushing beyond the top while going up (mobile-friendly)
       if(p.y <= 142 && (upKey || p.vy < -20)){
@@ -4746,19 +4780,36 @@ closePanel = function(){
     'Contact': 'Get in touch with our team for support, partnerships, or more information'
   };
   
+  // Underground timeline descriptions
+  const undergroundDescriptions = {
+    'Registration': 'Complete your Spark Flash registration and join the technical journey',
+    'Game Dev': 'Workshop 1 — Game Development: design, engines & rapid prototyping',
+    'CTF': 'Workshop 2 — Capture The Flag: hacking challenges & cybersecurity basics',
+    'Programming': 'Workshop 3 — Programming: algorithms, team projects & mentoring',
+    'Competitions': 'Pitch, demo & compete for recognition and prizes'
+  };
+  
   let branchDescription = null;
   let branchText = null;
+  let undergroundDescription = null;
+  let undergroundText = null;
   let currentBranch = null;
+  let currentUndergroundBranch = null;
   let descriptionTimeout = null;
+  let undergroundTimeout = null;
   let isDescriptionInitialized = false;
+  let isUndergroundInitialized = false;
   // Track last player speed and whether the description is currently visible
   let lastPlayerSpeed = 0;
   let isDescriptionVisible = false;
+  let isUndergroundVisible = false;
   
   // Initialize description elements when DOM is ready
   function initBranchDescription() {
     branchDescription = document.getElementById('branch-description');
     branchText = document.getElementById('branch-text');
+    undergroundDescription = document.getElementById('underground-description');
+    undergroundText = document.getElementById('underground-text');
     
     if (branchDescription && branchText) {
       console.log('Branch description elements found and initialized');
@@ -4775,8 +4826,79 @@ closePanel = function(){
     } else {
       console.warn('Branch description elements not found');
     }
+    
+    if (undergroundDescription && undergroundText) {
+      console.log('Underground description elements found and initialized');
+      isUndergroundInitialized = true;
+      
+      // Show underground box when entering underground mode
+      setTimeout(() => {
+        if (document.body.classList.contains('underground-mode')) {
+          console.log('Showing initial underground description box');
+          undergroundDescription.classList.add('visible');
+        }
+      }, 1000);
+    } else {
+      console.warn('Underground description elements not found');
+    }
   }
   
+  function updateUndergroundDescription(milestone) {
+    if (!isUndergroundInitialized || !undergroundDescription || !undergroundText) return;
+
+    // Only show in underground mode
+    if (!document.body.classList.contains('underground-mode')) {
+      if (isUndergroundVisible) {
+        undergroundDescription.classList.remove('visible');
+        isUndergroundVisible = false;
+      }
+      return;
+    }
+
+    // Check player speed - decide visibility when slowed or stopped
+    const playerSpeed = Math.abs(state.player.vy || 0); // Use vertical speed for timeline
+    const speedThreshold = 100; // Lower threshold for timeline movement
+
+    console.log('Updating underground description:', milestone?.title, 'Speed:', playerSpeed.toFixed(1), 'Visible:', isUndergroundVisible);
+
+    clearTimeout(undergroundTimeout);
+
+    // Determine desired visibility: show when near a known milestone and player is slow/stopped
+    const desiredVisible = !!(milestone && undergroundDescriptions[milestone.title] && playerSpeed <= speedThreshold);
+
+    // If the desired visibility changed or milestone changed, update UI
+    const milestoneChanged = currentUndergroundBranch !== milestone;
+    currentUndergroundBranch = milestone;
+
+    if (desiredVisible && (!isUndergroundVisible || milestoneChanged)) {
+      // Smooth text transition for slow movement or when newly arrived
+      console.log('Showing underground description for:', milestone.title);
+      undergroundText.style.opacity = '0.5';
+      setTimeout(() => {
+        undergroundText.textContent = undergroundDescriptions[milestone.title];
+        undergroundText.style.opacity = '1';
+        undergroundDescription.classList.add('visible');
+        isUndergroundVisible = true;
+      }, 200);
+    } else if (!desiredVisible && isUndergroundVisible) {
+      // Hide when moving fast or no milestone nearby
+      const hideDelay = playerSpeed > speedThreshold ? 100 : 500;
+      console.log('Hiding underground description, delay:', hideDelay);
+
+      undergroundTimeout = setTimeout(() => {
+        undergroundText.style.opacity = '0.5';
+        setTimeout(() => {
+          undergroundDescription.classList.remove('visible');
+          isUndergroundVisible = false;
+          setTimeout(() => {
+            undergroundText.textContent = 'Descend into the technical depths and master advanced skills';
+            undergroundText.style.opacity = '1';
+          }, 300);
+        }, 200);
+      }, hideDelay);
+    }
+  }
+
   function updateBranchDescription(branch) {
     if (!isDescriptionInitialized || !branchDescription || !branchText) return;
 
@@ -4835,19 +4957,40 @@ closePanel = function(){
   
   // Hook into the existing game loop to monitor branch proximity and speed transitions
   let lastNearBranch = null;
+  let lastNearMilestone = null;
   setInterval(() => {
     if (!isDescriptionInitialized) return;
 
     const nearBranch = state.near;
     const playerSpeed = Math.abs(state.player.vx || 0);
 
-    // Trigger update when branch changes, or when we slow down/stop while staying near the same branch
-    const branchChanged = nearBranch !== lastNearBranch;
-    const speedDropped = playerSpeed <= 150 && lastPlayerSpeed > 150;
-    const stopped = playerSpeed === 0 && lastPlayerSpeed !== 0;
+    // Handle road branches
+    if (!document.body.classList.contains('underground-mode')) {
+      // Trigger update when branch changes, or when we slow down/stop while staying near the same branch
+      const branchChanged = nearBranch !== lastNearBranch;
+      const speedDropped = playerSpeed <= 150 && lastPlayerSpeed > 150;
+      const stopped = playerSpeed === 0 && lastPlayerSpeed !== 0;
 
-    if (branchChanged || (nearBranch && (speedDropped || stopped))) {
-      updateBranchDescription(nearBranch);
+      if (branchChanged || (nearBranch && (speedDropped || stopped))) {
+        updateBranchDescription(nearBranch);
+      }
+    }
+
+    // Handle underground timeline milestones
+    if (isUndergroundInitialized && document.body.classList.contains('underground-mode')) {
+      const nearMilestone = state.near && state.near._timeline ? state.near._timeline : null;
+      const verticalSpeed = Math.abs(state.player.vy || 0);
+      
+      const milestoneChanged = nearMilestone !== lastNearMilestone;
+      const verticalSpeedDropped = verticalSpeed <= 100 && Math.abs((state.player.lastVy || 0)) > 100;
+      const verticalStopped = verticalSpeed === 0 && Math.abs((state.player.lastVy || 0)) !== 0;
+
+      if (milestoneChanged || (nearMilestone && (verticalSpeedDropped || verticalStopped))) {
+        updateUndergroundDescription(nearMilestone);
+      }
+      
+      lastNearMilestone = nearMilestone;
+      state.player.lastVy = state.player.vy;
     }
 
     lastNearBranch = nearBranch;

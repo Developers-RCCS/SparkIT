@@ -21,7 +21,7 @@
 }
 html,body{margin:0;height:100%;background:linear-gradient(140deg,#090e1a,#0f1630 60%,#101a3f);overflow:hidden;}
 body{font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial; color:var(--fg);} 
-body.underground-mode{background:linear-gradient(160deg,#08121e,#0d1824 50%,#0f1f2c);} 
+body.underground-mode{background:linear-gradient(160deg,#1a1108,#2b1f0d 50%,#3d2a15);} 
 /* ===== Preloader ===== */
 #loader{position:fixed; inset:0; background:radial-gradient(circle at 50% 40%,#0f182d 0%,#060a14 70%); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:40px; z-index:10000; color:var(--fg); font-family:inherit; overflow:hidden;}
 #loader.hidden{pointer-events:none;}
@@ -183,6 +183,145 @@ body.pre-init .glass-description,
 body.loader-transition .glass-description {
   opacity: 0;
   pointer-events: none;
+}
+
+/* Hide road text box when in underground mode */
+body.underground-mode .glass-description:not(.underground-box) {
+  display: none;
+}
+
+/* Underground Timeline Description Box (Left Side) */
+.underground-box {
+  position: fixed;
+  top: 50%;
+  left: 40px;
+  transform: translateY(-50%);
+  min-width: 320px;
+  max-width: 450px;
+  width: auto;
+  padding: 20px 28px;
+  z-index: 1000;
+  
+  /* WALL-E wasteland theme */
+  background: linear-gradient(
+    145deg,
+    rgba(139, 69, 19, 0.15) 0%,
+    rgba(205, 133, 63, 0.25) 30%,
+    rgba(160, 82, 45, 0.20) 70%,
+    rgba(139, 69, 19, 0.12) 100%
+  );
+  backdrop-filter: blur(16px) saturate(110%);
+  -webkit-backdrop-filter: blur(16px) saturate(110%);
+  
+  border: 2px solid;
+  border-image: linear-gradient(
+    145deg,
+    rgba(205, 133, 63, 0.7) 0%,
+    rgba(222, 184, 135, 0.9) 50%,
+    rgba(205, 133, 63, 0.7) 100%
+  ) 1;
+  border-radius: 10px;
+  
+  box-shadow: 
+    0 6px 28px rgba(139, 69, 19, 0.4),
+    0 12px 56px rgba(205, 133, 63, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(205, 133, 63, 0.2),
+    inset 1px 0 0 rgba(255, 255, 255, 0.1),
+    inset -1px 0 0 rgba(205, 133, 63, 0.1);
+  
+  transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  opacity: 0;
+  transform: translateY(-50%) translateX(-20px) scale(0.94);
+}
+
+.underground-box::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  right: -1px;
+  bottom: -1px;
+  background: linear-gradient(
+    145deg,
+    rgba(205, 133, 63, 0.4),
+    transparent 20%,
+    transparent 80%,
+    rgba(205, 133, 63, 0.4)
+  );
+  border-radius: 10px;
+  z-index: -1;
+  opacity: 0.8;
+}
+
+.underground-box::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 10px;
+  width: 3px;
+  height: 3px;
+  background: radial-gradient(circle, rgba(205, 133, 63, 0.9), transparent);
+  border-radius: 50%;
+  box-shadow: 
+    5px 0 0 rgba(205, 133, 63, 0.7),
+    10px 0 0 rgba(205, 133, 63, 0.5);
+}
+
+.underground-box.visible {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0) scale(1);
+}
+
+.underground-box #underground-text {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: rgba(255, 248, 220, 0.95);
+  text-align: left;
+  text-shadow: 
+    0 2px 6px rgba(0, 0, 0, 0.6),
+    0 1px 2px rgba(205, 133, 63, 0.4);
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  letter-spacing: 0.2px;
+}
+
+/* Hide underground box when not in underground mode */
+body:not(.underground-mode) .underground-box {
+  display: none;
+}
+
+/* Show only in underground mode */
+body.underground-mode .underground-box {
+  display: block;
+}
+
+/* Responsive adjustments for underground box */
+@media (max-width: 768px) {
+  .underground-box {
+    left: 20px;
+    min-width: 280px;
+    max-width: 350px;
+    padding: 18px 24px;
+  }
+  
+  .underground-box #underground-text {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .underground-box {
+    left: 15px;
+    min-width: 250px;
+    max-width: 300px;
+    padding: 16px 20px;
+  }
+  
+  .underground-box #underground-text {
+    font-size: 14px;
+  }
 }
 
 /* Common fade animations */
@@ -1527,22 +1666,23 @@ body.eve-cursor * { cursor: none !important; }
 
 /* Underground mode modifications for EVE */
 body.underground-mode #cursor-eve .shell {
-  background: linear-gradient(140deg, #F5F3E7 0%, #E8E0D6 40%, #F0EDE5 100%);
+  /* WALL-E wasteland theme colors */
+  background: linear-gradient(140deg, #CD853F 0%, #A0522D 40%, #8B4513 100%);
   box-shadow: 
-    0 0 0 1px rgba(212, 181, 82, 0.2) inset,
-    0 2px 8px rgba(0, 0, 0, 0.15),
-    0 8px 24px -8px rgba(212, 181, 82, 0.3);
+    0 0 0 1px rgba(205, 133, 63, 0.4) inset,
+    0 2px 8px rgba(0, 0, 0, 0.25),
+    0 8px 24px -8px rgba(205, 133, 63, 0.5);
 }
 
 body.underground-mode #cursor-eve .energy-ring {
-  border-color: rgba(212, 181, 82, 0.5);
+  border-color: rgba(205, 133, 63, 0.7);
 }
 
 body.underground-mode #cursor-eve .eye-led {
-  background: radial-gradient(circle at 40% 30%, #D4B552 0%, #F6E7A4 70%);
+  background: radial-gradient(circle at 40% 30%, #CD853F 0%, #DEB887 70%);
   box-shadow: 
-    0 0 6px rgba(212, 181, 82, 0.8),
-    0 0 12px rgba(246, 231, 164, 0.4);
+    0 0 8px rgba(205, 133, 63, 0.9),
+    0 0 16px rgba(222, 184, 135, 0.6);
 }
 
 /* EVE enter/exit underground transitions */
@@ -1637,8 +1777,10 @@ body.loader-transition #cursor-eve {
 /* Subtle tap affordance for timeline crystals (drawn on canvas, but hint via cursor-eve) */
 body.underground-mode #cursor-eve::after{
   content:""; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-  width:64px; height:64px; border-radius:50%; pointer-events:none; opacity:0; 
-  background: radial-gradient(circle, rgba(0,184,232,.2) 0%, rgba(0,184,232,0) 70%);
+  width:96px; height:96px; border-radius:50%; pointer-events:none; opacity:0; 
+  background: radial-gradient(circle, rgba(205,133,63,.3) 0%, rgba(205,133,63,.1) 40%, rgba(205,133,63,0) 70%);
+  /* Larger light radius for better underground visibility */
+  box-shadow: 0 0 40px rgba(205,133,63,0.4), 0 0 80px rgba(205,133,63,0.2);
 }
 
 /* Close button synergy */
