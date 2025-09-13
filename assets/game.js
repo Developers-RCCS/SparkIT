@@ -2824,12 +2824,13 @@ function drawTimeline(){
     const by = r ? r.top + r.height/2 : H/2;
     // intensify spotlight when near a milestone
     const nearFactor = state.near && state.near.type && state.near.type.startsWith('timeline:') ? 0.65 : 0.45;
-    const grad = ctx.createRadialGradient(bx,by,30,bx,by,400);
-    // White-purple underground torch light
+    const grad = ctx.createRadialGradient(bx,by,40,bx,by,450);
+    // Purple-white underground torch light with WALL-E theme
     grad.addColorStop(0,'rgba(255,255,255,'+nearFactor.toFixed(3)+')');
-    grad.addColorStop(0.2,'rgba(240,230,255,'+(nearFactor*0.7).toFixed(3)+')');
-    grad.addColorStop(0.4,'rgba(220,200,255,'+(nearFactor*0.5).toFixed(3)+')');
-    grad.addColorStop(0.7,'rgba(200,180,255,'+(nearFactor*0.3).toFixed(3)+')');
+    grad.addColorStop(0.15,'rgba(199,125,255,'+(nearFactor*0.8).toFixed(3)+')');
+    grad.addColorStop(0.35,'rgba(166,99,204,'+(nearFactor*0.6).toFixed(3)+')');
+    grad.addColorStop(0.55,'rgba(139,79,179,'+(nearFactor*0.4).toFixed(3)+')');
+    grad.addColorStop(0.75,'rgba(106,76,147,'+(nearFactor*0.25).toFixed(3)+')');
     grad.addColorStop(1,'rgba(0,0,0,0.92)');
     ctx.fillStyle = grad;
     ctx.globalCompositeOperation = 'multiply';
@@ -4809,12 +4810,161 @@ closePanel = function(){
   let isDescriptionVisible = false;
   let isUndergroundVisible = false;
   
+  // Mobile detection
+  function isMobileDevice() {
+    return window.innerWidth <= 768;
+  }
+  
+  // Position dialog next to EVE cursor
+  function positionDialogNearEve(dialog, isUnderground = false) {
+    if (!dialog || !isMobileDevice()) return;
+    
+    const eve = document.getElementById('cursor-eve');
+    if (!eve) return;
+    
+    const eveRect = eve.getBoundingClientRect();
+    const dialogRect = dialog.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // Calculate optimal position relative to EVE
+    const eveX = eveRect.left + eveRect.width / 2;
+    const eveY = eveRect.top + eveRect.height / 2;
+    
+    // Preferred position: above and to the right of EVE
+    let dialogX = eveX + 30;
+    let dialogY = eveY - dialogRect.height - 20;
+    
+    // Boundary checks and adjustments
+    const margin = 10;
+    
+    // Right boundary check
+    if (dialogX + dialogRect.width > viewportWidth - margin) {
+      dialogX = eveX - dialogRect.width - 30; // Move to left side
+    }
+    
+    // Left boundary check
+    if (dialogX < margin) {
+      dialogX = margin;
+    }
+    
+    // Top boundary check
+    if (dialogY < margin) {
+      dialogY = eveY + 40; // Move below EVE
+    }
+    
+    // Bottom boundary check
+    if (dialogY + dialogRect.height > viewportHeight - margin) {
+      dialogY = viewportHeight - dialogRect.height - margin;
+    }
+    
+    // Apply position
+    dialog.style.left = `${dialogX}px`;
+    dialog.style.top = `${dialogY}px`;
+    
+    // Update speech bubble tail position
+    const tailX = Math.max(10, Math.min(dialogRect.width - 20, eveX - dialogX));
+    const tailY = eveY < dialogY ? -8 : dialogRect.height;
+    
+    // Position the speech bubble tail to point at EVE
+    const beforeTail = dialog.querySelector('::before') || dialog;
+    const afterTail = dialog.querySelector('::after') || dialog;
+    
+    // Update CSS custom properties for tail positioning
+    dialog.style.setProperty('--tail-x', `${tailX}px`);
+    dialog.style.setProperty('--tail-y', `${tailY}px`);
+    dialog.style.setProperty('--tail-direction', eveY < dialogY ? 'up' : 'down');
+    
+    // Update the tail styles dynamically
+    const style = document.createElement('style');
+    const tailDirection = eveY < dialogY ? 'down' : 'up';
+    const borderProp = tailDirection === 'down' ? 'border-bottom' : 'border-top';
+    const color1 = isUnderground ? 'rgba(199, 125, 255, 0.7)' : 'rgba(0, 184, 232, 0.4)';
+    const color2 = isUnderground ? 'rgba(139, 79, 179, 0.95)' : 'rgba(255, 255, 255, 0.98)';
+    
+    style.textContent = `
+      ${isUnderground ? '.eve-underground-dialog' : '.eve-mobile-dialog'}::before {
+        left: ${tailX}px !important;
+        ${tailDirection === 'down' ? 'top' : 'bottom'}: ${Math.abs(tailY)}px !important;
+        ${borderProp}: 8px solid ${color1} !important;
+        border-left: 8px solid transparent !important;
+        border-right: 8px solid transparent !important;
+        ${tailDirection === 'up' ? 'border-bottom' : 'border-top'}: none !important;
+      }
+      ${isUnderground ? '.eve-underground-dialog' : '.eve-mobile-dialog'}::after {
+        left: ${tailX + 2}px !important;
+        ${tailDirection === 'down' ? 'top' : 'bottom'}: ${Math.abs(tailY) - 2}px !important;
+        ${borderProp}: 6px solid ${color2} !important;
+        border-left: 6px solid transparent !important;
+        border-right: 6px solid transparent !important;
+        ${tailDirection === 'up' ? 'border-bottom' : 'border-top'}: none !important;
+      }
+    `;
+    
+    // Remove old style if exists
+    const oldStyle = document.querySelector(`#dialog-tail-style-${isUnderground ? 'underground' : 'road'}`);
+    if (oldStyle) oldStyle.remove();
+    
+    style.id = `dialog-tail-style-${isUnderground ? 'underground' : 'road'}`;
+    document.head.appendChild(style);
+  }
+  
+  // Get appropriate description elements based on screen size
+  function getDescriptionElements() {
+    const isMobile = isMobileDevice();
+    
+    if (isMobile) {
+      return {
+        branchDescription: document.getElementById('eve-mobile-dialog'),
+        branchText: document.querySelector('#eve-mobile-dialog #branch-text'),
+        undergroundDescription: document.getElementById('eve-underground-dialog'),
+        undergroundText: document.querySelector('#eve-underground-dialog #underground-text')
+      };
+    } else {
+      return {
+        branchDescription: document.getElementById('branch-description'),
+        branchText: document.getElementById('branch-text'),
+        undergroundDescription: document.getElementById('underground-description'),
+        undergroundText: document.getElementById('underground-text')
+      };
+    }
+  }
+  
+  // Update description elements when window resizes
+  function updateDescriptionElements() {
+    const elements = getDescriptionElements();
+    branchDescription = elements.branchDescription;
+    branchText = elements.branchText;
+    undergroundDescription = elements.undergroundDescription;
+    undergroundText = elements.undergroundText;
+    
+    // Show/hide appropriate elements based on device type
+    const isMobile = isMobileDevice();
+    
+    // Desktop elements
+    const desktopBranch = document.getElementById('branch-description');
+    const desktopUnderground = document.getElementById('underground-description');
+    
+    // Mobile elements
+    const mobileBranch = document.getElementById('eve-mobile-dialog');
+    const mobileUnderground = document.getElementById('eve-underground-dialog');
+    
+    if (isMobile) {
+      if (desktopBranch) desktopBranch.style.display = 'none';
+      if (desktopUnderground) desktopUnderground.style.display = 'none';
+      if (mobileBranch) mobileBranch.style.display = 'block';
+      if (mobileUnderground) mobileUnderground.style.display = 'block';
+    } else {
+      if (mobileBranch) mobileBranch.style.display = 'none';
+      if (mobileUnderground) mobileUnderground.style.display = 'none';
+      if (desktopBranch) desktopBranch.style.display = 'block';
+      if (desktopUnderground) desktopUnderground.style.display = 'block';
+    }
+  }
+  
   // Initialize description elements when DOM is ready
   function initBranchDescription() {
-    branchDescription = document.getElementById('branch-description');
-    branchText = document.getElementById('branch-text');
-    undergroundDescription = document.getElementById('underground-description');
-    undergroundText = document.getElementById('underground-text');
+    updateDescriptionElements(); // Set up appropriate elements based on screen size
     
     if (branchDescription && branchText) {
       console.log('Branch description elements found and initialized');
@@ -4826,6 +4976,10 @@ closePanel = function(){
             !document.body.classList.contains('loader-transition')) {
           console.log('Showing initial description box');
           branchDescription.classList.add('visible');
+          // Position mobile dialog next to EVE
+          if (isMobileDevice() && branchDescription.id === 'eve-mobile-dialog') {
+            setTimeout(() => positionDialogNearEve(branchDescription, false), 100);
+          }
         }
       }, 3000);
     } else {
@@ -4841,6 +4995,10 @@ closePanel = function(){
         if (document.body.classList.contains('underground-mode')) {
           console.log('Showing initial underground description box');
           undergroundDescription.classList.add('visible');
+          // Position mobile dialog next to EVE
+          if (isMobileDevice() && undergroundDescription.id === 'eve-underground-dialog') {
+            setTimeout(() => positionDialogNearEve(undergroundDescription, true), 100);
+          }
         }
       }, 1000);
     } else {
@@ -4884,6 +5042,10 @@ closePanel = function(){
         undergroundText.style.opacity = '1';
         undergroundDescription.classList.add('visible');
         isUndergroundVisible = true;
+        // Position mobile dialog next to EVE
+        if (isMobileDevice() && undergroundDescription.id === 'eve-underground-dialog') {
+          setTimeout(() => positionDialogNearEve(undergroundDescription, true), 100);
+        }
       }, 200);
     } else if (!desiredVisible && isUndergroundVisible) {
       // Hide when moving fast or no milestone nearby
@@ -4931,6 +5093,10 @@ closePanel = function(){
         branchText.style.opacity = '1';
         branchDescription.classList.add('visible');
         isDescriptionVisible = true;
+        // Position mobile dialog next to EVE
+        if (isMobileDevice() && branchDescription.id === 'eve-mobile-dialog') {
+          setTimeout(() => positionDialogNearEve(branchDescription, false), 100);
+        }
       }, 200);
     } else if (!desiredVisible && isDescriptionVisible) {
       // Hide when moving fast or no branch nearby
@@ -4959,6 +5125,45 @@ closePanel = function(){
   } else {
     initBranchDescription();
   }
+  
+  // Handle window resize to switch between mobile/desktop dialogs
+  window.addEventListener('resize', () => {
+    setTimeout(() => {
+      const wasVisible = isDescriptionVisible;
+      const wasUndergroundVisible = isUndergroundVisible;
+      
+      // Hide current elements
+      if (branchDescription && wasVisible) {
+        branchDescription.classList.remove('visible');
+      }
+      if (undergroundDescription && wasUndergroundVisible) {
+        undergroundDescription.classList.remove('visible');
+      }
+      
+      // Update to new elements
+      updateDescriptionElements();
+      
+      // Restore visibility on new elements
+      if (branchDescription && wasVisible) {
+        setTimeout(() => {
+          branchDescription.classList.add('visible');
+          // Position mobile dialog next to EVE
+          if (isMobileDevice() && branchDescription.id === 'eve-mobile-dialog') {
+            setTimeout(() => positionDialogNearEve(branchDescription, false), 100);
+          }
+        }, 100);
+      }
+      if (undergroundDescription && wasUndergroundVisible) {
+        setTimeout(() => {
+          undergroundDescription.classList.add('visible');
+          // Position mobile dialog next to EVE
+          if (isMobileDevice() && undergroundDescription.id === 'eve-underground-dialog') {
+            setTimeout(() => positionDialogNearEve(undergroundDescription, true), 100);
+          }
+        }, 100);
+      }
+    }, 100);
+  });
   
   // Hook into the existing game loop to monitor branch proximity and speed transitions
   let lastNearBranch = null;
@@ -5001,6 +5206,31 @@ closePanel = function(){
     lastNearBranch = nearBranch;
     lastPlayerSpeed = playerSpeed;
   }, 100);
+  
+  // Track cursor movement for mobile dialog positioning
+  let dialogPositionTimer;
+  
+  function trackCursorForDialog() {
+    if (!isMobileDevice()) return;
+    
+    clearTimeout(dialogPositionTimer);
+    dialogPositionTimer = setTimeout(() => {
+      const mobileDialog = document.getElementById('eve-mobile-dialog');
+      const undergroundDialog = document.getElementById('eve-underground-dialog');
+      
+      if (mobileDialog && mobileDialog.style.display !== 'none') {
+        positionDialogNearEve(mobileDialog, false);
+      }
+      
+      if (undergroundDialog && undergroundDialog.style.display !== 'none') {
+        positionDialogNearEve(undergroundDialog, true);
+      }
+    }, 50); // Throttle to avoid excessive updates
+  }
+  
+  // Add event listeners for cursor tracking
+  document.addEventListener('mousemove', trackCursorForDialog);
+  document.addEventListener('touchmove', trackCursorForDialog);
   
   // Show a one-time hint on how to exit timeline on mobile
   let hinted=false; const origEnter=enterTimeline; enterTimeline = function(){ origEnter(); if(!hinted && isMobileDevice()){ hinted=true; setTimeout(()=> toast('Swipe up or tap ▲ to climb; Up @ top to exit'), 600); } };
