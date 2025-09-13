@@ -10,6 +10,11 @@
   --accent2-alpha-6: rgba(138,164,255,.6);
   --accent2-alpha-25: rgba(138,164,255,.25);
   
+  /* Purple WALL-E color palette */
+  --walle-purple-dk: #6a4c93;
+  --walle-purple-lt: #8b4fb3;
+  --walle-eye-blue : #4a90e2;
+  
   /* Common fade animations */
   --fade-in: fadeIn 0.6s cubic-bezier(.22,1.1,.36,1);
   --fade-out: fadeOut 0.55s ease forwards;

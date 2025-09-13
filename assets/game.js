@@ -46,13 +46,22 @@ let W = canvas.width, H = canvas.height;
 const state = {
   // player physics (px units in CSS pixels; velocities are px/s)
   player:{
-    x:120, y:H-160, w:80, h:36,
+    x:120, y:H-160, w:80, h:60, // Updated height for WALL-E proportions (was h:36)
     vx:0, ax:0,
     vy:0, ay:0,
     accel: 600,          // px/s^2
     friction: 380,       // px/s^2
     maxSpeed: 420,       // px/s
     trailParticles: []   // adaptive energy trail particles
+  },
+  
+  // WALL-E character state
+  walle: {
+    eyeBlink: { timer: 0, isBlinking: false },
+    armExtension: { left: 0, right: 0 }, // 0-1 extension amount
+    headTilt: 0, // -15 to +15 degrees
+    curiosityMode: false,
+    antennaStatus: 0.3 // LED brightness 0-1
   },/* ======= end content ======= */
 
   camera:{x:0, y:0},
@@ -109,6 +118,15 @@ const state = {
   settings: { forceDark: true },
   // obstacles and interactions
   obstacles: { potholes: [], speedBumps: [] },
+  // trash pile for WALL-E collision
+  trashPile: {
+    x: 500, // positioned between overview (300) and phase1 (700)
+    y: H - 320, // on the road surface
+    width: 240, // increased from 80
+    height: 200,  // increased from 60
+    image: null, // will be loaded
+    collided: false
+  },
   // phase gate
   gate: { x: 1800, triggered:false },
   // fireworks particles
@@ -178,7 +196,7 @@ const state = {
   swapHint(); const hintTimer = setInterval(swapHint, 2200);
   // Basic asset list (images from billboards + logo + content.json)
   const assetUrls = [
-    'assets/Logo-SparkIt.png','assets/rc1.png','assets/rc2.png','assets/kghs1.png','assets/kghs2.png','assets/content.json'
+    'assets/Logo-SparkIt.png','assets/rc1.png','assets/rc2.png','assets/kghs1.png','assets/kghs2.png','assets/content.json','assets/trash-pile.png'
   ];
   let loaded = 0;
   function mark(){ loaded++; }
@@ -923,6 +941,8 @@ addEventListener('keydown', e=>{
   if(e.code==='KeyF'){ state.spotlight.active = true; }
   if(e.code==='ShiftLeft' && state.keys['KeyF']){ triggerPhoto(); }
   if(e.code==='KeyT'){ toggleTheme() }
+  // Quick access to WALL-E Wasteland theme for testing
+  if(e.code==='KeyW' && e.shiftKey){ setWallEWastelandTheme() }
 });
 addEventListener('keyup', e=>{
   state.keys[e.code]=false;
@@ -1338,9 +1358,20 @@ function drawBackground(){
   computeDayNight();
   const isNight = state.dayNight.isNight;
   const reduced = PREFERS_REDUCED_MOTION;
+  
+  // Check for WALL-E wasteland theme first
+  if(state.theme === 'walle-wasteland') {
+    drawWallEWastelandBackground();
+    return;
+  }
+  
   // sky gradient
   const g = ctx.createLinearGradient(0,0,0,H);
-  if(state.theme==='sunset'){
+  if(state.theme==='walle-purple'){
+    // Purple theme for WALL-E
+    g.addColorStop(0, '#2d1b40');  // Dark purple
+    g.addColorStop(1, '#1a0d26');  // Very dark purple
+  } else if(state.theme==='sunset'){
     g.addColorStop(0, isNight? '#1a0f2b':'#ff9966');
     g.addColorStop(1, isNight? '#0a0f1e':'#ff5e62');
   }else{
@@ -1393,6 +1424,267 @@ function drawBackground(){
     ctx.fillText('Sponsor', px, sbY-25);
     ctx.fillStyle = 'rgba(255,255,255,.08)';
   }
+}
+
+/**
+ * WALL-E Wasteland Background Implementation
+ * Based on June 27, 2008 WALL-E Movie Poster
+ * Recreates the iconic desolate Earth setting with:
+ * - Twilight sky gradient (orange to deep purple)
+ * - Star field in upper atmosphere
+ * - Trash tower silhouettes on horizon
+ * - Scattered waste debris on ground
+ * - Atmospheric dust particles
+ * - Horizon glow effects
+ */
+function drawWallEWastelandBackground(){
+  const cx = state.camera.x;
+  const reduced = PREFERS_REDUCED_MOTION;
+  
+  // === WALL-E WASTELAND SKY ===
+  const horizonY = H * 0.7;
+  const skyGradient = ctx.createLinearGradient(0, 0, 0, horizonY);
+  
+  // Twilight sky gradient based on poster analysis
+  skyGradient.addColorStop(0, '#1a0f2b');     // Deep space purple
+  skyGradient.addColorStop(0.3, '#6b2c91');   // Purple
+  skyGradient.addColorStop(0.6, '#ff6b4a');   // Orange-pink
+  skyGradient.addColorStop(0.85, '#ff9966');  // Warm orange
+  skyGradient.addColorStop(1, '#ffcc99');     // Horizon glow
+  
+  ctx.fillStyle = skyGradient;
+  ctx.fillRect(0, 0, W, horizonY);
+  
+  // Ground gradient
+  const groundGradient = ctx.createLinearGradient(0, horizonY, 0, H);
+  groundGradient.addColorStop(0, '#a0783c');  // Dusty orange
+  groundGradient.addColorStop(1, '#6b4913');  // Darker brown
+  
+  ctx.fillStyle = groundGradient;
+  ctx.fillRect(0, horizonY, W, H * 0.3);
+  
+  // === STAR FIELD ===
+  drawWastelandStars();
+  
+  // === ATMOSPHERIC HORIZON GLOW ===
+  drawWastelandAtmosphere();
+  
+  // === TRASH TOWER SILHOUETTES ===
+  drawTrashTowers();
+  
+  // === WASTE DEBRIS ===
+  drawWasteDebris();
+  
+  // === ATMOSPHERIC DUST PARTICLES ===
+  drawWastelandDustParticles();
+}
+
+function drawWastelandDustParticles(){
+  if(PREFERS_REDUCED_MOTION) return; // Skip particles for reduced motion
+  
+  // Initialize dust particles array if not exists
+  if(!state.wastelandDust) {
+    state.wastelandDust = [];
+    // Spawn initial dust particles
+    for(let i = 0; i < 30; i++) {
+      state.wastelandDust.push({
+        x: Math.random() * W * 2, // Spread across wider area
+        y: H * 0.5 + Math.random() * H * 0.4, // In lower atmosphere
+        vx: (Math.random() - 0.5) * 20,
+        vy: (Math.random() - 0.5) * 10,
+        size: 1 + Math.random() * 2,
+        life: Math.random(),
+        alpha: 0.1 + Math.random() * 0.2
+      });
+    }
+  }
+  
+  // Update dust particles
+  state.wastelandDust.forEach(particle => {
+    particle.x += particle.vx * state.dt;
+    particle.y += particle.vy * state.dt;
+    particle.life += state.dt * 0.3;
+    
+    // Wrap particles around screen
+    if(particle.x < -state.camera.x - 50) particle.x = W + state.camera.x + 50;
+    if(particle.x > W + state.camera.x + 50) particle.x = -state.camera.x - 50;
+    if(particle.y < 0) particle.y = H;
+    if(particle.y > H) particle.y = 0;
+  });
+  
+  // Draw dust particles
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  state.wastelandDust.forEach(particle => {
+    const screenX = particle.x - state.camera.x;
+    if(screenX > -10 && screenX < W + 10) {
+      const alpha = particle.alpha * (0.5 + 0.5 * Math.sin(particle.life));
+      ctx.fillStyle = `rgba(210, 180, 140, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(screenX, particle.y, particle.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+  ctx.restore();
+}
+
+function drawWastelandStars(){
+  const stars = [
+    // Predefined star positions for consistency
+    {x: 120, y: 60, size: 1}, {x: 340, y: 45, size: 2},
+    {x: 580, y: 85, size: 1}, {x: 760, y: 30, size: 3},
+    {x: 180, y: 120, size: 1}, {x: 420, y: 70, size: 2},
+    {x: 680, y: 110, size: 1}, {x: 820, y: 90, size: 2},
+    {x: 240, y: 40, size: 1}, {x: 480, y: 100, size: 1},
+    {x: 720, y: 50, size: 2}, {x: 860, y: 130, size: 1},
+    {x: 300, y: 80, size: 1}, {x: 540, y: 35, size: 2},
+    {x: 780, y: 115, size: 1}, {x: 920, y: 65, size: 3},
+    {x: 60, y: 95, size: 1}, {x: 380, y: 25, size: 1},
+    {x: 620, y: 140, size: 2}, {x: 800, y: 75, size: 1},
+    {x: 160, y: 55, size: 1}, {x: 460, y: 120, size: 1},
+    {x: 700, y: 30, size: 2}, {x: 880, y: 100, size: 1},
+    {x: 280, y: 65, size: 1}, {x: 520, y: 90, size: 2},
+    {x: 760, y: 140, size: 1}, {x: 900, y: 45, size: 1}
+  ];
+  
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+  stars.forEach(star => {
+    if(star.y < H * 0.5) { // Only in upper sky
+      // Adjust star position based on camera for slight parallax
+      const starX = star.x - (state.camera.x * 0.1);
+      
+      ctx.beginPath();
+      ctx.arc(starX, star.y, star.size, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Add subtle glow for larger stars
+      if(star.size > 2) {
+        const starGlow = ctx.createRadialGradient(
+          starX, star.y, 0,
+          starX, star.y, star.size * 3
+        );
+        starGlow.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+        starGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        
+        ctx.fillStyle = starGlow;
+        ctx.beginPath();
+        ctx.arc(starX, star.y, star.size * 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      }
+    }
+  });
+}
+
+function drawWastelandAtmosphere(){
+  const horizonY = H * 0.7;
+  
+  // === HORIZON GLOW ===
+  const glowGradient = ctx.createRadialGradient(
+    W/2, horizonY, 0,
+    W/2, horizonY, W * 0.6
+  );
+  glowGradient.addColorStop(0, 'rgba(255, 204, 153, 0.4)');
+  glowGradient.addColorStop(1, 'rgba(255, 204, 153, 0)');
+  
+  ctx.fillStyle = glowGradient;
+  ctx.fillRect(0, horizonY - 100, W, 200);
+}
+
+function drawTrashTowers(){
+  const cx = state.camera.x;
+  const horizonY = H * 0.7;
+  const parallaxSpeed = 0.15; // Slow movement for distant towers
+  
+  // Predefined tower positions and heights
+  const towers = [
+    {x: 100, height: 300, width: 25},
+    {x: 280, height: 450, width: 30},
+    {x: 450, height: 250, width: 20},
+    {x: 680, height: 380, width: 35},
+    {x: 920, height: 200, width: 15},
+    {x: 1150, height: 320, width: 28},
+    {x: 1380, height: 480, width: 32},
+    {x: 1580, height: 180, width: 18},
+    {x: 1820, height: 350, width: 26},
+    {x: 2100, height: 420, width: 30},
+    {x: 2350, height: 280, width: 22},
+    {x: 2580, height: 360, width: 29},
+    {x: 2800, height: 400, width: 31}
+  ];
+  
+  towers.forEach(tower => {
+    const screenX = tower.x - (cx * parallaxSpeed);
+    
+    if (screenX > -tower.width && screenX < W + tower.width) {
+      // Main tower body
+      ctx.fillStyle = '#2d1810'; // Dark silhouette
+      ctx.fillRect(
+        screenX - tower.width/2,
+        horizonY - tower.height,
+        tower.width,
+        tower.height
+      );
+      
+      // Add stepping detail (ramped sides)
+      ctx.fillStyle = '#1a1008';
+      for(let step = 0; step < 3; step++) {
+        const stepY = horizonY - (tower.height * (0.7 + step * 0.1));
+        ctx.fillRect(screenX - tower.width/2 - 2, stepY, 4, 8);
+        ctx.fillRect(screenX + tower.width/2 - 2, stepY, 4, 8);
+      }
+    }
+  });
+}
+
+function drawWasteDebris(){
+  const cx = state.camera.x;
+  const groundY = H * 0.75;
+  const debrisSpeed = 0.8; // Foreground parallax
+  
+  // Scattered waste cubes and debris
+  const debris = [
+    {x: 150, y: groundY + 10, size: 8, type: 'cube'},
+    {x: 320, y: groundY + 5, size: 12, type: 'cylinder'},
+    {x: 480, y: groundY + 8, size: 6, type: 'cube'},
+    {x: 650, y: groundY + 12, size: 10, type: 'cube'},
+    {x: 820, y: groundY + 6, size: 14, type: 'cylinder'},
+    {x: 980, y: groundY + 9, size: 7, type: 'cube'},
+    {x: 1150, y: groundY + 11, size: 9, type: 'cube'},
+    {x: 1320, y: groundY + 7, size: 13, type: 'cylinder'},
+    {x: 1480, y: groundY + 10, size: 8, type: 'cube'},
+    {x: 1650, y: groundY + 14, size: 11, type: 'cylinder'},
+    {x: 1820, y: groundY + 6, size: 9, type: 'cube'},
+    {x: 1980, y: groundY + 8, size: 12, type: 'cube'},
+    {x: 2150, y: groundY + 13, size: 7, type: 'cylinder'},
+    {x: 2320, y: groundY + 9, size: 10, type: 'cube'},
+    {x: 2480, y: groundY + 11, size: 8, type: 'cube'},
+    {x: 2650, y: groundY + 7, size: 15, type: 'cylinder'}
+  ];
+  
+  debris.forEach(item => {
+    const screenX = item.x - (cx * debrisSpeed);
+    
+    if (screenX > -item.size && screenX < W + item.size) {
+      ctx.fillStyle = '#4d3820'; // Rust brown
+      
+      if (item.type === 'cube') {
+        ctx.fillRect(
+          screenX - item.size/2, 
+          item.y - item.size,
+          item.size, 
+          item.size
+        );
+        // Add highlight edge
+        ctx.fillStyle = '#6d4830';
+        ctx.fillRect(screenX - item.size/2, item.y - item.size, item.size, 2);
+      } else if (item.type === 'cylinder') {
+        ctx.beginPath();
+        ctx.ellipse(screenX, item.y, item.size/2, item.size/2, item.size/4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  });
 }
 
 // Robot Spotlight — Volumetric beam and dust
@@ -1575,9 +1867,10 @@ function drawReflections() {
   ctx.clip();
 
   // Now, redraw the elements you want to be reflected with reduced opacity
-  // IMPORTANT: The drawing order is reversed. Car first, then trail, then background.
+  // IMPORTANT: The drawing order is reversed. WALL-E first, then trail, then background.
   ctx.globalAlpha = intensity * 0.5;
-  drawCar();
+  updateWallEAnimations();
+  drawWallE();
 
   ctx.globalAlpha = intensity * 0.6;
   drawPlayerTrail();
@@ -1949,6 +2242,93 @@ function drawRoad(){
     }
   }
   ctx.restore(); // shake restore
+}
+
+// Draw trash pile on the road
+function drawTrashPile() {
+  const trash = state.trashPile;
+  if (!trash.image) return; // Image not loaded yet
+  
+  const trashScreenX = trash.x - state.camera.x;
+  
+  // Only draw if visible on screen
+  if (trashScreenX < -trash.width || trashScreenX > W + trash.width) return;
+  
+  ctx.save();
+  
+  // Add a subtle glow effect if WALL-E is nearby
+  const distanceToWallE = Math.abs(state.player.x - trash.x);
+  if (distanceToWallE < 120) { // increased range for larger trash pile
+    const glowIntensity = Math.max(0, 1 - distanceToWallE / 120);
+    const glow = ctx.createRadialGradient(
+      trashScreenX, trash.y, 0,
+      trashScreenX, trash.y, trash.width * 0.8
+    );
+    glow.addColorStop(0, `rgba(255, 255, 0, ${0.15 * glowIntensity})`);
+    glow.addColorStop(1, 'rgba(255, 255, 0, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(
+      trashScreenX - trash.width, 
+      trash.y - trash.height, 
+      trash.width * 2, 
+      trash.height * 2
+    );
+  }
+  
+  // Apply color filter based on current theme to match background
+  let colorFilter = 'none';
+  const isNight = state.dayNight.isNight;
+  
+  if (state.theme === 'walle-purple') {
+    // Purple tint to match WALL-E theme
+    colorFilter = 'hue-rotate(240deg) saturate(0.7) brightness(0.8)';
+  } else if (state.theme === 'walle-wasteland') {
+    // Dusty orange/brown tint to match wasteland theme
+    colorFilter = 'hue-rotate(30deg) saturate(0.8) brightness(0.85)';
+  } else if (state.theme === 'sunset') {
+    if (isNight) {
+      // Dark purple/blue tint for night
+      colorFilter = 'hue-rotate(220deg) saturate(0.6) brightness(0.7)';
+    } else {
+      // Warm orange/red tint for sunset
+      colorFilter = 'hue-rotate(20deg) saturate(1.2) brightness(0.9)';
+    }
+  } else {
+    // Default neon theme
+    if (isNight) {
+      // Cool blue tint for night
+      colorFilter = 'hue-rotate(200deg) saturate(0.5) brightness(0.6)';
+    } else {
+      // Light blue tint for day
+      colorFilter = 'hue-rotate(190deg) saturate(0.8) brightness(1.1)';
+    }
+  }
+  
+  // Apply the color filter
+  ctx.filter = colorFilter;
+  
+  // Draw the trash pile image (now larger)
+  ctx.drawImage(
+    trash.image,
+    trashScreenX - trash.width/2,
+    trash.y - trash.height/2,
+    trash.width,
+    trash.height
+  );
+  
+  // Reset filter for other elements
+  ctx.filter = 'none';
+  
+  // Add interaction hint if WALL-E is very close
+  if (distanceToWallE < 80 && !trash.collided) { // adjusted range for larger trash pile
+    ctx.font = '12px ui-sans-serif';
+    ctx.fillStyle = 'rgba(255, 255, 0, 0.9)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('Interesting trash!', trashScreenX, trash.y - trash.height/2 - 15);
+  }
+  
+  ctx.restore();
 }
 
 /* ===== Timeline Vertical Mode ===== */
@@ -2620,7 +3000,513 @@ function clearRobotWorkshopVariant(){
 }
 
 /* ======= Car drawing ======= */
-function drawCar(){
+// WALL-E Animation State Machine and Character Update
+function updateWallEAnimations() {
+  const walle = state.walle;
+  const dt = state.dt;
+  const p = state.player;
+  const t = performance.now();
+  
+  // Eye blink animation (every 4-6 seconds with natural variation)
+  walle.eyeBlink.timer += dt;
+  const blinkInterval = 4 + Math.sin(t * 0.0003) * 2; // 4-6 second variance
+  if (walle.eyeBlink.timer > blinkInterval) {
+    walle.eyeBlink.isBlinking = true;
+    setTimeout(() => walle.eyeBlink.isBlinking = false, 120);
+    walle.eyeBlink.timer = 0;
+  }
+  
+  // Curiosity mode near interaction points
+  const nearBranch = state.near;
+  walle.curiosityMode = !!nearBranch;
+  
+  // Head tilt based on movement and curiosity
+  if (walle.curiosityMode) {
+    walle.headTilt = Math.sin(t * 0.003) * 12; // Curious head bob
+  } else if (Math.abs(p.vx) > 100) {
+    walle.headTilt = Math.sign(p.vx) * 5; // Lean into turns
+  } else {
+    walle.headTilt = Math.sin(t * 0.001) * 3; // Idle gentle sway
+  }
+  
+  // Arm animation based on movement
+  const isMoving = Math.abs(p.vx) > 20;
+  if (isMoving) {
+    walle.armExtension.left = 0.3 + Math.sin(t * 0.004) * 0.2;
+    walle.armExtension.right = 0.3 + Math.sin(t * 0.004 + Math.PI) * 0.2;
+  } else {
+    walle.armExtension.left = Math.max(0, walle.armExtension.left - dt * 0.8);
+    walle.armExtension.right = Math.max(0, walle.armExtension.right - dt * 0.8);
+  }
+  
+  // Antenna blinking (status indicator)
+  walle.antennaStatus = Math.sin(t * 0.003) > 0.7 ? 1 : 0.3;
+}
+
+// Hyper-detailed film-accurate WALL-E drawing function
+function drawWallE() {
+  const p = state.player;
+  const walle = state.walle;
+  const t = performance.now() * 0.001;
+  const sx = p.x - state.camera.x;
+  const sy = p.y;
+  
+  ctx.save();
+  ctx.translate(sx, sy);
+  
+  // Apply head tilt rotation
+  if (walle.headTilt) {
+    ctx.rotate(walle.headTilt * Math.PI / 180 * 0.1); // Subtle body lean
+  }
+
+  // === CHASSIS (CORE BODY) ===
+  // Base dimensions adjusted for WALL-E proportions (80x60px from 80x36px)
+  const bodyW = p.w;
+  const bodyH = 60;
+  
+  // Main body gradient with film-accurate yellow
+  const bodyGrad = ctx.createLinearGradient(-bodyW/2, -bodyH/2, bodyW/2, bodyH/2);
+  bodyGrad.addColorStop(0, '#D4A574'); // Pixar's canonical yellow
+  bodyGrad.addColorStop(0.3, '#C49664'); // Mid tone
+  bodyGrad.addColorStop(1, '#B08854'); // Shadow tone
+  
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.roundRect(-bodyW/2, -bodyH/2, bodyW, bodyH, 6);
+  ctx.fill();
+  
+  // Weathering and rust effects
+  ctx.save();
+  ctx.globalCompositeOperation = 'multiply';
+  
+  // Rust patches (organic blob shapes)
+  ctx.fillStyle = '#8B4513';
+  ctx.beginPath();
+  ctx.arc(-bodyW/3, -bodyH/4, 8, 0, Math.PI * 2);
+  ctx.arc(bodyW/4, bodyH/3, 6, 0, Math.PI * 2);
+  ctx.arc(-bodyW/6, bodyH/2, 4, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Paint chips (exposed metal)
+  ctx.fillStyle = '#737472';
+  ctx.fillRect(-bodyW/2 + 5, -bodyH/2 + 8, 3, 2);
+  ctx.fillRect(bodyW/2 - 8, bodyH/2 - 5, 4, 2);
+  ctx.fillRect(-bodyW/4, -bodyH/3, 2, 3);
+  
+  ctx.restore();
+  
+  // Panel seams and rivets
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-bodyW/2 + 10, -bodyH/2);
+  ctx.lineTo(-bodyW/2 + 10, bodyH/2);
+  ctx.moveTo(bodyW/2 - 10, -bodyH/2);
+  ctx.lineTo(bodyW/2 - 10, bodyH/2);
+  ctx.stroke();
+  
+  // Rivets
+  ctx.fillStyle = '#737472';
+  const rivetPositions = [
+    [-bodyW/2 + 10, -bodyH/3], [bodyW/2 - 10, -bodyH/3],
+    [-bodyW/2 + 10, bodyH/3], [bodyW/2 - 10, bodyH/3]
+  ];
+  rivetPositions.forEach(([x, y]) => {
+    ctx.beginPath();
+    ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Front compactor door (closed - could animate open for interactions)
+  ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(-bodyW/3, -bodyH/2, bodyW/1.5, bodyH/3, 3);
+  ctx.stroke();
+
+  // === TREADS (NO WHEELS!) ===
+  const treadY = bodyH/2 + 8;
+  const treadWidth = 18;
+  const treadHeight = 12;
+  
+  // Calculate tread animation based on movement
+  const treadOffset = (t * Math.abs(p.vx) * 0.01) % 8;
+  
+  // Left tread
+  drawTread(-bodyW/3, treadY, treadWidth, treadHeight, treadOffset, 'left');
+  
+  // Right tread  
+  drawTread(bodyW/3, treadY, treadWidth, treadHeight, treadOffset, 'right');
+
+  // === BINOCULAR EYES (EXPRESSIVE CORE) ===
+  const neckExtension = 5 + Math.sin(t * 0.002) * 2; // Subtle breathing
+  const headY = -bodyH/2 - 20 - neckExtension;
+  
+  // Telescoping neck segments
+  ctx.strokeStyle = '#666';
+  ctx.lineWidth = 6;
+  const neckSegments = 3;
+  for (let i = 0; i < neckSegments; i++) {
+    const segY = -bodyH/2 - (i + 1) * 5 - neckExtension * (i / neckSegments);
+    ctx.beginPath();
+    ctx.moveTo(-8, segY);
+    ctx.lineTo(8, segY);
+    ctx.stroke();
+  }
+  
+  // Head rotation for curiosity
+  ctx.save();
+  ctx.translate(0, headY);
+  ctx.rotate(walle.headTilt * Math.PI / 180);
+  
+  // Binocular housing
+  const eyeHousingW = 45;
+  const eyeHousingH = 20;
+  ctx.fillStyle = '#737472';
+  ctx.beginPath();
+  ctx.roundRect(-eyeHousingW/2, -eyeHousingH/2, eyeHousingW, eyeHousingH, 5);
+  ctx.fill();
+  
+  // Housing weathering
+  ctx.fillStyle = '#555';
+  ctx.fillRect(-eyeHousingW/2 + 2, -eyeHousingH/2 + 2, eyeHousingW - 4, 3);
+  
+  // Individual eye assemblies
+  const eyeSpacing = 16;
+  [-1, 1].forEach((side, i) => {
+    const eyeX = side * eyeSpacing;
+    
+    // Eye socket (deep recess)
+    ctx.fillStyle = '#222';
+    ctx.beginPath();
+    ctx.arc(eyeX, 0, 10, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Lens assembly
+    const blinkScale = walle.eyeBlink.isBlinking ? 0.1 : 1;
+    const pupilSize = walle.curiosityMode ? 6 : 5;
+    
+    ctx.save();
+    ctx.translate(eyeX, 0);
+    ctx.scale(1, blinkScale);
+    
+    // Outer lens ring
+    ctx.strokeStyle = '#4A90E2';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, 8, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // Glowing lens
+    const eyeGlow = 0.7 + 0.3 * Math.sin(t * 1.5 + i * Math.PI);
+    const lensGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 8);
+    lensGrad.addColorStop(0, `rgba(74,144,226,${eyeGlow})`);
+    lensGrad.addColorStop(0.7, `rgba(74,144,226,${eyeGlow * 0.6})`);
+    lensGrad.addColorStop(1, 'rgba(74,144,226,0.2)');
+    
+    ctx.fillStyle = lensGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, 7, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Mechanical iris and pupil
+    if (!walle.eyeBlink.isBlinking) {
+      // Iris blades (simplified)
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+      ctx.lineWidth = 1;
+      for (let blade = 0; blade < 6; blade++) {
+        const angle = (blade / 6) * Math.PI * 2;
+        const x1 = Math.cos(angle) * pupilSize;
+        const y1 = Math.sin(angle) * pupilSize;
+        const x2 = Math.cos(angle) * (pupilSize + 2);
+        const y2 = Math.sin(angle) * (pupilSize + 2);
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
+      
+      // Black pupil with slight tracking
+      const trackX = walle.curiosityMode ? Math.sin(t * 0.003) * 1.5 : 0;
+      const trackY = walle.curiosityMode ? Math.cos(t * 0.003) * 1 : 0;
+      
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(trackX, trackY, pupilSize, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Pupil highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.beginPath();
+      ctx.arc(trackX - 1, trackY - 1, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    ctx.restore();
+    
+    // Lens smudges for realism
+    if (Math.random() > 0.95) { // Occasionally visible
+      ctx.fillStyle = 'rgba(150,150,150,0.2)';
+      ctx.beginPath();
+      ctx.arc(eyeX + Math.random() * 4 - 2, Math.random() * 4 - 2, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+  
+  ctx.restore(); // End head rotation
+
+  // === ARMS/HANDS (HYDRAULIC) ===
+  const armBaseY = -5;
+  
+  // Left arm
+  drawHydraulicArm(-bodyW/2, armBaseY, walle.armExtension.left, -1);
+  
+  // Right arm
+  drawHydraulicArm(bodyW/2, armBaseY, walle.armExtension.right, 1);
+
+  // === SMALL DETAILS FOR CUTENESS ===
+  
+  // Antenna with blinking status light
+  ctx.strokeStyle = '#666';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(bodyW/3, -bodyH/2);
+  ctx.lineTo(bodyW/3 + 5, -bodyH/2 - 15);
+  ctx.stroke();
+  
+  // Blinking red light
+  ctx.fillStyle = `rgba(187,0,5,${walle.antennaStatus})`;
+  ctx.beginPath();
+  ctx.arc(bodyW/3 + 5, -bodyH/2 - 15, 2, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Status LEDs on chest
+  const ledPositions = [
+    [-bodyW/4, -10], [0, -10], [bodyW/4, -10]
+  ];
+  ledPositions.forEach(([x, y], i) => {
+    const ledState = (t + i) % 3 < 1 ? 0.8 : 0.2;
+    ctx.fillStyle = `rgba(187,0,5,${ledState})`;
+    ctx.beginPath();
+    ctx.arc(x, y, 1, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  
+  // Side vents with subtle steam effect
+  if (Math.abs(p.vx) > 200) { // Only when moving fast
+    ctx.fillStyle = 'rgba(200,220,255,0.3)';
+    for (let i = 0; i < 3; i++) {
+      const steam = {
+        x: -bodyW/2 - 3 + Math.random() * 2,
+        y: -bodyH/4 + i * 5 + Math.random() * 3,
+        size: 1 + Math.random()
+      };
+      ctx.beginPath();
+      ctx.arc(steam.x, steam.y, steam.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  
+  // Projected shadow for 2.5D depth
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.scale(1, 0.3);
+  ctx.translate(0, bodyH * 2);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, bodyW/2, bodyH/3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  
+  ctx.restore(); // End main transform
+}
+
+// Helper function to draw detailed tank treads
+function drawTread(x, y, width, height, offset, side) {
+  ctx.save();
+  ctx.translate(x, y);
+  
+  // Main tread body (rubber belt)
+  ctx.fillStyle = '#333333';
+  ctx.beginPath();
+  ctx.roundRect(-width/2, -height/2, width, height, 4);
+  ctx.fill();
+  
+  // Metal lugs (16 per tread as per research)
+  const lugCount = 6; // Visible lugs on curved section
+  const lugSpacing = width / (lugCount - 1);
+  
+  ctx.fillStyle = '#A9A9A9';
+  for (let i = 0; i < lugCount; i++) {
+    const lugX = -width/2 + i * lugSpacing + offset % lugSpacing;
+    if (lugX >= -width/2 && lugX <= width/2) {
+      // Lug with wear patterns
+      ctx.beginPath();
+      ctx.roundRect(lugX - 1, -height/2 - 2, 2, height + 4, 1);
+      ctx.fill();
+      
+      // Wear chips on lugs
+      if (Math.random() > 0.7) {
+        ctx.fillStyle = '#666';
+        ctx.beginPath();
+        ctx.arc(lugX, -height/2, 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#A9A9A9';
+      }
+    }
+  }
+  
+  // Mud/dust buildup
+  ctx.fillStyle = '#D2B48C';
+  ctx.globalAlpha = 0.3;
+  ctx.beginPath();
+  ctx.roundRect(-width/2 + 2, height/2 - 2, width - 4, 2, 1);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  
+  // Drive sprocket (simplified)
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(0, 0, height/2 - 1, 0, Math.PI * 2);
+  ctx.stroke();
+  
+  ctx.restore();
+  
+  // Dust particles when moving
+  if (Math.abs(state.player.vx) > 50) {
+    const dustCount = Math.floor(Math.abs(state.player.vx) / 100);
+    for (let i = 0; i < dustCount; i++) {
+      const dust = {
+        x: x + (Math.random() - 0.5) * width * 2,
+        y: y + height/2 + Math.random() * 10,
+        size: 0.5 + Math.random() * 1.5,
+        alpha: 0.1 + Math.random() * 0.3
+      };
+      
+      ctx.fillStyle = `rgba(210,180,140,${dust.alpha})`;
+      ctx.beginPath();
+      ctx.arc(dust.x, dust.y, dust.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+// Helper function to draw hydraulic arms
+function drawHydraulicArm(baseX, baseY, extension, side) {
+  const maxLength = 25;
+  const currentLength = maxLength * extension;
+  
+  ctx.save();
+  ctx.translate(baseX, baseY);
+  
+  // Hydraulic piston body
+  ctx.strokeStyle = '#999';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(side * currentLength, 0);
+  ctx.stroke();
+  
+  // Piston segments for telescoping effect
+  const segments = 3;
+  for (let i = 0; i < segments; i++) {
+    const segLength = (currentLength / segments) * (i + 1);
+    ctx.strokeStyle = i % 2 ? '#777' : '#999';
+    ctx.lineWidth = 4 - i;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(side * segLength, 0);
+    ctx.stroke();
+  }
+  
+  // Hand gripper (3-fingered)
+  if (extension > 0.1) {
+    const handX = side * currentLength;
+    ctx.fillStyle = '#A9A9A9';
+    
+    // Palm
+    ctx.beginPath();
+    ctx.arc(handX, 0, 4, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Three fingers
+    const fingerAngles = [-30, 0, 30];
+    fingerAngles.forEach(angle => {
+      const rad = angle * Math.PI / 180;
+      const fingerLength = 6;
+      const fx = handX + Math.cos(rad) * fingerLength * side;
+      const fy = Math.sin(rad) * fingerLength;
+      
+      ctx.strokeStyle = '#A9A9A9';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(handX, 0);
+      ctx.lineTo(fx, fy);
+      ctx.stroke();
+    });
+  }
+  
+  // Hydraulic fluid leaks (weathering detail)
+  if (Math.random() > 0.8 && extension > 0.3) {
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath();
+    ctx.arc(side * currentLength * 0.7, -2, 1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  
+  ctx.restore();
+}
+
+// Collision detection for WALL-E and trash pile
+function checkTrashPileCollision() {
+  const p = state.player;
+  const trash = state.trashPile;
+  
+  // Simple box collision detection
+  const wallELeft = p.x - p.w/2;
+  const wallERight = p.x + p.w/2;
+  const wallETop = p.y - p.h/2;
+  const wallEBottom = p.y + p.h/2;
+  
+  const trashLeft = trash.x - trash.width/2;
+  const trashRight = trash.x + trash.width/2;
+  const trashTop = trash.y - trash.height/2;
+  const trashBottom = trash.y + trash.height/2;
+  
+  // Check if WALL-E is colliding with trash pile
+  if (wallERight > trashLeft && wallELeft < trashRight &&
+      wallEBottom > trashTop && wallETop < trashBottom) {
+    
+    if (!trash.collided) {
+      // First time collision
+      trash.collided = true;
+      
+      // Visual feedback
+      toast('🤖🗑️ WALL-E found some interesting trash!');
+      
+      // Add some curiosity animation
+      state.walle.curiosityMode = true;
+      state.walle.headTilt = 10;
+      
+      // Reset curiosity mode after a delay
+      setTimeout(() => {
+        state.walle.curiosityMode = false;
+        state.walle.headTilt = 0;
+      }, 2000);
+      
+      // Stop WALL-E briefly to examine the trash
+      state.player.vx *= 0.3;
+    }
+    
+    return true;
+  }
+  
+  return false;
+}
+
+// Legacy car drawing function - REPLACED BY WALL-E SYSTEM
+// This function is disabled in favor of the new hyper-detailed film-accurate WALL-E
+function drawCar_LEGACY(){
   const p = state.player;
   const y = p.y, x = (state.mode==='timeline' ? p.x : (p.x - state.camera.x));
   // transformation progress
@@ -2682,21 +3568,8 @@ function drawCar(){
     }
     ctx.restore();
   } else {
-    // Car (default)
-    const grad = ctx.createLinearGradient(x-p.w/2,y-20,x+p.w/2,y+20);
-    grad.addColorStop(0,'#8aa4ff'); grad.addColorStop(1,'#7cf8c8');
-    ctx.fillStyle = grad; ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=1.2;
-    ctx.beginPath(); ctx.roundRect(x-p.w/2, y-p.h/2, p.w, p.h, 8); ctx.fill(); ctx.stroke();
-    ctx.fillStyle='rgba(255,255,255,.25)';
-    ctx.fillRect(x-p.w/2+10, y-p.h/2+6, 24, p.h-12);
-    ctx.fillRect(x+p.w/2-34, y-p.h/2+6, 24, p.h-12);
-    ctx.fillStyle='#0c1226';
-    ctx.beginPath(); ctx.arc(x-p.w/3, y+p.h/2, 12, 0, Math.PI*2); ctx.arc(x+p.w/3, y+p.h/2, 12, 0, Math.PI*2); ctx.fill();
-    if(state.player.vx>20){
-      const lg = ctx.createRadialGradient(x+p.w/2, y, 0, x+p.w/2+70, y, 80);
-      lg.addColorStop(0,'rgba(255,255,255,.25)'); lg.addColorStop(1,'rgba(255,255,255,0)');
-      ctx.fillStyle=lg; ctx.beginPath(); ctx.ellipse(x+p.w/2+70, y, 80, 28, 0, 0, Math.PI*2); ctx.fill();
-    }
+    // Draw WALL-E character instead of car
+    drawWallE();
   }
   // end transformation branch
 
@@ -2799,6 +3672,10 @@ function step(){
   if(state.worldTransition && state.worldTransition.active){
     updateWorldTransition();
   }
+  
+  // Update WALL-E animations
+  updateWallEAnimations();
+  
   if(!state.paused){
     const leftKey = state.keys['ArrowLeft']||state.keys['KeyA'];
     const rightKey = state.keys['ArrowRight']||state.keys['KeyD'];
@@ -2838,6 +3715,7 @@ function step(){
       }
       state.near = null;
       handleCollisions();
+      checkTrashPileCollision(); // Check WALL-E collision with trash pile
       updateGhost();
       updateFireworks();
       updatePlayerTrail(); // Update dynamic energy trail
@@ -2926,14 +3804,16 @@ function step(){
   if(state.mode==='road'){
     drawBackground(); // background for reflections
     drawRoad();
+    drawTrashPile(); // Draw trash pile on the road
 
     // Reflections on wet road
     drawReflections();
 
     // World scene
-    drawRevealedData(); // hidden layer first so car overlays if needed
+    drawRevealedData(); // hidden layer first so WALL-E overlays if needed
     drawPlayerTrail();
-    drawCar();
+    updateWallEAnimations();
+    drawWallE();
     drawGhost();
     drawFireworks();
 
@@ -2948,7 +3828,8 @@ function step(){
     state.player.x = trackX; // lock horizontally in timeline
     ctx.save();
     ctx.translate(0, -state.camera.y);
-    drawCar();
+    updateWallEAnimations();
+    drawWallE();
     ctx.restore();
     state.player.x = savedX;
   }
@@ -2959,6 +3840,19 @@ function step(){
   requestAnimationFrame(step);
 }
 requestAnimationFrame(step);
+
+// Initialize trash pile image
+function initTrashPile() {
+  const img = new Image();
+  img.onload = () => {
+    state.trashPile.image = img;
+  };
+  img.onerror = () => {
+    console.warn('Failed to load trash pile image');
+  };
+  img.src = 'assets/trash-pile.png';
+}
+initTrashPile();
 
 /* ======= Resize handling ======= */
 function positionPlayerOnRoad(){
@@ -2981,6 +3875,8 @@ function resize(){
   ctx.scale(dpr, dpr);
   W = vw; H = vh;
   positionPlayerOnRoad();
+  // Update trash pile position to stay on road surface
+  state.trashPile.y = H - 120;
   initBillboards(); // recompute billboard placements (y alignment & potential world length changes)
 }
 addEventListener('resize', resize);
@@ -3357,7 +4253,33 @@ const PREFERS_REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: red
 // Fuel/Boost HUD removed
 
 /* ======= Theme toggle ======= */
-function toggleTheme(){ state.theme = state.theme==='neon'?'sunset':'neon'; toast(state.theme==='neon'?'Neon Colombo Night':'Galle Face Sunset'); }
+function toggleTheme(){ 
+  if(state.theme === 'neon') state.theme = 'sunset';
+  else if(state.theme === 'sunset') state.theme = 'walle-purple';
+  else if(state.theme === 'walle-purple') state.theme = 'walle-wasteland';
+  else state.theme = 'neon';
+  
+  const messages = {
+    'neon': 'Neon Colombo Night',
+    'sunset': 'Galle Face Sunset', 
+    'walle-purple': 'WALL-E Purple Cosmos',
+    'walle-wasteland': 'WALL-E Wasteland Earth'
+  };
+  toast(messages[state.theme] || 'Theme changed');
+}
+
+// Set WALL-E Wasteland Theme directly
+function setWallEWastelandTheme() {
+  state.theme = 'walle-wasteland';
+  // Disable day/night cycle for consistent poster look
+  state.dayNight.isNight = false;
+  state.settings.forceDark = false;
+  toast('🤖🏜️ WALL-E Wasteland Earth activated');
+}
+
+// Make theme functions globally accessible for console testing
+window.setWallEWastelandTheme = setWallEWastelandTheme;
+window.toggleTheme = toggleTheme;
 
 /* ======= Deep links ======= */
 window.addEventListener('hashchange', handleHash);
