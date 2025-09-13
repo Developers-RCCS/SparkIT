@@ -949,10 +949,71 @@ addEventListener('keyup', e=>{
   if(e.code==='KeyF'){ state.spotlight.active = false; }
 });
 
+// 3D EVE Cursor Mouse Interaction System
+let eveRotationState = { rotateX: 0, rotateY: 0, targetX: 0, targetY: 0 };
+let lastEveUpdateTime = 0;
+let cachedEveBody = null;
+
+function updateEveRotation(clientX, clientY) {
+  const centerX = window.innerWidth / 2;
+  const centerY = window.innerHeight / 2;
+  
+  // Calculate rotation based on mouse position relative to screen center
+  // Range: -20 to +20 degrees for more noticeable 3D effect
+  const maxRotation = 20;
+  eveRotationState.targetX = ((clientY - centerY) / centerY) * maxRotation;
+  eveRotationState.targetY = -((clientX - centerX) / centerX) * maxRotation;
+}
+
+function animateEveRotation(currentTime) {
+  // Throttle to 60fps for smooth performance
+  if (currentTime - lastEveUpdateTime < 16.67) {
+    requestAnimationFrame(animateEveRotation);
+    return;
+  }
+  lastEveUpdateTime = currentTime;
+  
+  // Smooth interpolation for natural movement
+  const ease = 0.08;
+  eveRotationState.rotateX += (eveRotationState.targetX - eveRotationState.rotateX) * ease;
+  eveRotationState.rotateY += (eveRotationState.targetY - eveRotationState.rotateY) * ease;
+  
+  const eve = domCache.getCursorEve();
+  if (eve) {
+    // Cache the eve-body element for performance
+    if (!cachedEveBody || !document.contains(cachedEveBody)) {
+      cachedEveBody = eve.querySelector('.eve-body');
+    }
+    
+    if (cachedEveBody) {
+      // Check if EVE is currently waving (has wave class)
+      const isWaving = eve.classList.contains('wave');
+      
+      if (!isWaving) {
+        // Apply 3D rotation only when not waving to avoid conflicts
+        cachedEveBody.style.transform = `rotateX(${eveRotationState.rotateX}deg) rotateY(${eveRotationState.rotateY}deg)`;
+      } else {
+        // When waving, temporarily clear our transform to let CSS animation take over
+        cachedEveBody.style.transform = '';
+      }
+    }
+  }
+  
+  requestAnimationFrame(animateEveRotation);
+}
+
+// Start the 3D animation loop
+requestAnimationFrame(animateEveRotation);
+
 // Spotlight pointer controls
 addEventListener('pointermove', e => {
   state.spotlight.x = e.clientX;
   state.spotlight.y = e.clientY;
+  
+  // Update EVE cursor 3D rotation based on mouse position
+  if (typeof updateEveRotation === 'function') {
+    updateEveRotation(e.clientX, e.clientY);
+  }
 });
 addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('mousedown', e => { if (e.button === 2) state.spotlight.active = true; });
@@ -1953,114 +2014,256 @@ function drawRoad(){
     ctx.fillRect(Math.max(sx,-state.camera.x), roadY+roadH-18, Math.min(ex,W+state.camera.x)-Math.max(sx,-state.camera.x), 12);
   });
 
-  // branches (signs)
+  // branches (EVE-style trees)
   GAME_DATA.branches.forEach(b=>{
     const bx = b.x - state.camera.x;
-    if(bx<-100 || bx>W+100) return;
+    if(bx<-150 || bx>W+150) return;
 
-    // branch stem
-    ctx.strokeStyle = 'rgba(138,164,255,.6)'; ctx.lineWidth=3;
-    ctx.beginPath(); ctx.moveTo(bx, roadY); ctx.lineTo(bx, roadY-130); ctx.stroke();
+    // Tree trunk with organic curves
+    const trunkWidth = 8;
+    const trunkHeight = 140;
+    ctx.strokeStyle = 'rgba(139,79,179,.8)';
+    ctx.lineWidth = trunkWidth;
+    ctx.lineCap = 'round';
+    
+    // Main trunk with slight curve
+    ctx.beginPath();
+    ctx.moveTo(bx-2, roadY);
+    ctx.quadraticCurveTo(bx+1, roadY-trunkHeight*0.3, bx-1, roadY-trunkHeight*0.7);
+    ctx.quadraticCurveTo(bx+2, roadY-trunkHeight*0.9, bx, roadY-trunkHeight);
+    ctx.stroke();
+    
+    // Tree branches with textured details
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(139,79,179,.7)';
+    
+    // Primary branches
+    ctx.beginPath();
+    // Left branch
+    ctx.moveTo(bx-1, roadY-trunkHeight*0.6);
+    ctx.quadraticCurveTo(bx-25, roadY-trunkHeight*0.75, bx-35, roadY-trunkHeight*0.8);
+    // Right branch  
+    ctx.moveTo(bx+1, roadY-trunkHeight*0.7);
+    ctx.quadraticCurveTo(bx+30, roadY-trunkHeight*0.85, bx+40, roadY-trunkHeight*0.9);
+    // Upper branches
+    ctx.moveTo(bx, roadY-trunkHeight*0.85);
+    ctx.quadraticCurveTo(bx-15, roadY-trunkHeight*0.95, bx-20, roadY-trunkHeight);
+    ctx.moveTo(bx, roadY-trunkHeight*0.85);
+    ctx.quadraticCurveTo(bx+15, roadY-trunkHeight*0.95, bx+25, roadY-trunkHeight);
+    ctx.stroke();
+    
+    // Secondary branch details
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(139,79,179,.5)';
+    ctx.beginPath();
+    // Fine branch details
+    ctx.moveTo(bx-35, roadY-trunkHeight*0.8);
+    ctx.lineTo(bx-42, roadY-trunkHeight*0.82);
+    ctx.moveTo(bx-35, roadY-trunkHeight*0.8);
+    ctx.lineTo(bx-38, roadY-trunkHeight*0.86);
+    ctx.moveTo(bx+40, roadY-trunkHeight*0.9);
+    ctx.lineTo(bx+48, roadY-trunkHeight*0.92);
+    ctx.moveTo(bx+40, roadY-trunkHeight*0.9);
+    ctx.lineTo(bx+44, roadY-trunkHeight*0.96);
+    ctx.stroke();
 
-    // sign
-    ctx.fillStyle = 'rgba(255,255,255,.08)';
-    ctx.strokeStyle = 'rgba(255,255,255,.2)';
-    ctx.lineWidth=2;
-    const sw=180, sh=48;
-    ctx.fillRect(bx - sw/2, roadY-130 - sh, sw, sh);
-    ctx.strokeRect(bx - sw/2, roadY-130 - sh, sw, sh);
+    // Stylish information panel (enhanced glass effect)
+    const panelWidth = 160;
+    const panelHeight = 42;
+    const panelX = bx - panelWidth/2;
+    const panelY = roadY - trunkHeight - panelHeight - 10;
+    
+    // Multi-layer panel background for depth
+    const gradient = ctx.createLinearGradient(panelX, panelY, panelX, panelY + panelHeight);
+    gradient.addColorStop(0, 'rgba(139,79,179,0.35)');
+    gradient.addColorStop(0.3, 'rgba(163,73,164,0.45)');
+    gradient.addColorStop(0.7, 'rgba(139,79,179,0.35)');
+    gradient.addColorStop(1, 'rgba(106,76,147,0.25)');
+    
+    ctx.fillStyle = gradient;
+    ctx.fillRect(panelX, panelY, panelWidth, panelHeight);
+    
+    // Secondary inner gradient for glass effect
+    const innerGradient = ctx.createLinearGradient(panelX, panelY, panelX + panelWidth, panelY + panelHeight);
+    innerGradient.addColorStop(0, 'rgba(255,255,255,0.15)');
+    innerGradient.addColorStop(0.5, 'rgba(255,255,255,0.05)');
+    innerGradient.addColorStop(1, 'rgba(139,79,179,0.1)');
+    
+    ctx.fillStyle = innerGradient;
+    ctx.fillRect(panelX + 1, panelY + 1, panelWidth - 2, panelHeight - 2);
+    
+    // Enhanced border with gradient
+    const borderGradient = ctx.createLinearGradient(panelX, panelY, panelX + panelWidth, panelY);
+    borderGradient.addColorStop(0, 'rgba(139,79,179,0.6)');
+    borderGradient.addColorStop(0.5, 'rgba(163,73,164,1.0)');
+    borderGradient.addColorStop(1, 'rgba(139,79,179,0.6)');
+    
+    ctx.strokeStyle = borderGradient;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(panelX, panelY, panelWidth, panelHeight);
+    
+    // Subtle corner accents
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    const cornerSize = 3;
+    // Top-left corner highlight
+    ctx.fillRect(panelX + 1, panelY + 1, cornerSize, 1);
+    ctx.fillRect(panelX + 1, panelY + 1, 1, cornerSize);
+    // Bottom-right corner highlight  
+    ctx.fillRect(panelX + panelWidth - cornerSize - 1, panelY + panelHeight - 2, cornerSize, 1);
+    ctx.fillRect(panelX + panelWidth - 2, panelY + panelHeight - cornerSize - 1, 1, cornerSize);
+    
+    // Panel reflection effect
+    const reflectionGradient = ctx.createLinearGradient(panelX, panelY, panelX, panelY + panelHeight * 0.4);
+    reflectionGradient.addColorStop(0, 'rgba(255,255,255,0.12)');
+    reflectionGradient.addColorStop(1, 'rgba(255,255,255,0)');
+    
+    ctx.fillStyle = reflectionGradient;
+    ctx.fillRect(panelX + 2, panelY + 2, panelWidth - 4, panelHeight * 0.4);
+    
+    // Connecting stem to panel
+    ctx.strokeStyle = 'rgba(139,79,179,0.6)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(bx, roadY - trunkHeight);
+    ctx.lineTo(bx, panelY + panelHeight);
+    ctx.stroke();
 
-  // sign label with backdrop (rename Phase 1 register)
+    // Tree leaves/energy particles with variation
+    const time = performance.now() * 0.002;
+    const treeVariation = b.x * 0.001; // Unique variation per tree
+    
+    // Floating energy particles around crown
+    for(let i = 0; i < 15; i++) {
+      const angle = (i / 15) * Math.PI * 2 + time + treeVariation;
+      const radius = 20 + Math.sin(time * 1.5 + i + treeVariation) * 12;
+      const leafX = bx + Math.cos(angle) * radius;
+      const leafY = roadY - trunkHeight + Math.sin(angle) * radius * 0.7 - 10;
+      
+      const particleSize = 1.5 + Math.sin(time * 3 + i) * 0.8;
+      const alpha = 0.4 + Math.sin(time * 2 + i) * 0.3;
+      
+      ctx.fillStyle = `rgba(139,79,179,${alpha})`;
+      ctx.beginPath();
+      ctx.arc(leafX, leafY, particleSize, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Add small sparkles
+      if(i % 3 === 0) {
+        ctx.fillStyle = `rgba(255,255,255,${alpha * 0.6})`;
+        ctx.beginPath();
+        ctx.arc(leafX + Math.sin(time * 4 + i) * 3, leafY + Math.cos(time * 4 + i) * 3, 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    
+    // Ground roots/energy tendrils
+    ctx.strokeStyle = 'rgba(139,79,179,0.3)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for(let i = 0; i < 4; i++) {
+      const rootAngle = (i / 4) * Math.PI + time * 0.5;
+      const rootLength = 15 + Math.sin(time + i + treeVariation) * 5;
+      const rootX = bx + Math.cos(rootAngle) * rootLength;
+      const rootY = roadY + Math.sin(time * 2 + i) * 2;
+      
+      ctx.moveTo(bx, roadY);
+      ctx.quadraticCurveTo(
+        bx + Math.cos(rootAngle) * rootLength * 0.5, 
+        roadY + 3, 
+        rootX, 
+        rootY
+      );
+    }
+    ctx.stroke();
+
+  // Label text with enhanced styling
   let label = b.label;
   if(/phase 1/i.test(label) || b.type==='phase1') label = 'SparkIT Flash';
-  ctx.font='600 14px ui-sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  // backdrop halo for contrast
-  ctx.fillStyle='rgba(11,16,32,.5)'; ctx.fillRect(bx - sw/2 + 6, roadY-130 - sh + 6, sw-12, sh-12);
-  // record phase1 sign world position for lightning (center of sign face)
+  
+  ctx.font='600 13px ui-sans-serif'; 
+  ctx.textAlign='center'; 
+  ctx.textBaseline='middle';
+  
+  // Text with enhanced contrast
+  ctx.fillStyle='rgba(255,255,255,0.95)';
+  ctx.fillText(label, bx, panelY + panelHeight/2);
+  
+  // Text glow effect
+  ctx.shadowColor = 'rgba(139,79,179,0.8)';
+  ctx.shadowBlur = 4;
+  ctx.fillText(label, bx, panelY + panelHeight/2);
+  ctx.shadowBlur = 0;
+  
+  // Record phase1 tree position for lightning
   if(b.type==='phase1' || /sparkit flash/i.test(label)){
-    state.phase1Sign = { x: b.x, y: roadY-130 - sh/2 };
+    state.phase1Sign = { x: b.x, y: panelY + panelHeight/2 };
   }
-  // energetic animation overlay if lightning active / afterglow
-  let glowPulse = 0; const isFlash = state.phase1Sign && Math.abs(b.x - state.phase1Sign.x)<2;
+  
+  // Lightning effects for Phase 1 tree
+  let glowPulse = 0; 
+  const isFlash = state.phase1Sign && Math.abs(b.x - state.phase1Sign.x)<2;
   if(isFlash && (L.active || L.afterglow>0)){
     const tNow = performance.now();
     glowPulse = (Math.sin(tNow/90)+1)/2;
     const baseEnergy = L.active?1: (L.afterglow/3600);
     const energy = baseEnergy * (0.6 + 0.4*glowPulse);
-    // expanding rings (added to lightning rings pool, drawn later)
+    
+    // Lightning rings for tree
     if(L.active && tNow - L.lastSpawn > 110){
       L.lastSpawn = tNow;
       L.rings.push({r:16, v: 180 + Math.random()*120, alpha:0.55});
-      // occasional extra spark cluster
+      
+      // Tree-specific sparks around branches
       if(Math.random()<0.35){
-        for(let i=0;i<8;i++){
-          const a = Math.random()*Math.PI*2; const sp = 80+Math.random()*160;
-          L.sparks.push({x:L.strikeX, y:L.strikeY-20, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - 30, life: 200+Math.random()*260, fade: 0.4+Math.random()*0.4});
+        for(let i=0;i<12;i++){
+          const a = Math.random()*Math.PI*2; 
+          const sp = 60+Math.random()*140;
+          const sparkX = L.strikeX + (Math.random()-0.5)*80; // Spread around tree
+          const sparkY = L.strikeY-40 + (Math.random()-0.5)*60;
+          L.sparks.push({
+            x: sparkX, y: sparkY, 
+            vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 20, 
+            life: 150+Math.random()*200, 
+            fade: 0.3+Math.random()*0.5
+          });
         }
       }
     }
+    
+    // Electrified tree effects
     ctx.save();
-    ctx.translate(bx, roadY-130 - sh/2);
-    // sign electrified fill flicker
-    const grad = ctx.createLinearGradient(-sw/2, -sh/2, sw/2, sh/2);
-    grad.addColorStop(0,'rgba(124,248,200,'+(0.85*energy).toFixed(3)+')');
-    grad.addColorStop(0.5,'rgba(255,255,255,'+(0.35*energy).toFixed(3)+')');
-    grad.addColorStop(1,'rgba(235,185,0,'+(0.65*energy).toFixed(3)+')');
-    ctx.fillStyle = grad; ctx.globalAlpha = 0.35 + 0.55*energy; ctx.fillRect(-sw/2 + 6, -sh/2 + 6, sw-12, sh-12);
-    ctx.globalAlpha = 1;
-  // refined sheen sweep for a professional electric panel look
-  // slow horizontal sweep highlights the sign face
-  const nowT = performance.now();
-  const sweepPos = ((nowT/1600) % 1); // slow loop
-  const sweepX = -sw/2 + 6 + sweepPos * (sw-12);
-  const sweepW = Math.max(28, sw * 0.18);
-  const sheenGrad = ctx.createLinearGradient(sweepX - sweepW/2, -sh/2, sweepX + sweepW/2, sh/2);
-  sheenGrad.addColorStop(0, 'rgba(255,255,255,0)');
-  sheenGrad.addColorStop(0.45, 'rgba(255,255,255,' + (0.06 * energy).toFixed(3) + ')');
-  sheenGrad.addColorStop(0.5, 'rgba(255,255,255,' + (0.16 * energy).toFixed(3) + ')');
-  sheenGrad.addColorStop(0.55, 'rgba(255,255,255,' + (0.06 * energy).toFixed(3) + ')');
-  sheenGrad.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.save();
-  ctx.globalCompositeOperation = 'screen';
-  ctx.fillStyle = sheenGrad;
-  ctx.fillRect(-sw/2 + 8, -sh/2 + 8, sw - 16, sh - 16);
-  ctx.globalCompositeOperation = 'source-over';
-  // subtle static circuit/cut lines overlay for texture (very low alpha)
-  ctx.strokeStyle = `rgba(255,255,255,${(0.03 + 0.02 * energy).toFixed(3)})`;
-  ctx.lineWidth = 1;
-  // a few diagonal accent strokes to suggest circuitry without being noisy
-  ctx.beginPath(); ctx.moveTo(-sw/4, -sh/2 + 10); ctx.lineTo(sw/4, sh/2 - 10); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(-sw/2 + 10,  -sh/4); ctx.lineTo(sw/2 - 10, sh/4); ctx.stroke();
-  ctx.restore();
-    // pulsing border
-    ctx.strokeStyle = `rgba(124,248,200,${(0.45+0.4*energy).toFixed(3)})`;
-    ctx.lineWidth = 3; ctx.strokeRect(-sw/2 + 4, -sh/2 + 4, sw-8, sh-8);
+    
+    // Energized trunk glow
+    ctx.strokeStyle = `rgba(139,79,179,${(0.8*energy).toFixed(3)})`;
+    ctx.lineWidth = 12 + energy * 8;
+    ctx.shadowColor = 'rgba(139,79,179,0.8)';
+    ctx.shadowBlur = 20 + energy * 10;
+    ctx.beginPath();
+    ctx.moveTo(bx-2, roadY);
+    ctx.quadraticCurveTo(bx+1, roadY-trunkHeight*0.3, bx-1, roadY-trunkHeight*0.7);
+    ctx.quadraticCurveTo(bx+2, roadY-trunkHeight*0.9, bx, roadY-trunkHeight);
+    ctx.stroke();
+    
+    // Electrified panel glow
+    ctx.fillStyle = `rgba(139,79,179,${(0.4*energy).toFixed(3)})`;
+    ctx.shadowBlur = 15 + energy * 10;
+    ctx.fillRect(panelX-2, panelY-2, panelWidth+4, panelHeight+4);
+    
+    ctx.shadowBlur = 0;
     ctx.restore();
-  }
-  // label with jitter & multi-layer glow if focused
-  if(isFlash && (L.active || L.afterglow>0)){
-    const focusAmt = L.active?1:Math.min(1, L.afterglow/1400);
-    const jitter = L.active? (1.4 + Math.random()*1.2) : 0.6*Math.random();
-    ctx.save();
-    ctx.translate(bx, roadY-130 - sh/2);
-    ctx.font='700 15px ui-sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    const text = 'SparkIT Flash';
-    // outer glow layers
-    for(let gL=0; gL<3; gL++){
-      ctx.fillStyle = `rgba(${gL===2?235:124},${gL===2?185:248},${gL===2?0:200},${(0.12+0.22*gL)*focusAmt})`;
-      ctx.fillText(text, jitter*(gL-1), (gL-1)*jitter);
-    }
-    ctx.fillStyle = '#e6ecff';
-    ctx.fillText(text,0,0);
-    ctx.restore();
-  } else {
-    ctx.fillStyle='#e6ecff'; ctx.fillText(label, bx, roadY-130 - sh/2);
   }
 
-    // interact hint if near
-    const near = Math.abs(state.player.x - b.x) < 60;
+  // interaction hint if near - expand detection to roughly the branch tile width
+  // panelWidth is the tile width used for branch panels; use half-width plus small padding
+  const near = Math.abs(state.player.x - b.x) < ( (typeof panelWidth !== 'undefined' ? panelWidth : 120) * 0.5 + 8 );
     if(near){
-      ctx.font='12px ui-sans-serif'; ctx.fillStyle='rgba(124,248,200,.9)'; ctx.fillText('Press E to interact', bx, roadY-140 - sh);
+      // Enhanced interaction hint with tree theme
+      ctx.font='12px ui-sans-serif'; 
+      ctx.fillStyle='rgba(139,79,179,.9)'; 
+      ctx.shadowColor = 'rgba(255,255,255,0.5)';
+      ctx.shadowBlur = 2;
+      ctx.fillText('Press E to explore', bx, roadY-trunkHeight-panelHeight-30);
+      ctx.shadowBlur = 0;
       state.near = b;
     }
   });
@@ -4532,6 +4735,124 @@ closePanel = function(){
   // Timeline mobile tuning: faster camera easing and hint at exit
   const smallScreen = Math.min(window.innerWidth, window.innerHeight) < 720;
   if(smallScreen){ state._timelineCamEase = 5.2; }
+  
+  // Branch Description System with Speed Detection
+  const branchDescriptions = {
+    'Overview': 'Learn about the SparkIT initiative and our mission to train, connect, and transform',
+    'Phase 1 — Register': 'Join the competition by completing your registration and profile setup',
+    'Phase 2 — Details': 'Discover workshop details, schedules, and preparation requirements',
+    'Phase 3 — Details': 'Explore advanced tracks, mentorship programs, and final competition format',
+    'FAQ': 'Find answers to common questions about SparkIT and the competition process',
+    'Contact': 'Get in touch with our team for support, partnerships, or more information'
+  };
+  
+  let branchDescription = null;
+  let branchText = null;
+  let currentBranch = null;
+  let descriptionTimeout = null;
+  let isDescriptionInitialized = false;
+  // Track last player speed and whether the description is currently visible
+  let lastPlayerSpeed = 0;
+  let isDescriptionVisible = false;
+  
+  // Initialize description elements when DOM is ready
+  function initBranchDescription() {
+    branchDescription = document.getElementById('branch-description');
+    branchText = document.getElementById('branch-text');
+    
+    if (branchDescription && branchText) {
+      console.log('Branch description elements found and initialized');
+      isDescriptionInitialized = true;
+      
+      // Show default message after a delay
+      setTimeout(() => {
+        if (!document.body.classList.contains('pre-init') && 
+            !document.body.classList.contains('loader-transition')) {
+          console.log('Showing initial description box');
+          branchDescription.classList.add('visible');
+        }
+      }, 3000);
+    } else {
+      console.warn('Branch description elements not found');
+    }
+  }
+  
+  function updateBranchDescription(branch) {
+    if (!isDescriptionInitialized || !branchDescription || !branchText) return;
+
+    // Check player speed - decide visibility when slowed or stopped
+    const playerSpeed = Math.abs(state.player.vx);
+    const speedThreshold = 150; // pixels per second
+
+    console.log('Updating branch description:', branch?.label, 'Speed:', playerSpeed.toFixed(1), 'Visible:', isDescriptionVisible);
+
+    clearTimeout(descriptionTimeout);
+
+    // Determine desired visibility: show when near a known branch and player is slow/stopped
+    const desiredVisible = !!(branch && branchDescriptions[branch.label] && playerSpeed <= speedThreshold);
+
+    // If the desired visibility changed (e.g. we slowed down while still near the branch) or branch changed, update UI
+    const branchChanged = currentBranch !== branch;
+    currentBranch = branch;
+
+    if (desiredVisible && (!isDescriptionVisible || branchChanged)) {
+      // Smooth text transition for slow movement or when newly arrived
+      console.log('Showing branch description for:', branch.label);
+      branchText.style.opacity = '0.5';
+      setTimeout(() => {
+        branchText.textContent = branchDescriptions[branch.label];
+        branchText.style.opacity = '1';
+        branchDescription.classList.add('visible');
+        isDescriptionVisible = true;
+      }, 200);
+    } else if (!desiredVisible && isDescriptionVisible) {
+      // Hide when moving fast or no branch nearby
+      const hideDelay = playerSpeed > speedThreshold ? 100 : 600;
+      console.log('Hiding description, delay:', hideDelay);
+
+      descriptionTimeout = setTimeout(() => {
+        branchText.style.opacity = '0.5';
+        setTimeout(() => {
+          branchDescription.classList.remove('visible');
+          isDescriptionVisible = false;
+          setTimeout(() => {
+            branchText.textContent = 'Explore the SparkIT journey and discover opportunities ahead';
+            branchText.style.opacity = '1';
+          }, 300);
+        }, 200);
+      }, hideDelay);
+    }
+
+    lastPlayerSpeed = playerSpeed;
+  }
+  
+  // Initialize when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initBranchDescription);
+  } else {
+    initBranchDescription();
+  }
+  
+  // Hook into the existing game loop to monitor branch proximity and speed transitions
+  let lastNearBranch = null;
+  setInterval(() => {
+    if (!isDescriptionInitialized) return;
+
+    const nearBranch = state.near;
+    const playerSpeed = Math.abs(state.player.vx || 0);
+
+    // Trigger update when branch changes, or when we slow down/stop while staying near the same branch
+    const branchChanged = nearBranch !== lastNearBranch;
+    const speedDropped = playerSpeed <= 150 && lastPlayerSpeed > 150;
+    const stopped = playerSpeed === 0 && lastPlayerSpeed !== 0;
+
+    if (branchChanged || (nearBranch && (speedDropped || stopped))) {
+      updateBranchDescription(nearBranch);
+    }
+
+    lastNearBranch = nearBranch;
+    lastPlayerSpeed = playerSpeed;
+  }, 100);
   
   // Show a one-time hint on how to exit timeline on mobile
   let hinted=false; const origEnter=enterTimeline; enterTimeline = function(){ origEnter(); if(!hinted && isMobileDevice()){ hinted=true; setTimeout(()=> toast('Swipe up or tap ▲ to climb; Up @ top to exit'), 600); } };

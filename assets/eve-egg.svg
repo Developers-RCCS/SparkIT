@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120" preserveAspectRatio="xMidYMid meet">
+  <!--
+    Simple egg silhouette used as a mask for the EVE cursor shell.
+    Black (filled) area will be the visible part when used as a mask.
+    ViewBox chosen to give taller vertical resolution to avoid any flattening.
+  -->
+  <path d="M50,4 C33,4 10,30 10,58 C10,90 34,116 50,116 C66,116 90,90 90,58 C90,30 67,4 50,4 Z" fill="#000"/>
+</svg>

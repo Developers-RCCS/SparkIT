@@ -51,6 +51,140 @@ body.loader-transition #cursor-eve{animation:eveArrival 1.15s cubic-bezier(.22,1
 @keyframes worldReveal{0%{clip-path:circle(140% at 50% 50%);}100%{clip-path:circle(0% at 85% 78%); opacity:0;}}
 @media (prefers-reduced-motion: reduce){#loader,#loader *{animation:none !important;}}
 
+/* Glass Branch Description Box */
+.glass-description {
+  position: fixed;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 400px;
+  max-width: 650px;
+  width: 85%;
+  padding: 24px 32px;
+  z-index: 1000;
+  
+  /* Enhanced Glass morphism with more box-like appearance */
+  background: linear-gradient(
+    145deg,
+    rgba(106, 76, 147, 0.12) 0%,
+    rgba(139, 79, 179, 0.20) 30%,
+    rgba(163, 73, 164, 0.15) 70%,
+    rgba(106, 76, 147, 0.10) 100%
+  );
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+  
+  /* More defined box structure */
+  border: 2px solid;
+  border-image: linear-gradient(
+    145deg,
+    rgba(139, 79, 179, 0.6) 0%,
+    rgba(163, 73, 164, 0.8) 50%,
+    rgba(139, 79, 179, 0.6) 100%
+  ) 1;
+  border-radius: 12px;
+  
+  /* Advanced glass effects */
+  box-shadow: 
+    0 8px 32px rgba(106, 76, 147, 0.35),
+    0 16px 64px rgba(139, 79, 179, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(139, 79, 179, 0.15),
+    inset 1px 0 0 rgba(255, 255, 255, 0.10),
+    inset -1px 0 0 rgba(139, 79, 179, 0.10);
+  
+  /* Refined animations */
+  transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  opacity: 0;
+  transform: translateX(-50%) translateY(20px) scale(0.92);
+  
+  /* WALL-E micro details */
+  position: relative;
+}
+
+.glass-description::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  right: -1px;
+  bottom: -1px;
+  background: linear-gradient(
+    145deg,
+    rgba(139, 79, 179, 0.3),
+    transparent 20%,
+    transparent 80%,
+    rgba(139, 79, 179, 0.3)
+  );
+  border-radius: 12px;
+  z-index: -1;
+  opacity: 0.7;
+}
+
+.glass-description::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  width: 4px;
+  height: 4px;
+  background: radial-gradient(circle, rgba(139, 79, 179, 0.8), transparent);
+  border-radius: 50%;
+  box-shadow: 
+    6px 0 0 rgba(139, 79, 179, 0.6),
+    12px 0 0 rgba(139, 79, 179, 0.4);
+}
+
+.glass-description.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.glass-description #branch-text {
+  display: block;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.96);
+  text-align: center;
+  text-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.5),
+    0 1px 2px rgba(139, 79, 179, 0.3);
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  letter-spacing: 0.3px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .glass-description {
+    top: 28%;
+    min-width: 320px;
+    padding: 20px 28px;
+  }
+  
+  .glass-description #branch-text {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .glass-description {
+    min-width: 280px;
+    padding: 18px 24px;
+  }
+  
+  .glass-description #branch-text {
+    font-size: 15px;
+  }
+}
+
+/* Hide during loader phase */
+body.pre-init .glass-description,
+body.loader-transition .glass-description {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* Common fade animations */
 @keyframes fadeIn {
   from { opacity:0; transform:scale(.98); }
@@ -683,35 +817,45 @@ body.eve-cursor * { cursor: none !important; }
   position: fixed; 
   left: 0; 
   top: 0; 
-  width: 54px; 
+  width: 46px; /* Film-accurate 0.85:1 width-to-height ratio */
   height: 54px; 
   transform: translate(-50%, -50%); 
   pointer-events: none; 
   z-index: 9999; 
   transition: filter 0.35s ease; 
+  /* 3D Foundation - Enable perspective rendering */
+  perspective: 1000px;
+  transform-style: preserve-3d;
 }
 
-/* Main EVE body container with floating animation */
+/* Main EVE body container with 3D floating animation */
 #cursor-eve .eve-body { 
   width: 100%; 
   height: 100%; 
   position: relative; 
   filter: drop-shadow(0 6px 16px rgba(0,0,0,0.25)); 
-  animation: eve-float 3.8s ease-in-out infinite; 
+  animation: eve-float-3d 3.8s ease-in-out infinite; 
+  /* 3D Transform Base */
+  transform-style: preserve-3d;
+  transition: transform 0.2s ease-out;
 }
 
-@keyframes eve-float { 
-  0%, 100% { transform: translateY(-3px) rotate(-0.5deg); } 
-  50% { transform: translateY(3px) rotate(0.5deg); } 
+@keyframes eve-float-3d { 
+  0%, 100% { 
+    transform: translateY(-3px) rotateX(-1deg) rotateY(0.5deg); 
+  } 
+  50% { 
+    transform: translateY(3px) rotateX(1deg) rotateY(-0.5deg); 
+  } 
 }
 
-/* Anti-gravity propulsion rings */
+/* Anti-gravity propulsion rings - adjusted for egg proportions */
 #cursor-eve .propulsion-field {
   position: absolute;
   bottom: -8px;
   left: 50%;
   transform: translateX(-50%);
-  width: 48px;
+  width: 42px; /* Slightly narrower for egg base */
   height: 16px;
   pointer-events: none;
 }
@@ -721,19 +865,30 @@ body.eve-cursor * { cursor: none !important; }
   left: 50%;
   transform: translateX(-50%);
   border-radius: 50%;
-  border: 1px solid rgba(0, 184, 232, 0.4);
+  /* Enhanced gradient border for film accuracy */
+  border: 1.5px solid;
+  border-image: linear-gradient(
+    45deg, 
+    rgba(0, 184, 232, 0.2) 0%, 
+    rgba(0, 184, 232, 0.6) 50%, 
+    rgba(0, 184, 232, 0.2) 100%
+  ) 1;
   animation: energy-pulse 2.2s ease-in-out infinite;
+  /* Add subtle inner glow */
+  box-shadow: 
+    0 0 0 1px rgba(0, 184, 232, 0.1) inset,
+    0 0 8px rgba(0, 184, 232, 0.2);
 }
 
 #cursor-eve .energy-ring:nth-child(1) {
-  width: 40px;
+  width: 36px; /* Proportional to egg base */
   height: 8px;
   bottom: 0;
   animation-delay: 0s;
 }
 
 #cursor-eve .energy-ring:nth-child(2) {
-  width: 48px;
+  width: 42px; /* Proportional to egg base */
   height: 10px;
   bottom: -2px;
   animation-delay: 0.3s;
@@ -743,56 +898,170 @@ body.eve-cursor * { cursor: none !important; }
   0%, 100% { 
     opacity: 0.3; 
     transform: translateX(-50%) scale(0.9); 
-    border-color: rgba(0, 184, 232, 0.3); 
+    border-image: linear-gradient(
+      45deg, 
+      rgba(0, 184, 232, 0.2) 0%, 
+      rgba(0, 184, 232, 0.4) 50%, 
+      rgba(0, 184, 232, 0.2) 100%
+    ) 1;
+    box-shadow: 
+      0 0 0 1px rgba(0, 184, 232, 0.05) inset,
+      0 0 6px rgba(0, 184, 232, 0.1);
   }
   50% { 
     opacity: 0.8; 
     transform: translateX(-50%) scale(1.1); 
-    border-color: rgba(0, 184, 232, 0.7); 
-    box-shadow: 0 0 12px rgba(0, 184, 232, 0.4);
+    border-image: linear-gradient(
+      45deg, 
+      rgba(0, 184, 232, 0.4) 0%, 
+      rgba(0, 184, 232, 0.8) 50%, 
+      rgba(0, 184, 232, 0.4) 100%
+    ) 1;
+    box-shadow: 
+      0 0 0 1px rgba(0, 184, 232, 0.2) inset,
+      0 0 12px rgba(0, 184, 232, 0.4);
   }
 }
 
-/* Main shell - sleek egg-shaped pod */
-#cursor-eve .shell {
+/* EVE Body Section (Lower 60% - Main Egg Shell) */
+#cursor-eve .body-section {
   position: absolute;
-  inset: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60%;
   background: linear-gradient(140deg, #FFFFFF 0%, #EAE9EB 40%, #F5F5F5 100%);
   border: 1px solid rgba(255, 255, 255, 0.8);
-  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  /* 3D egg body with tapered bottom - using fallback clip-path */
+  clip-path: ellipse(80% 95% at 50% 85%);
+  border-radius: 50% 50% 40% 40% / 60% 60% 90% 90%;
   box-shadow: 
     0 0 0 1px rgba(0, 184, 232, 0.15) inset,
     0 2px 8px rgba(0, 0, 0, 0.1),
     0 8px 24px -8px rgba(0, 184, 232, 0.2);
-  transition: background 0.4s ease, transform 0.3s ease, box-shadow 0.3s ease;
-  overflow: hidden;
+  transform-style: preserve-3d;
+  /* Energy connection port at top */
+  border-top: 2px solid rgba(0, 184, 232, 0.3);
 }
 
-/* Pristine shell highlight effect */
-#cursor-eve .shell::before {
+/* Levitating Head Section (Upper 40% - Floating Display Unit) */
+#cursor-eve .head-section {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 38%;
+  background: linear-gradient(140deg, #FFFFFF 0%, #EAE9EB 40%, #F5F5F5 100%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  /* 3D egg head with rounded top - using fallback clip-path */
+  clip-path: ellipse(80% 95% at 50% 15%);
+  border-radius: 40% 40% 50% 50% / 90% 90% 60% 60%;
+  box-shadow: 
+    0 0 0 1px rgba(0, 184, 232, 0.15) inset,
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    0 0 20px rgba(0, 184, 232, 0.3);
+  transform-style: preserve-3d;
+  /* Levitation effect - synchronized with body floating */
+  animation: head-levitate 3.8s ease-in-out infinite;
+  transform: translateZ(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@keyframes head-levitate {
+  0%, 100% { 
+    transform: translateZ(4px) translateY(-2px) rotateX(1deg); 
+  }
+  50% { 
+    transform: translateZ(6px) translateY(2px) rotateX(-1deg); 
+  }
+}
+
+/* Energy Tether - Connecting body to head */
+#cursor-eve .energy-tether {
+  position: absolute;
+  top: 60%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 4px;
+  background: linear-gradient(180deg, 
+    rgba(0, 184, 232, 0.8) 0%, 
+    rgba(0, 184, 232, 0.4) 50%,
+    rgba(0, 184, 232, 0.1) 100%
+  );
+  box-shadow: 0 0 8px rgba(0, 184, 232, 0.6);
+  animation: tether-pulse 3.8s ease-in-out infinite;
+  border-radius: 1px;
+}
+
+@keyframes tether-pulse {
+  0%, 100% { 
+    opacity: 0.6; 
+    height: 3px;
+    box-shadow: 0 0 6px rgba(0, 184, 232, 0.4);
+  }
+  50% { 
+    opacity: 1; 
+    height: 5px;
+    box-shadow: 0 0 12px rgba(0, 184, 232, 0.8);
+  }
+}
+
+/* Jonathan Ive-inspired surface highlights for body section */
+#cursor-eve .body-section::before {
   content: "";
   position: absolute;
   inset: 2px;
-  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-  background: radial-gradient(
-    ellipse at 30% 25%, 
-    rgba(255, 255, 255, 0.6) 0%, 
-    rgba(255, 255, 255, 0.2) 40%, 
-    transparent 70%
-  );
+  background: 
+    radial-gradient(
+      ellipse at 30% 25%, 
+      rgba(255, 255, 255, 0.7) 0%, 
+      rgba(255, 255, 255, 0.3) 30%, 
+      transparent 60%
+    ),
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      transparent 40%,
+      rgba(255, 255, 255, 0.05) 100%
+    );
   mix-blend-mode: screen;
   pointer-events: none;
+  border-radius: inherit;
 }
 
-/* Energy seams - subtle blue lines */
-#cursor-eve .shell::after {
+/* Surface highlights for head section */
+#cursor-eve .head-section::before {
   content: "";
   position: absolute;
-  inset: 8px;
-  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  inset: 2px;
+  background: 
+    radial-gradient(
+      ellipse at 30% 75%, 
+      rgba(255, 255, 255, 0.7) 0%, 
+      rgba(255, 255, 255, 0.3) 30%, 
+      transparent 60%
+    );
+  mix-blend-mode: screen;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* Energy seams for body section */
+#cursor-eve .body-section::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  -webkit-mask-image: url("/assets/eve-egg.svg");
+  -webkit-mask-size: 100% 167%;
+  -webkit-mask-position: bottom;
+  -webkit-mask-repeat: no-repeat;
+  mask-image: url("/assets/eve-egg.svg");
+  mask-size: 100% 167%;
+  mask-position: bottom;
+  mask-repeat: no-repeat;
   border: 1px solid rgba(0, 184, 232, 0.2);
   opacity: 0.6;
   animation: seam-glow 4s ease-in-out infinite;
@@ -803,32 +1072,69 @@ body.eve-cursor * { cursor: none !important; }
   50% { opacity: 0.6; border-color: rgba(0, 184, 232, 0.4); }
 }
 
-/* LED Display Screen for eyes */
+/* Film-Accurate LED Display Screen - now housed in levitating head */
 #cursor-eve .display-screen {
   position: relative;
-  width: 32px;
-  height: 20px;
-  background: linear-gradient(180deg, #00194D 0%, #001A35 100%);
-  border-radius: 8px;
+  width: 24px; /* Smaller to fit in head section */
+  height: 14px; 
+  background: linear-gradient(180deg, #001B4D 0%, #00172E 100%);
+  border-radius: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  box-shadow: 0 0 0 1px rgba(0, 25, 77, 0.3) inset;
+  gap: 5px;
+  box-shadow: 
+    0 0 0 1px rgba(0, 25, 77, 0.4) inset,
+    0 1px 3px rgba(0, 0, 0, 0.3),
+    0 0 0 2px rgba(255, 255, 255, 0.02);
   overflow: hidden;
+  /* 3D depth within head */
+  transform: translateZ(-1px);
 }
 
-/* Minimalist LED eyes */
+/* Face panel depression area - subtle asymmetrical hint */
+#cursor-eve .display-screen::after {
+  content: "";
+  position: absolute;
+  width: 28px;
+  height: 18px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.01);
+  border-radius: 7px;
+  box-shadow: 
+    0 0 0 1px rgba(0, 0, 0, 0.03) inset;
+  z-index: -1;
+}
+
+/* Film-accurate LED eyes with 3D depth */
 #cursor-eve .eye-led {
-  width: 6px;
-  height: 6px;
+  width: 4px; /* Smaller for head section */
+  height: 4px;
   background: radial-gradient(circle at 40% 30%, #4A90E2 0%, #00B8E8 70%);
   border-radius: 50%;
   box-shadow: 
-    0 0 6px rgba(74, 144, 226, 0.8),
-    0 0 12px rgba(0, 184, 232, 0.4);
+    0 0 0 0.5px rgba(74, 144, 226, 0.3),
+    0 0 3px rgba(74, 144, 226, 0.8),
+    0 0 6px rgba(0, 184, 232, 0.4);
   transition: all 0.25s ease;
   animation: eye-idle 3.5s ease-in-out infinite;
+  position: relative;
+  /* 3D glow effect */
+  transform: translateZ(1px);
+}
+
+/* LED matrix grid effect with 3D depth */
+#cursor-eve .eye-led::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  background: 
+    linear-gradient(90deg, transparent 40%, rgba(74, 144, 226, 0.1) 50%, transparent 60%),
+    linear-gradient(0deg, transparent 40%, rgba(74, 144, 226, 0.1) 50%, transparent 60%);
+  border-radius: 50%;
+  opacity: 0.6;
 }
 
 @keyframes eye-idle {
@@ -836,53 +1142,70 @@ body.eve-cursor * { cursor: none !important; }
   50% { opacity: 1; transform: scale(1.1); }
 }
 
-/* Display reflection effect */
+/* Enhanced display reflection with scan lines */
 #cursor-eve .display-screen::before {
   content: "";
   position: absolute;
   inset: 1px;
-  border-radius: 7px;
-  background: linear-gradient(
-    135deg, 
-    rgba(74, 144, 226, 0.1) 0%, 
-    transparent 50%
-  );
+  border-radius: 5px;
+  background: 
+    linear-gradient(135deg, rgba(74, 144, 226, 0.1) 0%, transparent 50%),
+    repeating-linear-gradient(
+      90deg, 
+      transparent 0%, 
+      rgba(0, 184, 232, 0.03) 1px, 
+      transparent 2px
+    );
   pointer-events: none;
 }
 
-/* Hidden retractable arms (deployed on interaction) */
+/* Screen depth effect */
+#cursor-eve .display-screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  box-shadow: 
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.2) inset;
+  pointer-events: none;
+}
+
+/* Hidden retractable arms (deployed on interaction) - positioned on body section */
 #cursor-eve .arm-compartment {
   position: absolute;
-  width: 16px;
-  height: 4px;
+  width: 14px;
+  height: 3px;
   background: linear-gradient(90deg, #F5F5F5, #EAE9EB);
-  border-radius: 2px;
+  border-radius: 1.5px;
   opacity: 0;
   transition: all 0.3s ease;
+  /* 3D positioning */
+  transform: translateZ(2px);
 }
 
 #cursor-eve .arm-left {
-  left: -8px;
-  top: 50%;
-  transform: translateY(-50%) translateX(-100%);
+  left: -6px;
+  top: 45%; /* Positioned on body section's widest point */
+  transform: translateY(-50%) translateX(-100%) translateZ(2px);
 }
 
 #cursor-eve .arm-right {
-  right: -8px;
-  top: 50%;
-  transform: translateY(-50%) translateX(100%);
+  right: -6px;
+  top: 45%; /* Positioned on body section's widest point */
+  transform: translateY(-50%) translateX(100%) translateZ(2px);
 }
 
-/* Scanning beam (activated on hover/interaction) */
+/* 3D Scanning beam (activated on hover/interaction) */
 #cursor-eve .scanning-beam {
   position: absolute;
-  top: 50%;
+  top: 30%; /* Emanating from head section */
   left: 50%;
   width: 2px;
   height: 0;
   background: linear-gradient(180deg, rgba(0, 184, 232, 0.9), rgba(74, 144, 226, 0.6));
   border-radius: 1px;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) translateZ(3px);
   opacity: 0;
   transition: all 0.3s ease;
   box-shadow: 0 0 8px rgba(0, 184, 232, 0.6);
@@ -901,11 +1224,12 @@ body.eve-cursor * { cursor: none !important; }
 }
 
 #cursor-eve.active .eye-led {
-  width: 8px;
-  height: 8px;
+  width: 6px; /* Slightly larger when active */
+  height: 6px;
   box-shadow: 
-    0 0 10px rgba(74, 144, 226, 1),
-    0 0 20px rgba(0, 184, 232, 0.6);
+    0 0 0 0.5px rgba(74, 144, 226, 0.5),
+    0 0 8px rgba(74, 144, 226, 1),
+    0 0 16px rgba(0, 184, 232, 0.6);
   animation: eye-scan 0.8s ease-in-out infinite alternate;
 }
 
@@ -950,25 +1274,33 @@ body.eve-cursor * { cursor: none !important; }
   50% { transform: scale(1.1) translateX(1px); }
 }
 
-/* Energy aura for special interactions */
+/* 3D Energy aura for special interactions */
 #cursor-eve .energy-aura {
   position: absolute;
-  inset: -8px;
-  border-radius: 50%;
+  inset: -6px;
   background: radial-gradient(
-    circle at 50% 50%, 
+    ellipse at 50% 45%, 
     rgba(0, 184, 232, 0.1) 0%, 
     rgba(0, 184, 232, 0.05) 50%, 
     transparent 100%
   );
   opacity: 0;
   transition: opacity 0.4s ease;
-  animation: aura-pulse 3s ease-in-out infinite;
+  animation: aura-pulse-3d 3s ease-in-out infinite;
+  /* 3D volumetric effect */
+  transform: translateZ(-2px);
+  border-radius: 50%;
 }
 
-@keyframes aura-pulse {
-  0%, 100% { transform: scale(0.9); opacity: 0; }
-  50% { transform: scale(1.1); opacity: 0.6; }
+@keyframes aura-pulse-3d {
+  0%, 100% { 
+    transform: translateZ(-2px) scale(0.9) rotateX(0deg); 
+    opacity: 0; 
+  }
+  50% { 
+    transform: translateZ(1px) scale(1.1) rotateX(5deg); 
+    opacity: 0.6; 
+  }
 }
 
 #cursor-eve.active .energy-aura {
@@ -1106,12 +1438,12 @@ body.eve-cursor * { cursor: none !important; }
 }
 
 #cursor-eve[data-mode=thrilled] .eye-led {
-  width: 8px;
-  height: 8px;
+  width: 6px; /* Appropriate excited size */
+  height: 6px;
   background: radial-gradient(circle at 40% 30%, #FFC107 0%, #FFD54F 70%);
   box-shadow: 
-    0 0 10px rgba(255, 193, 7, 0.9),
-    0 0 20px rgba(255, 213, 79, 0.5);
+    0 0 8px rgba(255, 193, 7, 0.9),
+    0 0 16px rgba(255, 213, 79, 0.5);
 }
 
 #cursor-eve[data-mode=bored] .shell {
@@ -1120,12 +1452,12 @@ body.eve-cursor * { cursor: none !important; }
 }
 
 #cursor-eve[data-mode=bored] .eye-led {
-  width: 8px;
-  height: 4px;
-  background: radial-gradient(circle at 40% 30%, #607D8B 0%, #78909C 70%);
+  width: 7px; /* Slightly wider for sleepy effect */
+  height: 3px; /* Shorter height for half-closed look */
+  background: radial-gradient(ellipse at 40% 30%, #607D8B 0%, #78909C 70%);
   box-shadow: 
-    0 0 4px rgba(96, 125, 139, 0.6),
-    0 0 8px rgba(120, 144, 156, 0.3);
+    0 0 3px rgba(96, 125, 139, 0.6),
+    0 0 6px rgba(120, 144, 156, 0.3);
 }
 
 #cursor-eve[data-mode=sleepy] .shell {
@@ -1134,12 +1466,12 @@ body.eve-cursor * { cursor: none !important; }
 }
 
 #cursor-eve[data-mode=sleepy] .eye-led {
-  width: 10px;
-  height: 2px;
-  background: radial-gradient(circle at 40% 30%, #37474F 0%, #455A64 70%);
+  width: 8px; /* Wider for sleepy squint */
+  height: 1.5px; /* Very narrow for closed eyes */
+  background: radial-gradient(ellipse at 40% 30%, #37474F 0%, #455A64 70%);
   box-shadow: 
-    0 0 4px rgba(55, 71, 79, 0.5),
-    0 0 8px rgba(69, 90, 100, 0.3);
+    0 0 3px rgba(55, 71, 79, 0.5),
+    0 0 6px rgba(69, 90, 100, 0.3);
 }
 
 /* Workshop Variant Transformations */

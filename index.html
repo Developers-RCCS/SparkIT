@@ -22,6 +22,11 @@
   </div>
   <div class="loader-hint" id="loader-hint">Compiling shaders</div>
 </div>
+
+<!-- Glass Branch Description Box -->
+<div id="branch-description" class="glass-description" aria-live="polite">
+  <span id="branch-text">Explore the SparkIT journey and discover opportunities ahead</span>
+</div>
 <!-- Header/HUD removed for cleaner in-world UI -->
 
 <!-- Guided Start Overlay -->
@@ -95,14 +100,20 @@
       <div class="energy-ring"></div>
       <div class="energy-ring"></div>
     </div>
-    <div class="shell" role="presentation">
+    <!-- Separated Body Section (Lower 60%) -->
+    <div class="body-section" role="presentation">
+      <div class="arm-compartment arm-left" aria-hidden="true"></div>
+      <div class="arm-compartment arm-right" aria-hidden="true"></div>
+    </div>
+    <!-- Energy Tether connecting body to head -->
+    <div class="energy-tether" aria-hidden="true"></div>
+    <!-- Levitating Head Section (Upper 40%) -->
+    <div class="head-section" role="presentation">
       <div class="display-screen">
         <div class="eye-led"></div>
         <div class="eye-led"></div>
       </div>
     </div>
-    <div class="arm-compartment arm-left" aria-hidden="true"></div>
-    <div class="arm-compartment arm-right" aria-hidden="true"></div>
     <div class="scanning-beam" aria-hidden="true"></div>
     <div class="energy-aura" aria-hidden="true"></div>
   </div>
