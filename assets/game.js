@@ -1719,7 +1719,6 @@ function initBillboards() {
   tagline.style.fontFamily = "Arial, Helvetica, sans-serif";
   tagline.style.letterSpacing = "1px";
   container.appendChild(tagline);
-  container.appendChild(tagline);
   document.body.appendChild(container);
 }
 
@@ -2783,6 +2782,8 @@ function drawRoad(){
   ctx.restore(); // shake restore
 }
 
+
+
 // Draw trash pile on the road
 function drawTrashPile() {
   const trash = state.trashPile;
@@ -2994,15 +2995,82 @@ function forceHideDescriptionElements() {
   });
   
   // Also hide road glass-description elements, but keep underground-box
-  document.querySelectorAll('.glass-description').forEach(el => {
-    if (!el.classList.contains('underground-box')) {
-      el.style.display = 'none';
-      el.style.opacity = '0';
-      el.style.visibility = 'hidden';
-      el.style.pointerEvents = 'none';
-    }
+    document.querySelectorAll('.glass-description').forEach(el => {
+      if (
+        !el.classList.contains('underground-box') &&
+        el.id !== 'default-glass-description' // <-- Don't hide the default box
+      ) {
+        el.style.display = 'none';
+        el.style.opacity = '0';
+        el.style.visibility = 'hidden';
+        el.style.pointerEvents = 'none';
+      }
   });
 }
+
+// ...existing code...
+
+// Show the default glass-description box at all times for testing
+window.addEventListener('DOMContentLoaded', function() {
+  var defaultBox = document.getElementById('default-glass-description');
+  if (defaultBox) {
+    // Add transition once
+    defaultBox.style.transition = 'opacity 0.5s ease';
+
+    let showTimeout;
+
+    function updateDefaultGlassDescriptionVisibility() {
+      // Find any other .glass-description that is visible (not the default)
+      const others = Array.from(document.querySelectorAll('.glass-description'))
+        .filter(el => el !== defaultBox && el.classList.contains('visible'));
+
+      if (others.length > 0) {
+        clearTimeout(showTimeout); // cancel pending show
+        defaultBox.style.display = 'none';
+        defaultBox.style.opacity = '0';
+        defaultBox.style.visibility = 'hidden';
+        defaultBox.style.pointerEvents = 'none';
+        defaultBox.style.position = '';
+        defaultBox.style.zIndex = '';
+        defaultBox.style.height = '';
+        defaultBox.style.maxHeight = '';
+      } else {
+        clearTimeout(showTimeout);
+        showTimeout = setTimeout(() => {
+          defaultBox.style.display = 'block';
+          defaultBox.style.visibility = 'visible';
+          defaultBox.style.pointerEvents = 'auto';
+          defaultBox.style.position = 'fixed';
+          defaultBox.style.bottom = '32px';
+          defaultBox.style.left = '50%';
+          defaultBox.style.transform = 'translateX(-50%)';
+          defaultBox.style.zIndex = '1000';
+          defaultBox.style.height = 'auto';
+          defaultBox.style.maxHeight = '48px';
+          defaultBox.style.overflow = 'hidden';
+          defaultBox.style.paddingBottom = '40px';
+
+          // animate fade in
+          requestAnimationFrame(() => {
+            defaultBox.style.opacity = '1';
+          });
+        }, 500); // 500ms delay before showing
+      }
+    }
+
+    // Initial check
+    updateDefaultGlassDescriptionVisibility();
+
+    // Observe changes
+    const observer = new MutationObserver(updateDefaultGlassDescriptionVisibility);
+    document.querySelectorAll('.glass-description').forEach(el => {
+      observer.observe(el, { attributes: true, attributeFilter: ['class'] });
+    });
+  }
+});
+
+
+
 
 function drawTimeline(){
   // dark base
@@ -5345,10 +5413,11 @@ closePanel = function(){
     
     if (isMobile) {
       return {
-        branchDescription: document.getElementById('eve-mobile-dialog'),
-        branchText: document.querySelector('#eve-mobile-dialog #mobile-branch-text'),
-        undergroundDescription: document.getElementById('eve-underground-dialog'),
-        undergroundText: document.querySelector('#eve-underground-dialog #mobile-underground-text')
+        branchDescription: document.getElementById('branch-description'),
+        branchText: document.getElementById('branch-text'),
+        undergroundDescription: document.getElementById('underground-description'),
+        undergroundText: document.getElementById('underground-text')
+      
       };
     } else {
       return {
@@ -5395,10 +5464,10 @@ closePanel = function(){
         if (mobileUnderground) mobileUnderground.style.display = 'none';
       }
     } else if (isMobile) {
-      if (desktopBranch) desktopBranch.style.display = 'none';
-      if (desktopUnderground && !isUndergroundMode) desktopUnderground.style.display = 'none';
-      if (mobileBranch) mobileBranch.style.display = 'block';
-      if (mobileUnderground && isUndergroundMode) mobileUnderground.style.display = 'block';
+      if (mobileBranch) mobileBranch.style.display = 'none';
+      if (mobileUnderground) mobileUnderground.style.display = 'none';
+      if (desktopBranch) desktopBranch.style.display = 'block';
+      if (desktopUnderground && isUndergroundMode) desktopUnderground.style.display = 'block';
     } else {
       if (mobileBranch) mobileBranch.style.display = 'none';
       if (mobileUnderground) mobileUnderground.style.display = 'none';
@@ -5470,12 +5539,14 @@ closePanel = function(){
     currentUndergroundBranch = milestone;
 
     if (desiredVisible && (!isUndergroundVisible || milestoneChanged)) {
+      undergroundDescription.style.setProperty('display', 'block', 'important');
       // Smooth text transition for slow movement or when newly arrived
       console.log('Showing underground description for:', milestone.title);
       
       // Update both desktop and mobile underground text elements
       const desktopUndergroundText = document.getElementById('underground-text');
       const mobileUndergroundText = document.getElementById('mobile-underground-text');
+      
       
       // Fade out current text
       if (undergroundText) undergroundText.style.opacity = '0.5';
@@ -5531,8 +5602,9 @@ closePanel = function(){
             if (desktopUndergroundText && desktopUndergroundText !== undergroundText) desktopUndergroundText.style.opacity = '1';
             if (mobileUndergroundText && mobileUndergroundText !== undergroundText) mobileUndergroundText.style.opacity = '1';
           }, 300);
-        }, 200);
+        }, 200);       
       }, hideDelay);
+      undergroundDescription.style.setProperty('display', 'none', 'important');
     }
   }
 

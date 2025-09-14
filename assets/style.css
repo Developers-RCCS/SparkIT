@@ -192,11 +192,15 @@ body.loader-transition #cursor-eve{animation:eveArrival 1.15s cubic-bezier(.22,1
   transform: translateX(-50%) translateY(0) scale(1);
 }
 
+#default-glass-description{
+  padding-bottom: 20px;
+}
+
 /* Mobile visibility adjustments */
 @media (max-width: 768px) {
-  .glass-description {
+  /*.glass-description {
     display: none !important;
-  }
+  }*/
   
   .eve-mobile-dialog {
     transform: translateX(-50%) translateY(20px);
@@ -222,12 +226,40 @@ body.loader-transition #cursor-eve{animation:eveArrival 1.15s cubic-bezier(.22,1
   letter-spacing: 0.3px;
 }
 
+/* ...existing code... */
+
+/* Responsive glass-description for mobile */
+@media (max-width: 768px) {
+  .glass-description {
+    min-width: unset;
+    max-width: 86vw;
+    width: 86vw;
+    padding: 14px 10px;
+    font-size: 15px;
+    left: 50%;
+    top: 30%; 
+    transform: translateX(-50%);
+    border-radius: 10px;
+  }
+}
+
+/* Even smaller screens */
+@media (max-width: 480px) {
+  .glass-description {
+    padding: 10px 4vw;
+    font-size: 13px;
+    top: 30%; 
+  }
+}
+
+/* ...existing code... */
+
 /* Responsive adjustments - Mobile First Approach */
 @media (max-width: 768px) {
   /* Hide desktop glass description on mobile */
-  .glass-description {
+  /*.glass-description {
     display: none !important;
-  }
+  }*/
   
   /* EVE Mobile Dialog Box */
   .eve-mobile-dialog {
@@ -452,13 +484,13 @@ body.underground-mode .glass-description.underground-box {
   opacity: 1 !important;
   visibility: visible !important;
   pointer-events: auto !important;
-  display: block !important;
+  display: none !important;
 }
 
 /* Underground Timeline Description Box (Left Side) */
 .underground-box {
   position: fixed;
-  top: 35%;
+  top: 80%;
   left: 20px;
   transform: translateY(-50%);
   min-width: 300px;
@@ -640,9 +672,9 @@ body.underground-mode .underground-box {
   .underground-box {
     left: 15px;
     min-width: 260px;
-    max-width: 320px;
+    max-width: 290px;
     padding: 16px 20px;
-    top: 35%;
+    top: 90%;
   }
   
   .underground-box #underground-text {
