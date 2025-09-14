@@ -980,6 +980,9 @@
             }
         }
     </style>
+    <!-- Firebase App -->
+    <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
     <!-- Custom Cursor -->
@@ -1022,8 +1025,6 @@
                 <div class="progress-step active" id="step1">1</div>
                 <div class="progress-line" id="line1"></div>
                 <div class="progress-step" id="step2">2</div>
-                <div class="progress-line" id="line2"></div>
-                <div class="progress-step" id="step3">3</div>
             </div>
 
             <!-- Registration Form -->
@@ -1088,26 +1089,12 @@
                     </div>
                     
                     <div class="btn-group">
-                        <button type="button" class="btn btn-secondary" onclick="prevStage()">Previous</button>
-                        <button type="button" class="btn btn-primary" onclick="nextStage()">Next Step</button>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-secondary" onclick="prevStage()">Previous</button>
+                            <button type="submit" class="btn btn-primary">Complete Registration</button>
+                        </div>
                     </div>
-                </div>
-
-                <!-- Stage 3: Security & Final Details -->
-                <div class="form-stage" data-stage="3">
-                    <div class="form-group">
-                        <label for="password">Create Password *</label>
-                        <input type="password" id="password" name="password" class="form-control" placeholder="Create a secure password" required minlength="8" data-robot="password">
-                    </div>
-                    <div class="form-group">
-                        <label for="confirmPassword">Confirm Password *</label>
-                        <input type="password" id="confirmPassword" name="confirmPassword" class="form-control" placeholder="Confirm your password" required minlength="8" data-robot="confirm-password">
-                    </div>
-                    <div class="btn-group">
-                        <button type="button" class="btn btn-secondary" onclick="prevStage()">Previous</button>
-                        <button type="submit" class="btn btn-primary">Complete Registration</button>
-                    </div>
-                </div>
+                </div>                
             </form>
 
             <!-- Success Screen -->
@@ -1119,14 +1106,29 @@
                 </p>
                 <button class="btn btn-primary" onclick="registerAnother()">Register Another Participant</button>
                 <br><br>
-                <button class="btn btn-secondary" onclick="window.close()">Return to Game</button>
+                <button class="btn btn-secondary" onclick="window.location.href='/'">Return to Game</button>
             </div>
         </div>
     </div>
 
     <script>
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBPsykJ5EPRIgKUCHKjyYqSNokpCGB11CA",
+            authDomain: "sparkit-53038.firebaseapp.com",
+            projectId: "sparkit-53038",
+            storageBucket: "sparkit-53038.firebasestorage.app",
+            messagingSenderId: "442841190564",
+            appId: "1:442841190564:web:42fb2a34cdb8b374c2d631",
+            measurementId: "G-W4304G4XDF"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
         let currentStage = 1;
-        const maxStages = 3;
+        const maxStages = 2;
 
         // Professional Custom Cursor System
         function initCustomCursor() {
@@ -1413,7 +1415,7 @@
         }
 
         // Form Submission
-        document.getElementById('registrationForm').addEventListener('submit', function(e) {
+        document.getElementById('registrationForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
             if (!validateCurrentStage()) return;
@@ -1421,7 +1423,11 @@
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData.entries());
 
-            // Store registration data
+            // Remove password fields if they exist
+            delete data.password;
+            delete data.confirmPassword;
+
+            // Store locally
             const registrations = JSON.parse(localStorage.getItem('sparkit-registrations') || '[]');
             registrations.push({
                 ...data,
@@ -1430,8 +1436,17 @@
             });
             localStorage.setItem('sparkit-registrations', JSON.stringify(registrations));
 
-            // Show success screen
-            showSuccessScreen();
+            // Store in Firebase
+            try {
+                await db.collection('registrations').add({
+                    ...data,
+                    timestamp: new Date()
+                });
+                showSuccessScreen();
+            } catch (error) {
+                console.error("Error saving registration: ", error);
+                alert("Something went wrong! Please try again.");
+            }
         });
 
         function showSuccessScreen() {

@@ -3606,7 +3606,7 @@ function drawMilestoneTooltip(){
   if(!state.near || !(state.near.type||'').startsWith('timeline:')) return;
   const m = state.near._timeline; if(!m) return; const text = m.text;
   const wMax = 260;
-  const x = W/2 + 100; const y = m.y - state.camera.y - 50;
+  const x = W/2 + 50; const y = m.y - state.camera.y + 30;
   ctx.save(); ctx.font='12px ui-sans-serif'; ctx.textAlign='left'; ctx.textBaseline='top';
   // wrap text simple
   const words = text.split(' '); let line=''; const lines=[];
