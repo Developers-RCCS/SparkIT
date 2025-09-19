@@ -826,6 +826,26 @@
             display: block;
         }
 
+        .empty {
+            border: 1px solid red;
+            background-color: #ffe6e620;
+        }
+
+        select {
+            background-color: var(--fg);
+            color: #fff;    
+            border: 1px solid #3333331f;
+            padding: 5px 10px;    
+            border-radius: 4px;
+        }
+
+        /* optional: style the dropdown arrow */
+        select option {
+            background-color: var(--bg);  /* black options background */
+            color: #fff;             /* white text */
+        }
+
+
         @keyframes scaleIn {
             from { opacity: 0; transform: scale(0.8); }
             to { opacity: 1; transform: scale(1); }
@@ -1058,14 +1078,14 @@
                         <label for="grade">Grade/Year *</label>
                         <select id="grade" name="grade" class="form-control" required data-robot="grade">
                             <option value="">Select your grade/year</option>
+                            <option value="grade-6">Grade 6</option>
+                            <option value="grade-7">Grade 7</option>
+                            <option value="grade-8">Grede 8</option>
                             <option value="grade-9">Grade 9</option>
                             <option value="grade-10">Grade 10</option>
                             <option value="grade-11">Grade 11</option>
                             <option value="grade-12">Grade 12</option>
-                            <option value="university-1">University Year 1</option>
-                            <option value="university-2">University Year 2</option>
-                            <option value="university-3">University Year 3</option>
-                            <option value="university-4">University Year 4+</option>
+                            <option value="grade-13">Grade 13</option>                  
                         </select>
                     </div>
                     
@@ -1339,15 +1359,28 @@
         `;
         document.head.appendChild(specialAnimations);
 
-        // Form Navigation
+       // Form Navigation
         function nextStage() {
             if (currentStage >= maxStages) return;
 
-            if (!validateCurrentStage()) return;
-
+            // Validate current stage fields
             const currentForm = document.querySelector(`.form-stage[data-stage="${currentStage}"]`);
-            const nextForm = document.querySelector(`.form-stage[data-stage="${currentStage + 1}"]`);
+            const inputs = currentForm.querySelectorAll('input, select, textarea');
+            let allFilled = true;
 
+            inputs.forEach(input => {
+                if (input.value.trim() === '') {
+                    input.classList.add('empty'); // highlight empty fields
+                    allFilled = false;
+                } else {
+                    input.classList.remove('empty');
+                }
+            });
+
+            if (!allFilled) return; // stop if any field is empty
+
+            // Move to next stage
+            const nextForm = document.querySelector(`.form-stage[data-stage="${currentStage + 1}"]`);
             if (currentForm && nextForm) {
                 currentForm.classList.remove('active');
                 nextForm.classList.add('active');
@@ -1355,6 +1388,7 @@
                 updateProgressIndicator();
             }
         }
+
 
         function prevStage() {
             if (currentStage <= 1) return;

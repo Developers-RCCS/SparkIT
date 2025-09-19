@@ -8,7 +8,7 @@
     ],
     "rewrites": [
       {
-        "source": "/register",
+        "source": "/flash-register",
         "destination": "/registration.html"
       },
       {
